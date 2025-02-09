@@ -165,9 +165,10 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
     if val_num==None:
         val_num = len(val_dataset)
 
-    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['ai1', 'ai2', 'ai2_bad_1px', 'ai2_bad_3px', 'ai2_bad_5px', 'ai2_bad_10px'])
+    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['ai1', 'ai2', 'ai2_bad_0_5px', 'ai2_bad_1px', 'ai2_bad_3px', 'ai2_bad_5px', 'ai2_bad_10px'])
 
     for val_id in tqdm(range(val_num)):
+        
         # if val_id == 2:
         #     break
         
@@ -196,6 +197,11 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
         if flow_pr.shape[0]==2:
             flow_pr = flow_pr[0]-flow_pr[1]
 
+        est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr, flow_gt)
+        est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr, flow_gt)
+        bads = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
+        est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
+
         if save_result and val_id%val_save_skip==0:
             if not os.path.exists('result/predictions/'+path+'/'):
                 os.makedirs('result/predictions/'+path+'/')
@@ -203,11 +209,6 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
             pth_lists = paths[0].split('/')[-3:]
             pth = '/'.join(pth_lists)
             pth = os.path.basename(pth)
-
-            est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr, flow_gt)
-            bad0_1, bad0_5, bad1, bad3 = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
-            est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr, flow_gt)
-            est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
 
             # Set range
             vrng = flow_gt.max() - flow_gt.min()
@@ -269,17 +270,19 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
 
     path = os.path.basename(os.path.dirname(path))
 
-    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'ai2_bad_0_01px', 'ai2_bad_0_05px', 'ai2_bad_0_1px', 'ai2_bad_0_5px'])
+    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'ai2_bad_0_01px', 'ai2_bad_0_05px', 'ai2_bad_0_1px', 'ai2_bad_0_5px', 'ai2_bad_1px', 'ai2_bad_3px', 'ai2_bad_3px'])
+    
 
     for val_id in tqdm(range(val_num)):
-        # if val_id == 10:
+        
+        # if val_id == 2:
         #     break
 
         paths, image1, image2, flow_gt, valid_gt = val_dataset[val_id]
         image1 = image1[None].cuda()
         image2 = image2[None].cuda()
 
-        ## 4 LRTB,  2 LR    
+        ## 4 LRTB,  2 LR
         if input_image_num == 4:
             image2 = image2.squeeze()
         else:
@@ -301,6 +304,14 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
 
         assert flow_pr.shape == flow_gt.shape, (flow_pr.shape, flow_gt.shape)
 
+        # fitting and save
+        epe = eval_est.end_point_error(flow_pr, flow_gt)
+        rmse = eval_est.root_mean_squared_error(flow_pr, flow_gt)
+        bads = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
+        est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr, flow_gt)
+        est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr, flow_gt)
+        est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
+
         if save_result and val_id%val_save_skip==0:
             if not os.path.exists('result/predictions/'+path+'/'):
                 os.makedirs('result/predictions/'+path+'/')
@@ -309,14 +320,6 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
             pth_lists = paths[0].split('/')[-2:]
             pth = '/'.join(pth_lists)
             # pth = os.path.basename(pth)
-
-            # fitting and save
-            epe = eval_est.end_point_error(flow_pr, flow_gt)
-            rmse = eval_est.root_mean_squared_error(flow_pr, flow_gt)
-            ai2_bad_0_01px, ai2_bad_0_05px, ai2_bad_0_1px, ai2_bad_0_5px = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
-            est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr, flow_gt)
-            est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr, flow_gt)
-            est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
 
             # Set range
             vrng = flow_gt.max() - flow_gt.min()
@@ -339,8 +342,6 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
             
             plt.imsave(os.path.join(gt_dir, pth), flow_gt.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
             plt.imsave(os.path.join(src_dir, pth), image1.astype(np.uint8))
-
-        
 
         flow_pr = torch.from_numpy(flow_pr)
         flow_gt = torch.from_numpy(flow_gt)
@@ -371,7 +372,7 @@ if __name__ == '__main__':
     parser.add_argument('--context_norm', type=str, default="batch", choices=['group', 'batch', 'instance', 'none'], help="normalization of context encoder")
     parser.add_argument('--slow_fast_gru', action='store_true', help="iterate the low-res GRUs more frequently")
     parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
-    parser.add_argument('--save_result', default='True')
+    parser.add_argument('--save_result', type=bool, default='True')
     parser.add_argument('--save_name', default='val')
     parser.add_argument('--save_path', default='result/validations/eval.txt')
 
@@ -382,7 +383,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
 
-    args.save_result = args.save_result == str(True)
+    # args.save_result = args.save_result == str(True)
 
     # Argument categorization
     da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
