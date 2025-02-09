@@ -150,31 +150,43 @@ class Logger:
     def close(self):
         self.writer.close()
 
+# Functions for NaN debugging
+def check_nan(module, name, output):
+    if isinstance(output, tuple) or isinstance(output, list):
+        for o in output:
+            check_nan(module, name, o)
+    else:
+        if torch.isnan(output).any():
+            print(f"⚠ NaN detected in {name}")
+            print(f"⚠ NaN detected in {module.__class__.__name__}")
+
+def check_nan_hook(name):
+    def check_nan_hook(module, input, output):
+        check_nan(module, name, output)        
+    return check_nan_hook
+
 # args.txt 만들기, runs timestamp폴더
 def train(args):
 
     model = MonoQPD(args)
     print("Parameter Count: %d" % count_parameters(model))
 
-    def check_nan(module, name, output):
-        if isinstance(output, tuple) or isinstance(output, list):
-            for o in output:
-                check_nan(module, name, o)
-        else:
-            if torch.isnan(output).any():
-                print(f"⚠ NaN detected in {name}")
-                print(f"⚠ NaN detected in {module.__class__.__name__}")
-
-    def check_nan_hook(name):
-        def check_nan_hook(module, input, output):
-            check_nan(module, name, output)        
-        return check_nan_hook
-
+    # Codes for debugging NaN
     for name, layer in model.named_modules():
         layer.register_forward_hook(check_nan_hook(name))
 
     da_v2_args = args['da_v2']
     args = args['else']
+
+    # Prepare the save directory
+    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+    save_dir = os.path.join(args.save_path, timestamp)
+    model_save_dir = os.path.join(save_dir, 'checkpoints')
+    log_dir = os.path.join(save_dir, 'runs')
+
+    os.makedirs(model_save_dir, exist_ok=True)
+    os.makedirs(log_dir, exist_ok=True)
+
 
     train_loader = datasets.fetch_dataloader(args)
     
@@ -192,6 +204,17 @@ def train(args):
     
         optimizer.load_state_dict(ckpt['optimizer_state_dict'])
         scheduler.load_state_dict(ckpt['scheduler_state_dict'])
+
+        if not args.initialize_scheduler:
+            optimizer.load_state_dict(ckpt['optimizer_state_dict'])
+            scheduler.load_state_dict(ckpt['scheduler_state_dict'])
+
+        restore_path_split = args.restore_ckpt_mono_qpd.split('/')
+
+        dst_path = os.path.join(save_dir, restore_path_split[-3])
+        src_path = '/'.join(restore_path_split[:-2]) # Excluding checkpoints/x.pth
+        os.symlink(src_path, dst_path)
+
     else:
         total_steps = 0
         optimizer, scheduler = fetch_optimizer(args, model, -1)
@@ -210,16 +233,6 @@ def train(args):
         for param in model.module.da_v2.parameters():
             param.requires_grad = False
     
-
-    # Prepare the save directory
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    save_dir = os.path.join(args.save_path, timestamp)
-    model_save_dir = os.path.join(save_dir, 'checkpoints')
-    log_dir = os.path.join(save_dir, 'runs')
-
-    os.makedirs(model_save_dir, exist_ok=True)
-    os.makedirs(log_dir, exist_ok=True)
-
     # Save the arguments
     with open(os.path.join(save_dir, 'args.txt'), 'w') as f:
         for key, value in vars(args).items():
@@ -306,10 +319,10 @@ def train(args):
             if total_steps % (batch_len*5) == 0  or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:
                 epoch = int(total_steps/batch_len)
                 
-                model_save_path = os.path.join(args.save_path, timestamp, 'checkpoints', f'{epoch}_epoch_{total_steps}_{args.name}.pth')
+                model_save_path = os.path.join(args.save_path, timestamp, 'checkpoints', f'{epoch:03d}_epoch_{total_steps}_{args.name}.pth')
                 model_save_path = Path(model_save_path).absolute()
 
-                print('checkpoints/%d_epoch_%d_%s' % (epoch, total_steps, args.name))
+                print(os.path.basename(model_save_path))
                 logging.info(f"Saving file {model_save_path}")
                 torch.save({
                             'model_state_dict': model.module.state_dict(),
@@ -387,6 +400,8 @@ if __name__ == '__main__':
     parser.add_argument('--restore_ckpt_qpd_net', default=None, help="restore checkpoint")
     parser.add_argument('--restore_ckpt_mono_qpd', default=None, help="restore checkpoint")
 
+    parser.add_argument('--initialize_scheduler', default=False, action='store_true', help='initialize the scheduler')
+
     parser.add_argument('--mixed_precision', default=False, action='store_true', help='use mixed precision')
 
     # Training parameters
@@ -441,7 +456,7 @@ if __name__ == '__main__':
 
     # Argument categorization
     da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
-    else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'restore_ckpt_mono_qpd', 'mixed_precision', 'batch_size', 'train_datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path', 'stop_step'}
+    else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'restore_ckpt_mono_qpd', 'mixed_precision', 'batch_size', 'train_datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path', 'stop_step', 'initialize_scheduler'}
 
     def split_arguments(args):
         args_dict = vars(args)
