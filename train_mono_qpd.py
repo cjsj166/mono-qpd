@@ -110,7 +110,8 @@ class Logger:
         self.scheduler = scheduler
         self.total_steps = total_steps
         self.running_loss = {}
-        self.writer = SummaryWriter(log_dir=log_dir)
+        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+        self.writer = SummaryWriter(log_dir=os.path.join(log_dir, timestamp))
 
     def _print_training_status(self):
         metrics_data = [self.running_loss[k]/Logger.SUM_FREQ for k in sorted(self.running_loss.keys())]
@@ -121,7 +122,8 @@ class Logger:
         logging.info(f"Training Metrics ({self.total_steps}): {training_str + metrics_str}")
 
         if self.writer is None:
-            self.writer = SummaryWriter(log_dir='result/runs')
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            self.writer = SummaryWriter(log_dir=os.path.join('result/runs', timestamp))
 
         for k in self.running_loss:
             self.writer.add_scalar(k, self.running_loss[k]/Logger.SUM_FREQ, self.total_steps)
@@ -142,7 +144,8 @@ class Logger:
 
     def write_dict(self, results):
         if self.writer is None:
-            self.writer = SummaryWriter(log_dir='result/runs')
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            self.writer = SummaryWriter(log_dir=os.path.join('result/runs', timestamp))
 
         for key in results:
             self.writer.add_scalar(key, results[key], self.total_steps)
@@ -211,10 +214,13 @@ def train(args):
 
         restore_path_split = args.restore_ckpt_mono_qpd.split('/')
 
-        dst_path = os.path.join(save_dir, restore_path_split[-3])
-        src_path = '/'.join(restore_path_split[:-2]) # Excluding checkpoints/x.pth
+        dst_path = os.path.join(save_dir, restore_path_split[-3]) # [new dir name]/[restored ckpt dir name]
+        src_path = '/'.join(restore_path_split[:-2]) # Excluding checkpoints/x.pth [restored ckpt dir name]/
         os.symlink(src_path, dst_path)
 
+        dst_path = os.path.join('/'.join(restore_path_split[:-2]), os.path.basename(save_dir)) # [destination directory name]/[source directory name]
+        src_path = save_dir # [new dir name]/
+        os.symlink(src_path, dst_path)
     else:
         total_steps = 0
         optimizer, scheduler = fetch_optimizer(args, model, -1)
@@ -332,50 +338,52 @@ def train(args):
                             # ... any other states you need
                             }, model_save_path)
 
-                if total_steps % (batch_len*10) == 0:
-                    results = validate_QPD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=30, input_image_num=args.input_image_num, image_set='validation', path='datasets/QP-Data', save_path=save_dir)
-                        
-                    if qpd_epebest>=results['epe']:
-                        qpd_epebest = results['epe']
-                        qpd_epeepoch = epoch
-                    if qpd_rmsebest>=results['rmse']:
-                        qpd_rmsebest = results['rmse']
-                        qpd_rmseepoch = epoch
-                    if qpd_ai2best>=results['ai2']:
-                        qpd_ai2best = results['ai2']
-                        qpd_ai2epoch = epoch
+            if total_steps % (batch_len*5) == 0:
+                results = validate_QPD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=30, input_image_num=args.input_image_num, image_set='validation', path='datasets/QP-Data', save_path=save_dir)
                     
-                    
-                    named_results = {}
-                    for k, v in results.items():
-                        named_results[f'val_qpd/{k}'] = v
+                if qpd_epebest>=results['epe']:
+                    qpd_epebest = results['epe']
+                    qpd_epeepoch = epoch
+                if qpd_rmsebest>=results['rmse']:
+                    qpd_rmsebest = results['rmse']
+                    qpd_rmseepoch = epoch
+                if qpd_ai2best>=results['ai2']:
+                    qpd_ai2best = results['ai2']
+                    qpd_ai2epoch = epoch
+                
+                
+                named_results = {}
+                for k, v in results.items():
+                    named_results[f'val_qpd/{k}'] = v
+                    print(f'val_qpd/{k}: {v}')
 
-                    logger.write_dict(named_results)
+                logger.write_dict(named_results)
 
-                    logging.info(f"Current Best Result qpd epe epoch {qpd_epeepoch}, result: {qpd_epebest}")
-                    logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
-                    logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
+                logging.info(f"Current Best Result qpd epe epoch {qpd_epeepoch}, result: {qpd_epebest}")
+                logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
+                logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
 
-                    results = validate_MDD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=30, input_image_num=args.input_image_num, image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
+                results = validate_MDD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=30, input_image_num=args.input_image_num, image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
 
-                    if dpdisp_ai2best>=results['ai2']:
-                        dpdisp_ai2best = results['ai2']
-                        dpdisp_ai2epoch = epoch
-                    
-                    logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
-                    
-                    named_results = {}
-                    for k, v in results.items():
-                        named_results[f'val_dpdisp/{k}'] = v
-                    
-                    logger.write_dict(named_results)
+                if dpdisp_ai2best>=results['ai2']:
+                    dpdisp_ai2best = results['ai2']
+                    dpdisp_ai2epoch = epoch
+                
+                logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
+                
+                named_results = {}
+                for k, v in results.items():
+                    named_results[f'val_dpdisp/{k}'] = v
+                    print(f'val_dpdisp/{k}: {v}')
+                
+                logger.write_dict(named_results)
 
-                    model.train()
-                    # model.module.freeze_bn()
+                model.train()
+                # model.module.freeze_bn()
 
-            if total_steps > args.num_steps or (args.stop_step is not None and total_steps > args.stop_step):
-                should_keep_training = False
-                break
+        if total_steps > args.num_steps or (args.stop_step is not None and total_steps > args.stop_step):
+            should_keep_training = False
+            break
 
         if len(train_loader) >= 10000:
             model_save_path = os.path.join(args.save_path, timestamp, 'checkpoints', f'{epoch}_epoch_{total_steps + 1}_{args.name}.pth.gz')

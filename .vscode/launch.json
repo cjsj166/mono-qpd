@@ -68,10 +68,8 @@
             "args": [
                 "--batch_size",
                 "1",
-                // "--restore_ckpt_da_v2",
-                // "mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth",
                 "--restore_ckpt_mono_qpd",
-                "result/train/20250205_150404/checkpoints/0_epoch_100_Mono-QPD.pth",
+                "result/train/20250210_162359/checkpoints/034_epoch_102341_Mono-QPD.pth",
                 "--image_size",
                 "224", "224",
                 "--datasets_path",

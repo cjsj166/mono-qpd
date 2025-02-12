@@ -23,8 +23,6 @@ class Eval():
             self.metrics_data['ai2-scale'] = []
             self.metrics_data['ai2-bias'] = []
 
-
-
         self.filenames = []
         self.color_range = []
 
@@ -64,8 +62,11 @@ class Eval():
 
     def ai2_bad_pixel_metrics(self, Y, Target):
         result = []
-        if any(metric in self.enabled_metrics for metric in ['ai2_bad_0_1px', 'ai2_bad_0_5px', 'ai2_bad_1px', 'ai2_bad_3px', 'ai2_bad_0_05px', 'ai2_bad_0_01px', 'ai2_bad_5px', 'ai2_bad_10px']):
+        if any('bad' in metric for metric in self.enabled_metrics):
             ai2, b2 = self.affine_invariant_2(Y, Target)
+            if 'ai2_bad_0_005px' in self.enabled_metrics:
+                self.metrics_data['ai2_bad_0_005px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 0.005))
+                result.append(self.metrics_data['ai2_bad_0_005px'])
             if 'ai2_bad_0_01px' in self.enabled_metrics:
                 self.metrics_data['ai2_bad_0_01px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 0.01))
                 result.append(self.metrics_data['ai2_bad_0_01px'])
@@ -90,6 +91,9 @@ class Eval():
             if 'ai2_bad_10px' in self.enabled_metrics:
                 self.metrics_data['ai2_bad_10px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 10.0))
                 result.append(self.metrics_data['ai2_bad_10px'])
+            if 'ai2_bad_15px' in self.enabled_metrics:
+                self.metrics_data['ai2_bad_15px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 15.0))
+                result.append(self.metrics_data['ai2_bad_15px'])
         return result
     
     def bad_pixel_metric(self, Y, Target, threshold):
