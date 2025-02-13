@@ -132,6 +132,24 @@
         },
 
         {
+            "name": "Mono-QPD, exp1-models, eval, qpd-test, conv",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_multiple_models.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--train_dir",
+                "result/train/20250205_043932_exp1_40epochs/",
+                "--datasets",
+                "QPD", "MDD",
+                "--save_path",
+                "result/eval/conv/exp1-eval-test/",
+                "--feature_converter",
+                "conv",
+            ]
+        },
+
+        {
             "name": "Mono-QPD, 132 epoch, eval, qpd-test, conv",
             "type": "debugpy",
             "request": "launch",
