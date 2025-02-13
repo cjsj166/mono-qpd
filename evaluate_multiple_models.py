@@ -59,7 +59,6 @@ if __name__ == '__main__':
     
     split_args = split_arguments(args)
     
-    model = MonoQPD(split_args)
 
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
@@ -67,6 +66,7 @@ if __name__ == '__main__':
     restore_ckpts = glob(os.path.join(args.train_dir, 'checkpoints', '*.pth'))
 
     for restore_ckpt in restore_ckpts:
+        model = MonoQPD(split_args)
         if restore_ckpt is not None:
             assert restore_ckpt.endswith(".pth")
             logging.info("Loading checkpoint...")
