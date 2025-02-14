@@ -145,7 +145,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--train_dir",
-                "result/train/20250205_043932_exp1_40epochs/",
+                "result/train/exp1/",
                 "--datasets",
                 "QPD-Valid",
                 "--save_path",
@@ -163,7 +163,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--restore_ckpt",
-                "result/train/20240205_153455/checkpoints/132_epoch_198660_Mono-QPD.pth",
+                "result/train/exp1/checkpoints/132_epoch_198660_Mono-QPD.pth",
                 "--datasets_path",
                 "datasets/QP-Data",
                 "--dataset",
