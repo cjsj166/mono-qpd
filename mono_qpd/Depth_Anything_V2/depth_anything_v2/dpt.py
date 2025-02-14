@@ -114,7 +114,7 @@ class DPTHead(nn.Module):
             nn.Identity(),
         )
     
-    def forward(self, out_features, patch_h, patch_w, intermediate=False):
+    def forward(self, out_features, patch_h, patch_w, output_condition='enc_features'):
         out = []
         for i, x in enumerate(out_features):
             if self.use_clstoken:
@@ -126,13 +126,13 @@ class DPTHead(nn.Module):
             
             x = x.permute(0, 2, 1).reshape((x.shape[0], x.shape[-1], patch_h, patch_w))
             
-            if not intermediate:
+            if output_condition != 'enc_features':
                 x = self.projects[i](x)
                 x = self.resize_layers[i](x)
             
             out.append(x)
 
-        if intermediate:
+        if output_condition == 'enc_features':
             return out
         
         layer_1, layer_2, layer_3, layer_4 = out
@@ -147,7 +147,8 @@ class DPTHead(nn.Module):
         path_2 = self.scratch.refinenet2(path_3, layer_2_rn, size=layer_1_rn.shape[2:])
         path_1 = self.scratch.refinenet1(path_2, layer_1_rn)
 
-        
+        if output_condition == 'dec_features':
+            return path_1, path_2, path_3, path_4        
         
         
         out = self.scratch.output_conv1(path_1)
@@ -164,7 +165,8 @@ class DepthAnythingV2(nn.Module):
         features=256, 
         out_channels=[256, 512, 1024, 1024], 
         use_bn=False, 
-        use_clstoken=False
+        use_clstoken=False,
+        output_condition='conv'
     ):
         super(DepthAnythingV2, self).__init__()
         
@@ -174,7 +176,8 @@ class DepthAnythingV2(nn.Module):
             'vitl': [4, 11, 17, 23], 
             'vitg': [9, 19, 29, 39]
         }
-        
+        self.output_condition = output_condition
+                    
         self.encoder = encoder
         self.pretrained = DINOv2(model_name=encoder)
         
@@ -187,10 +190,12 @@ class DepthAnythingV2(nn.Module):
         
         # depth = self.depth_head(features, patch_h, patch_w) # Original
         
-        int_featuers = self.depth_head(features, patch_h, patch_w, intermediate=True)  # Modified, Get intermediate layer
+        ret_features = self.depth_head(features, patch_h, patch_w, output_condition=self.output_condition)
+        
+        # int_featuers, dec_features = self.depth_head(features, patch_h, patch_w, output_condition=self.output_condition)  # Modified, Get intermediate layer
         # depth = F.relu(depth) # Original
         
-        return int_featuers
+        return ret_features
     
     @torch.no_grad()
     def infer_image(self, raw_image, input_size=518):

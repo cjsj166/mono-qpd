@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mono_qpd.QPDNet.qpd_net import QPDNet
 from mono_qpd.Depth_Anything_V2.depth_anything_v2.dpt import DepthAnythingV2
-from mono_qpd.feature_converter import PixelShuffleConverter, ConvConverter
+from mono_qpd.feature_converter import PixelShuffleConverter, ConvConverter, DecConverter
 
 
 try:
@@ -24,12 +24,20 @@ class MonoQPD(nn.Module):
         else_args = args['else']
         da_v2_args = args['da_v2']
 
+        self.da_v2_output_condition = 'enc_features'
         if else_args.feature_converter == 'pixelshuffle':
             self.feature_converter = PixelShuffleConverter()
+            self.da_v2_output_condition = 'enc_features'
+
         elif else_args.feature_converter == 'conv':
             self.feature_converter = ConvConverter()
+            self.da_v2_output_condition = 'enc_features'
 
-        self.da_v2 = DepthAnythingV2(da_v2_args.encoder)
+        elif else_args.feature_converter == 'decoder_features':
+            self.feature_converter = DecConverter()
+            self.da_v2_output_condition = 'dec_features'
+
+        self.da_v2 = DepthAnythingV2(da_v2_args.encoder, output_condition=self.da_v2_output_condition)
         self.qpdnet = QPDNet(else_args)
 
     def resize_to_14_multiples(self, image):
@@ -55,15 +63,21 @@ class MonoQPD(nn.Module):
 
         image1_normalized = self.normalize_image(image1)
         # enc_features, depth = self.da_v2(image1_normalized) # Original
-        int_features = self.da_v2(image1_normalized)
-        int_features = int_features[1:]
-        int_features = self.feature_converter(int_features)
-        int_features = int_features[::-1] # Reverse the order of the features
+        if self.da_v2_output_condition == 'enc_features':
+            ret_features = self.da_v2(image1_normalized)
+            ret_features = ret_features[1:]
+            
+        elif self.da_v2_output_condition == 'dec_features':
+            ret_features = self.da_v2(image1_normalized)
+            ret_features = ret_features[1:]
+        
+        ret_features = self.feature_converter(ret_features)
+        ret_features = ret_features[::-1] # Reverse the order of the features
 
         if test_mode:
-            original_disp, upsampled = self.qpdnet(int_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
+            original_disp, upsampled = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
             return original_disp, upsampled
         else:
-            disp_predictions = self.qpdnet(int_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
+            disp_predictions = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
             return disp_predictions
 

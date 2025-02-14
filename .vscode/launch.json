@@ -12,25 +12,6 @@
             "console": "integratedTerminal",
         },
 
-        {
-            "name": "DA-v2 test run",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "run.py",
-            "cwd": "${workspaceFolder}/mono_qpd/Depth_Anything_V2",
-            "console": "integratedTerminal",
-            "args": [
-                "--img-path",
-                "assets/examples/demo01.jpg",
-                "--input-size",
-                "518",
-                "--outdir",
-                "results",
-                // "--encoder",
-                // "--pred-only",
-                // "--grayscale"
-            ]
-        },
 
         {
             "name": "MonoQPD, train, qpd-train, conv",
@@ -52,6 +33,31 @@
                 "result/train/",
                 "--feature_converter",
                 "conv",
+                // "--stop_step",
+                // "100"
+            ]
+        },
+
+        {
+            "name": "MonoQPD, train, qpd-train, dec_features",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size",
+                "1",
+                "--restore_ckpt_da_v2",
+                "mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth",
+                "--image_size",
+                "224", "224",
+                "--datasets_path",
+                "datasets/QP-Data",
+                "--freeze_da_v2",
+                "--save_path",
+                "result/train/",
+                "--feature_converter",
+                "decoder_features",
                 // "--stop_step",
                 // "100"
             ]

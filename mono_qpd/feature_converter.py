@@ -127,6 +127,31 @@ class ConvConverter(nn.Module):
 
         return [x1, x2, x3]
 
+
+class DecConverter(nn.Module):
+    def __init__(self):
+        super(DecConverter, self).__init__()
+        self.conv1 = nn.Conv2d(256, 128, 3, padding=(1,1), stride=(1,1))
+        self.conv2 = nn.Conv2d(256, 128, 3, padding=(1,1), stride=(1,1))
+        self.conv3 = nn.Conv2d(256, 128, 3, padding=(1,1), stride=(1,1))
+
+    def forward(self, x):
+        x1, x2, x3 = x
+
+        x1_size = x1.shape[-2:]
+        x2_size = x2.shape[-2:]
+        x3_size = x3.shape[-2:]
+
+        x1 = nn.functional.interpolate(x1, size=(x1_size[0]*7//8, x1_size[1]*7//8), mode='bilinear', align_corners=False)
+        x2 = nn.functional.interpolate(x2, size=(x2_size[0]*7//8, x2_size[1]*7//8), mode='bilinear', align_corners=False)
+        x3 = nn.functional.interpolate(x3, size=(x3_size[0]*7//8, x3_size[1]*7//8), mode='bilinear', align_corners=False)
+
+        x1 = self.conv1(x1)
+        x2 = self.conv2(x2)
+        x3 = self.conv3(x3)
+
+        return [x1, x2, x3]
+
 if __name__ == '__main__':
     # N = 456
     H, W = 200, 300
