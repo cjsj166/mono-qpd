@@ -63,6 +63,33 @@
             ]
         },
 
+        {
+            "name": "MonoQPD, train, qpd-train, dec_features, dec_update",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size",
+                "1",
+                "--restore_ckpt_da_v2",
+                "mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth",
+                "--image_size",
+                "224", "224",
+                "--datasets_path",
+                "datasets/QP-Data",
+                "--freeze_da_v2",
+                "--save_path",
+                "result/train/",
+                "--feature_converter",
+                "decoder_features",
+                "--dec_update",
+                // "--stop_step",
+                // "100"
+            ]
+        },
+
+
 
         
         {

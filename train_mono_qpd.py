@@ -239,6 +239,10 @@ def train(args):
         for param in model.module.da_v2.parameters():
             param.requires_grad = False
     
+    if args.dec_update:
+        for param in model.module.da_v2.depth_head.parameters():
+            param.requires_grad = True
+
     # Save the arguments
     with open(os.path.join(save_dir, 'args.txt'), 'w') as f:
         for key, value in vars(args).items():
@@ -410,6 +414,8 @@ if __name__ == '__main__':
 
     parser.add_argument('--initialize_scheduler', default=False, action='store_true', help='initialize the scheduler')
 
+    parser.add_argument('--dec_update', default=False, action='store_true', help='initialize the scheduler')
+
     parser.add_argument('--mixed_precision', default=False, action='store_true', help='use mixed precision')
 
     # Training parameters
@@ -464,7 +470,7 @@ if __name__ == '__main__':
 
     # Argument categorization
     da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
-    else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'restore_ckpt_mono_qpd', 'mixed_precision', 'batch_size', 'train_datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path', 'stop_step', 'initialize_scheduler'}
+    else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'restore_ckpt_mono_qpd', 'mixed_precision', 'batch_size', 'train_datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path', 'stop_step', 'initialize_scheduler', 'dec_update'}
 
     def split_arguments(args):
         args_dict = vars(args)
