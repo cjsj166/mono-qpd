@@ -3,7 +3,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from mono_qpd.QPDNet.qpd_net import QPDNet
 from mono_qpd.Depth_Anything_V2.depth_anything_v2.dpt import DepthAnythingV2
-from mono_qpd.feature_converter import PixelShuffleConverter, ConvConverter, DecConverter
+from mono_qpd.feature_converter import PixelShuffleConverter, ConvConverter, DecConverter, FixedConvConverter, InterpConverter, SkipConvConverter
 
 
 try:
@@ -33,13 +33,25 @@ class MonoQPD(nn.Module):
             self.feature_converter = ConvConverter()
             self.da_v2_output_condition = 'enc_features'
 
+        elif else_args.feature_converter == 'fixed-conv':
+            self.feature_converter = FixedConvConverter()
+            self.da_v2_output_condition = 'enc_features'
+        
+        elif else_args.feature_converter == 'interp':
+            self.feature_converter = InterpConverter()
+            self.da_v2_output_condition = 'enc_features'
+        
+        elif else_args.feature_converter == 'skipconv-interp':
+            self.feature_converter = SkipConvConverter()
+            self.da_v2_output_condition = 'enc_features'
+
         elif else_args.feature_converter == 'decoder_features':
             self.feature_converter = DecConverter()
             self.da_v2_output_condition = 'dec_features'
 
         self.da_v2 = DepthAnythingV2(da_v2_args.encoder, output_condition=self.da_v2_output_condition)
-        self.qpdnet = QPDNet(else_args)
 
+        self.qpdnet = QPDNet(else_args)
     def resize_to_14_multiples(self, image):
         h, w = image.shape[2], image.shape[3]
         new_h = (h // 14) * 14

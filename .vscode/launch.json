@@ -14,7 +14,7 @@
 
 
         {
-            "name": "MonoQPD, train, qpd-train, conv",
+            "name": "MonoQPD, train, qpd-train, fixed-conv",
             "type": "debugpy",
             "request": "launch",
             "program": "train_mono_qpd.py",
@@ -32,11 +32,85 @@
                 "--save_path",
                 "result/train/",
                 "--feature_converter",
-                "conv",
-                // "--stop_step",
-                // "100"
+                "fixed-conv",
             ]
         },
+
+
+        {
+            "name": "MonoQPD, train, qpd-train, interp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size",
+                "1",
+                "--restore_ckpt_da_v2",
+                "mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth",
+                "--image_size",
+                "224", "224",
+                "--datasets_path",
+                "datasets/QP-Data",
+                "--freeze_da_v2",
+                "--save_path",
+                "result/train/",
+                "--feature_converter",
+                "interp",
+            ]
+        },
+        
+        {
+            "name": "MonoQPD, train, qpd-train, skipconv-interp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--batch_size",
+                "1",
+                "--restore_ckpt_da_v2",
+                "mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth",
+                "--image_size",
+                "224", "224",
+                "--datasets_path",
+                "datasets/QP-Data",
+                "--freeze_da_v2",
+                "--save_path",
+                "result/train/",
+                "--feature_converter",
+                "skipconv-interp",
+            ]
+        },
+
+
+
+
+        // // D:\Mono+Dual\mono-qpd\mono-qpd-AiF\result\eval\conv\exp3\qpd-test\figures
+        // {
+        //     "name": "MonoQPD, train, qpd-train, conv",
+        //     "type": "debugpy",
+        //     "request": "launch",
+        //     "program": "train_mono_qpd.py",
+        //     "console": "integratedTerminal",
+        //     "args": [
+        //         "--batch_size",
+        //         "1",
+        //         "--restore_ckpt_da_v2",
+        //         "mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth",
+        //         "--image_size",
+        //         "224", "224",
+        //         "--datasets_path",
+        //         "datasets/QP-Data",
+        //         "--freeze_da_v2",
+        //         "--save_path",
+        //         "result/train/",
+        //         "--feature_converter",
+        //         "conv",
+        //         // "--stop_step",
+        //         // "100"
+        //     ]
+        // },
 
         {
             "name": "MonoQPD, train, qpd-train, dec_features",
@@ -183,24 +257,95 @@
         },
 
         {
-            "name": "Mono-QPD, 132 epoch, eval, qpd-test, conv",
+            "name": "Mono-QPD, exp1, 375 epoch, eval, qpd-test",
             "type": "debugpy",
             "request": "launch",
             "program": "evaluate_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--restore_ckpt",
-                "result/train/exp1/checkpoints/132_epoch_198660_Mono-QPD.pth",
+                "result/train/exp1/checkpoints/375_epoch_564375_Mono-QPD.pth",
                 "--datasets_path",
                 "datasets/QP-Data",
                 "--dataset",
-                "QPD",
+                "QPD-Test",
                 "--save_path",
-                "result/eval/conv/qpd-test/132_epoch_198660_Mono-QPD",
+                "result/eval/conv/exp1/qpd-test/qpd-valid-best",
+                "--save_result",
+                "True",
+                "--feature_converter",
+                "conv", 
+            ]
+        },
+
+        {
+            "name": "Mono-QPD, exp1, 375 epoch, eval, dp-disp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--restore_ckpt",
+                "result/train/exp1/checkpoints/375_epoch_564375_Mono-QPD.pth",
+                "--datasets_path",
+                "datasets/QP-Data",
+                "--dataset",
+                "MDD",
+                "--save_path",
+                "result/eval/conv/exp1/dp-disp/qpd-valid-best",
+                "--save_result",
+                "True",
                 "--feature_converter",
                 "conv",
             ]
         },
+
+        {
+            "name": "Mono-QPD, exp1, 245 epoch, eval, qpd-test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--restore_ckpt",
+                "result/train/exp1/checkpoints/245_epoch_368725_Mono-QPD.pth",
+                "--datasets_path",
+                "datasets/QP-Data",
+                "--dataset",
+                "QPD-Test",
+                "--save_path",
+                "result/eval/conv/exp1/qpd-test/dp-disp-best",
+                "--save_result",
+                "True",
+                "--feature_converter",
+                "conv",
+            ]
+        },
+
+
+        {
+            "name": "Mono-QPD, exp1, 245 epoch, eval, dp-disp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--restore_ckpt",
+                "result/train/exp1/checkpoints/245_epoch_368725_Mono-QPD.pth",
+                "--datasets_path",
+                "datasets/QP-Data",
+                "--dataset",
+                "MDD",
+                "--save_path",
+                "result/eval/conv/exp1/dp-disp/dp-disp-best",
+                "--save_result",
+                "True",
+                "--feature_converter",
+                "conv",
+            ]
+        },
+
+
 
         {
             "name": "Mono-QPD, 132 epoch, eval, dpdisp, conv",

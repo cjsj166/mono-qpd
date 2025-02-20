@@ -32,7 +32,11 @@ if __name__ == '__main__':
     parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
     parser.add_argument('--save_result', type=bool, default='True')
     parser.add_argument('--save_name', default='val')
+    
+    # Evaluation settings
     parser.add_argument('--save_path', default='result/validations/eval.txt')
+    parser.add_argument('--ckpt_min_epoch', type=int, default=0)
+    parser.add_argument('--ckpt_max_epoch', type=int, default=500)
 
     # Depth Anything V2
     parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
@@ -66,7 +70,12 @@ if __name__ == '__main__':
     restore_ckpts = glob(os.path.join(args.train_dir, 'checkpoints', '*.pth'))
 
     for restore_ckpt in restore_ckpts:
-        if int(os.path.basename(restore_ckpt).split('_')[0]) % 5 != 0:
+        ckpt = int(os.path.basename(restore_ckpt).split('_')[0])
+
+        if ckpt < args.ckpt_min_epoch or ckpt > args.ckpt_max_epoch:
+            continue
+
+        if  ckpt % 5 != 0:
             continue
 
         model = MonoQPD(split_args)

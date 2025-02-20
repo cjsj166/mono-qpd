@@ -20,13 +20,13 @@ class ConvGRU(nn.Module):
         self.convr = nn.Conv2d(hidden_dim+input_dim, hidden_dim, kernel_size, padding=kernel_size//2)
         self.convq = nn.Conv2d(hidden_dim+input_dim, hidden_dim, kernel_size, padding=kernel_size//2)
 
-    def forward(self, h, cz, cr, cq, *x_list):
+    def forward(self, h, cz, cr, cq, *x_list): # self.gru16(net[1], *(inp[1]), pool2x(net[0]), interp(net[2], net[1]))
         x = torch.cat(x_list, dim=1)
         hx = torch.cat([h, x], dim=1)
 
         z = torch.sigmoid(self.convz(hx) + cz) # update gate
         r = torch.sigmoid(self.convr(hx) + cr) # reset gate
-        q = torch.tanh(self.convq(torch.cat([r*h, x], dim=1)) + cq)
+        q = torch.tanh(self.convq(torch.cat([r*h, x], dim=1)) + cq) # candidate hidden state
 
         h = (1-z) * h + z * q
         return h

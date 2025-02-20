@@ -75,9 +75,9 @@ def sequence_loss(flow_preds, flow_gt, valid, loss_gamma=0.9, max_flow=700):
 
     metrics = {
         'epe': epe.mean().item(),
-        '1px': (epe < 1).float().mean().item(),
-        '3px': (epe < 3).float().mean().item(),
-        '5px': (epe < 5).float().mean().item(),
+        '0.005px': (epe < 0.005).float().mean().item(),
+        '0.01px': (epe < 0.01).float().mean().item(),
+        '0.05px': (epe < 0.05).float().mean().item(),
     }
 
     return flow_loss, metrics
@@ -326,7 +326,8 @@ def train(args):
 
             total_steps += 1
 
-            if total_steps % (batch_len*5) == 0  or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:
+            if total_steps % (batch_len*5) == 0 or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:    
+
                 epoch = int(total_steps/batch_len)
                 
                 model_save_path = os.path.join(args.save_path, timestamp, 'checkpoints', f'{epoch:03d}_epoch_{total_steps}_{args.name}.pth')
@@ -342,8 +343,12 @@ def train(args):
                             # ... any other states you need
                             }, model_save_path)
 
-            if total_steps % (batch_len*5) == 0:
-                results = validate_QPD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=30, input_image_num=args.input_image_num, image_set='validation', path='datasets/QP-Data', save_path=save_dir)
+            if total_steps % (batch_len*5) == 0 or total_steps==1:
+                if total_steps == 1:
+                    val_save_skip = 50
+                else:
+                    val_save_skip = 50
+                results = validate_QPD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, input_image_num=args.input_image_num, image_set='validation', path='datasets/QP-Data', save_path=save_dir)
                     
                 if qpd_epebest>=results['epe']:
                     qpd_epebest = results['epe']
@@ -367,7 +372,7 @@ def train(args):
                 logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
                 logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
 
-                results = validate_MDD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=30, input_image_num=args.input_image_num, image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
+                results = validate_MDD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=30, input_image_num=args.input_image_num, image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
 
                 if dpdisp_ai2best>=results['ai2']:
                     dpdisp_ai2best = results['ai2']

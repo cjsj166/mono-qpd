@@ -128,6 +128,148 @@ class ConvConverter(nn.Module):
         return [x1, x2, x3]
 
 
+class FixedConvConverter(nn.Module):
+    def __init__(self):
+        super(FixedConvConverter, self).__init__()
+
+        self.trans_conv1 = nn.ConvTranspose2d(1024, 1024, kernel_size=7, stride=7)
+        self.trans_conv2 = nn.ConvTranspose2d(1024, 1024, kernel_size=7, stride=7)
+        self.trans_conv3 = nn.ConvTranspose2d(1024, 1024, kernel_size=7, stride=7)
+
+        self.conv1 = nn.Conv2d(1024, 128, 3, padding=(1,1), stride=(2,2)) # Biggest resolution
+        self.conv2 = nn.Sequential(
+            nn.Conv2d(1024, 512, 3, padding=(1,1), stride=(2,2)),
+            nn.Conv2d(512, 128, 3, padding=(1,1), stride=(2,2))
+        )
+        self.conv3 = nn.Sequential(
+            nn.Conv2d(1024, 512, 3, padding=(1,1), stride=(2,2)),
+            nn.Conv2d(512, 128, 3, padding=(1,1), stride=(2,2)),
+            nn.Conv2d(128, 128, 3, padding=(1,1), stride=(2,2))
+        )
+
+        self.relu1 = nn.ReLU()
+        self.relu2 = nn.ReLU()
+        self.relu3 = nn.ReLU()
+
+    def forward(self, x):
+        x1, x2, x3 = x
+
+        x1 = self.trans_conv1(x1)
+        x2 = self.trans_conv2(x2)
+        x3 = self.trans_conv3(x3)
+
+        x1 = self.conv1(x1)
+        x2 = self.conv2(x2)
+        x3 = self.conv3(x3)
+
+        x1 = self.relu1(x1)
+        x2 = self.relu2(x2)
+        x3 = self.relu3(x3)
+
+        return [x1, x2, x3]
+
+
+class InterpConverter(nn.Module):
+    def __init__(self):
+        super(InterpConverter, self).__init__()
+
+        self.channel_conv1 = nn.Conv2d(1024, 128, 1, stride=(1,1)) # For downsizing channels
+        self.channel_conv2 = nn.Conv2d(1024, 128, 1, stride=(1,1))
+        self.channel_conv3 = nn.Conv2d(1024, 128, 1, stride=(1,1))
+        
+        self.relu1 = nn.ReLU()
+        self.relu2 = nn.ReLU()
+        self.relu3 = nn.ReLU()
+
+    def forward(self, x):
+        x1, x2, x3 = x
+        
+        h_patch, w_patch = x1.shape[2], x1.shape[3]
+        
+        x1 = nn.functional.interpolate(x1, size=(h_patch*7//2, w_patch*7//2), mode='bilinear', align_corners=False)
+        x2 = nn.functional.interpolate(x2, size=(h_patch*7//4, w_patch*7//4), mode='bilinear', align_corners=False)
+        x3 = nn.functional.interpolate(x3, size=(h_patch*7//8, w_patch*7//8), mode='bilinear', align_corners=False)
+
+        x1 = self.channel_conv1(x1)
+        x2 = self.channel_conv2(x2)
+        x3 = self.channel_conv3(x3)
+
+        x1 = self.relu1(x1)
+        x2 = self.relu2(x2)
+        x3 = self.relu3(x3)
+
+        return [x1, x2, x3]
+
+class ResidualConvUnit(nn.Module):
+    def __init__(self, channel=1024, kernel_size=3, padding=1):
+        super(ResidualConvUnit, self).__init__()
+
+        self.conv_path = nn.Sequential(
+            nn.ReLU(),
+            nn.Conv2d(channel, channel, kernel_size, padding=padding, stride=(1, 1)),
+            nn.ReLU(),
+            nn.Conv2d(channel, channel, kernel_size, padding=padding, stride=(1, 1)),
+        )
+        
+    def forward(self, x):
+        return x + self.conv_path(x)
+
+class SkipConvConverter(nn.Module):
+    def __init__(self):
+        super(SkipConvConverter, self).__init__()
+
+        self.resConv1 = nn.Sequential(
+            ResidualConvUnit(),
+            ResidualConvUnit()
+        )
+        self.resConv2 = nn.Sequential(
+            ResidualConvUnit(),
+            ResidualConvUnit()
+        )
+        self.resConv3 = nn.Sequential(
+            ResidualConvUnit(),
+            ResidualConvUnit()
+        )
+
+        self.conv1 = nn.Conv2d(1024, 1024, 3, padding=(1,1), stride=(1,1)) # Biggest resolution
+        self.conv2 = nn.Conv2d(1024, 1024, 3, padding=(1,1), stride=(1,1))
+        self.conv3 = nn.Conv2d(1024, 1024, 3, padding=(1,1), stride=(1,1))
+
+        self.channel_conv1 = nn.Conv2d(1024, 128, 1, stride=(1,1)) # For downsizing channels
+        self.channel_conv2 = nn.Conv2d(1024, 128, 1, stride=(1,1))
+        self.channel_conv3 = nn.Conv2d(1024, 128, 1, stride=(1,1))
+        
+        self.relu1 = nn.ReLU()
+        self.relu2 = nn.ReLU()
+        self.relu3 = nn.ReLU()
+
+    def forward(self, x):
+        x1, x2, x3 = x
+
+        x1 = self.resConv1(x1)
+        x2 = self.resConv2(x2)
+        x3 = self.resConv3(x3)
+
+        x1 = self.conv1(x1)
+        x2 = self.conv2(x2)
+        x3 = self.conv3(x3)
+
+        h_patch, w_patch = x1.shape[2], x1.shape[3]
+        
+        x1 = nn.functional.interpolate(x1, size=(h_patch*7//2, w_patch*7//2), mode='bilinear', align_corners=False)
+        x2 = nn.functional.interpolate(x2, size=(h_patch*7//4, w_patch*7//4), mode='bilinear', align_corners=False)
+        x3 = nn.functional.interpolate(x3, size=(h_patch*7//8, w_patch*7//8), mode='bilinear', align_corners=False)
+
+        x1 = self.channel_conv1(x1)
+        x2 = self.channel_conv2(x2)
+        x3 = self.channel_conv3(x3)
+
+        x1 = self.relu1(x1)
+        x2 = self.relu2(x2)
+        x3 = self.relu3(x3)
+        
+        return [x1, x2, x3]
+    
 class DecConverter(nn.Module):
     def __init__(self):
         super(DecConverter, self).__init__()
@@ -175,5 +317,6 @@ if __name__ == '__main__':
     print('')
 
     print_shape(x)
+
 
 

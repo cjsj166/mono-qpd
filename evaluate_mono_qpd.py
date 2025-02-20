@@ -157,10 +157,12 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
     err_dir = os.path.join(save_path, 'err')
     gt_dir = os.path.join(save_path, 'gt')
     src_dir = os.path.join(save_path, 'src')
+    hist_dir = os.path.join(save_path, 'hist')
     os.makedirs(est_dir, exist_ok=True)
     os.makedirs(err_dir, exist_ok=True)
     os.makedirs(gt_dir, exist_ok=True)
     os.makedirs(src_dir, exist_ok=True)
+    os.makedirs(hist_dir, exist_ok=True)
 
     if val_num==None:
         val_num = len(val_dataset)
@@ -168,8 +170,8 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
     eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['ai1', 'ai2', 'ai2_bad_1px', 'ai2_bad_3px', 'ai2_bad_5px', 'ai2_bad_10px', 'ai2_bad_15px'])
 
     for val_id in tqdm(range(val_num)):
-        # if val_id == 2:
-        #     break
+        if val_id%val_save_skip != 0:
+            continue
         
         paths, image1, image2, flow_gt, valid_gt = val_dataset[val_id]
         
@@ -201,7 +203,7 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
         bads = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
         est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
 
-        if save_result and val_id%val_save_skip==0:
+        if save_result:
             if not os.path.exists('result/predictions/'+path+'/'):
                 os.makedirs('result/predictions/'+path+'/')
             
@@ -210,18 +212,22 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
             pth = os.path.basename(pth)
 
             # Set range
+            vmargin = 0.3
             vrng = flow_gt.max() - flow_gt.min()
-            vmin, vmax = flow_gt.min() - vrng * 0.3, flow_gt.max() + vrng * 0.3
-            vmin_err, vmax_err = 0, vrng * 0.3
-            # vmin, vmax = 0, 1.5
+            vmin, vmax = flow_gt.min() - vrng * vmargin, flow_gt.max() + vrng * vmargin
+            vmin_err, vmax_err = 0, vrng * vmargin
 
-            # vmin, vmax = np.min([est_ai2_fit, flow_gt]), np.max([est_ai2_fit, flow_gt])
-            # vmin_err, vmax_err = np.min([est_ai2_fit - flow_gt, flow_gt - est_ai2_fit]), np.max([est_ai2_fit - flow_gt, flow_gt - est_ai2_fit])            
+            # vmin, vmax = -2, 2
 
-            # print(vmin, vmax, vmin_err, vmax_err)
-
-            # vmin, vmax = -50, 300
-            # vmin_err, vmax_err = 0, 300
+            # # Plot histogram of flow_pr
+            # plt.figure()
+            # plt.hist(flow_pr.flatten(), bins=50, color='blue', alpha=0.7)
+            # plt.title(f'{val_id}')
+            # plt.xlabel('Value')
+            # plt.ylabel('Frequency')
+            # plt.grid(True)
+            # plt.savefig(os.path.join(hist_dir, f"{val_id}_histogram.png"))
+            # plt.close()
 
             eval_est.add_colorrange(vmin, vmax)
 
@@ -231,6 +237,8 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
             
             plt.imsave(os.path.join(gt_dir, pth), flow_gt.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
             plt.imsave(os.path.join(src_dir, pth), image1.astype(np.uint8))
+
+            # plt.imsave(os.path.join(est_dir, pth), flow_pr.squeeze(), cmap='jet', vmin=-2, vmax=2)
 
     eval_est.save_metrics()
     result = eval_est.get_mean_metrics()
@@ -274,6 +282,9 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
     
 
     for val_id in tqdm(range(val_num)):
+
+        if val_id % val_save_skip != 0:
+            continue
         # if val_id == 2:
         #     break
 
@@ -311,7 +322,7 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
         est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr, flow_gt)
         est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
 
-        if save_result and val_id%val_save_skip==0:
+        if save_result:
             if not os.path.exists('result/predictions/'+path+'/'):
                 os.makedirs('result/predictions/'+path+'/')
         
@@ -321,10 +332,10 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
             # pth = os.path.basename(pth)
 
             # Set range
+            vmargin = 0.1
             vrng = flow_gt.max() - flow_gt.min()
-            vmin, vmax = flow_gt.min() - vrng * 0.1, flow_gt.max() + vrng * 0.1
-            # vmin, vmax = 0, 1.5
-            vmin_err, vmax_err = 0, vrng * 0.1
+            vmin, vmax = flow_gt.min() - vrng * vmargin, flow_gt.max() + vrng * vmargin
+            vmin_err, vmax_err = 0, vrng * vmargin
 
             vmin, vmax = np.min([est_ai2_fit, flow_gt]), np.max([est_ai2_fit, flow_gt])
             vmin_err, vmax_err = np.min([est_ai2_fit - flow_gt, flow_gt - est_ai2_fit]), np.max([est_ai2_fit - flow_gt, flow_gt - est_ai2_fit])            
@@ -354,7 +365,7 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--restore_ckpt', help="restore checkpoint", default=None)
-    parser.add_argument('--dataset', help="dataset for evaluation", required=False, choices=["QPD", "Real_QPD", "MDD"], default="QPD")
+    parser.add_argument('--dataset', help="dataset for evaluation", required=False, choices=["QPD-Test", "QPD-Valid", "Real_QPD", "MDD"], default="QPD")
     parser.add_argument('--datasets_path', default='/mnt/d/Mono+Dual/QP-Data', help="test datasets.")    
     parser.add_argument('--mixed_precision', action='store_true', help='use mixed precision')
     parser.add_argument('--valid_iters', type=int, default=8, help='number of flow-field updates during forward pass')
@@ -371,7 +382,7 @@ if __name__ == '__main__':
     parser.add_argument('--context_norm', type=str, default="batch", choices=['group', 'batch', 'instance', 'none'], help="normalization of context encoder")
     parser.add_argument('--slow_fast_gru', action='store_true', help="iterate the low-res GRUs more frequently")
     parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
-    parser.add_argument('--save_result', type=bool, default='True')
+    parser.add_argument('--save_result', type=bool, default='False')
     parser.add_argument('--save_name', default='val')
     parser.add_argument('--save_path', default='result/validations/eval.txt')
 
@@ -433,11 +444,31 @@ if __name__ == '__main__':
 
     use_mixed_precision = args.corr_implementation.endswith("_cuda")
 
-    if args.dataset == 'QPD':
-        result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path=args.datasets_path, save_path=args.save_path)
-    if args.dataset == 'Real_QPD':
-        result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path=args.datasets_path)
-    if args.dataset == 'MDD':
-        result = validate_MDD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path=args.datasets_path, save_path=args.save_path)
+
+    if 'QPD-Test' == args.dataset:
+        save_path = os.path.join(args.save_path, 'qpd-test', os.path.basename(args.restore_ckpt).replace('.pth', ''))
+        print(save_path)
+        result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path='datasets/QP-Data', save_path=save_path)
+    if 'QPD-Valid' == args.dataset:
+        save_path = os.path.join(args.save_path, 'qpd-valid', os.path.basename(args.restore_ckpt).replace('.pth', ''))
+        print(save_path)
+        result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="validation", path='datasets/QP-Data', save_path=save_path)
+    if 'MDD' == args.dataset:
+        save_path = os.path.join(args.save_path, 'dp-disp', os.path.basename(args.restore_ckpt).replace('.pth', ''))
+        print(save_path)
+        result = validate_MDD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path='datasets/MDD_dataset', save_path=save_path)
+    if 'Real_QPD' == args.dataset:
+        save_path = os.path.join(args.save_path, 'real-qpd-test', os.path.basename(args.restore_ckpt).replace('.pth', ''))
+        print(save_path)
+        result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path=args.datasets_path, save_path=save_path)
 
     print(result)
+
+    # if args.dataset == 'QPD-Test':
+    #     result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path=args.datasets_path, save_path=args.save_path)
+    # if args.dataset == 'Real_QPD':
+    #     result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path=args.datasets_path)
+    # if args.dataset == 'MDD':
+    #     result = validate_MDD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path=args.datasets_path, save_path=args.save_path)
+
+    # print(result)
