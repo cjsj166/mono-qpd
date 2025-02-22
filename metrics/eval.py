@@ -3,6 +3,26 @@ import os.path as osp
 from datetime import datetime
 import numpy as np
 
+def compute_scale(prediction, target, mask):
+    """
+    각 배치별로 최적의 스케일(alpha)를 계산합니다.
+    
+    prediction: (1, H, W) 텐서 (또는 기타 공간 차원)
+    target: (1, H, W) 텐서
+    mask: (1, H, W) 텐서 (0 또는 1로 valid 영역 지정)
+    
+    alpha는 각 배치에 대해 아래 식을 만족합니다:
+      alpha = sum(mask * prediction * target) / sum(mask * prediction^2)
+    """
+    # 배치별로 (H, W) 차원에서 합산합니다.
+    numerator = np.sum(mask * prediction * target, axis=(0, 1, 2))
+    denominator = np.sum(mask * prediction * prediction, axis=(0, 1, 2))
+    
+    # denominator가 0인 경우를 처리하기 위해 기본값은 0으로 설정합니다.
+    alpha = np.zeros_like(numerator)
+    valid = (denominator != 0)
+    alpha[valid] = numerator[valid] / denominator[valid]
+    return alpha
 
 class Eval():
     def __init__(self, save_path='', enabled_metrics=None):
@@ -22,6 +42,9 @@ class Eval():
         if 'ai2' in enabled_metrics:
             self.metrics_data['ai2-scale'] = []
             self.metrics_data['ai2-bias'] = []
+
+        if 'si' in enabled_metrics:
+            self.metrics_data['si-scale'] = []
 
         self.filenames = []
         self.color_range = []
@@ -52,6 +75,17 @@ class Eval():
             self.metrics_data['ai2-bias'].append(b2[1])
             return ai2, b2
         return None, None
+    
+    def scale_invariant(self, Y, Target, mask=None):
+        if mask is None:
+            mask = np.ones_like(Y)
+        if 'si' in self.enabled_metrics:
+            alpha = compute_scale(Y, Target, mask)
+            si = ((Target - alpha * Y) ** 2).mean()
+            self.metrics_data['si'].append(si)
+            self.metrics_data['si-scale'].append(alpha)
+            return si, alpha
+        return None
 
     def spearman_correlation(self, Y, Target):
         if 'sc' in self.enabled_metrics:

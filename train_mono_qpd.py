@@ -14,6 +14,8 @@ import torch.optim as optim
 from mono_qpd.mono_qpd import MonoQPD
 import os
 
+from mono_qpd.loss import ScaleInvariantLoss, LeastSquareScaleInvariantLoss
+
 from evaluate_mono_qpd import *
 import mono_qpd.QPDNet.Quad_datasets as datasets
 
@@ -22,6 +24,7 @@ from argparse import Namespace
 from evaluate_mono_qpd import validate_QPD, validate_MDD
 
 from datetime import datetime
+
 
 
 try:
@@ -64,10 +67,16 @@ def sequence_loss(flow_preds, flow_gt, valid, loss_gamma=0.9, max_flow=700):
         i_weight = adjusted_loss_gamma**(n_predictions - i - 1)
 
         fp = flow_preds[i]
-        i_loss = (fp-(flow_gt/2)).abs()
 
-        assert i_loss.shape == valid.shape, [i_loss.shape, valid.shape, flow_gt.shape, flow_preds[i].shape]
-        flow_loss += i_weight * i_loss[valid.bool()].mean()
+        if args.si_loss:
+            criterion = LeastSquareScaleInvariantLoss()
+            i_loss = criterion(fp, (flow_gt/2), valid)
+            
+        else:
+            i_loss = (fp-(flow_gt/2)).abs()
+            assert i_loss.shape == valid.shape, [i_loss.shape, valid.shape, flow_gt.shape, flow_preds[i].shape]
+            i_loss = i_loss[valid.bool()].mean()
+        flow_loss += i_weight * i_loss
     
     fp = flow_preds[-1]
     epe = torch.sum((fp - (flow_gt)/2)**2, dim=1).sqrt()
@@ -435,6 +444,8 @@ if __name__ == '__main__':
     parser.add_argument('--train_iters', type=int, default=8, help="number of updates to the disparity field in each forward pass.")
     parser.add_argument('--wdecay', type=float, default=.00001, help="Weight decay in optimizer.")
     parser.add_argument('--CAPA', default=True, help="if use Channel wise and pixel wise attention")
+
+    parser.add_argument('--si_loss', action='store_true', help="scale invariant loss")
     
 
     # Validation parameters
@@ -475,7 +486,7 @@ if __name__ == '__main__':
 
     # Argument categorization
     da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
-    else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'restore_ckpt_mono_qpd', 'mixed_precision', 'batch_size', 'train_datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path', 'stop_step', 'initialize_scheduler', 'dec_update'}
+    else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'restore_ckpt_mono_qpd', 'mixed_precision', 'batch_size', 'train_datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path', 'stop_step', 'initialize_scheduler', 'dec_update', 'si_loss'}
 
     def split_arguments(args):
         args_dict = vars(args)

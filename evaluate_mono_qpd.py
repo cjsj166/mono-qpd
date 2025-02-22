@@ -20,6 +20,7 @@ import cv2
 from mono_qpd.mono_qpd import MonoQPD
 from argparse import Namespace
 import torch.nn as nn
+from mono_qpd.loss import LeastSquareScaleInvariantLoss
 
 from metrics.eval import Eval
 from collections import OrderedDict
@@ -158,10 +159,15 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
     gt_dir = os.path.join(save_path, 'gt')
     src_dir = os.path.join(save_path, 'src')
     hist_dir = os.path.join(save_path, 'hist')
+    # masked_dir = os.path.join(save_path, 'masked')
     os.makedirs(est_dir, exist_ok=True)
     os.makedirs(err_dir, exist_ok=True)
     os.makedirs(gt_dir, exist_ok=True)
     os.makedirs(src_dir, exist_ok=True)
+    # os.makedirs(os.path.join(src_dir, 'test_c', 'source', 'scenes'), exist_ok=True)
+    # os.makedirs(os.path.join(src_dir, 'test_l', 'source', 'scenes'), exist_ok=True)
+    # os.makedirs(os.path.join(src_dir, 'test_r', 'source', 'scenes'), exist_ok=True)
+    # os.makedirs(masked_dir, exist_ok=True)
     os.makedirs(hist_dir, exist_ok=True)
 
     if val_num==None:
@@ -194,6 +200,7 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
         
         flow_gt = flow_gt.cpu().numpy()
         image1 = image1.cpu().squeeze(0).permute(1,2,0).numpy()
+        image2 = image2.cpu().permute(0,2,3,1).numpy()
 
         if flow_pr.shape[0]==2:
             flow_pr = flow_pr[0]-flow_pr[1]
@@ -236,9 +243,21 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
             plt.imsave(os.path.join(err_dir, pth), np.abs(est_ai2_fit.squeeze() - flow_gt.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
             
             plt.imsave(os.path.join(gt_dir, pth), flow_gt.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
-            plt.imsave(os.path.join(src_dir, pth), image1.astype(np.uint8))
+            
 
-            # plt.imsave(os.path.join(est_dir, pth), flow_pr.squeeze(), cmap='jet', vmin=-2, vmax=2)
+            # plt.imsave(os.path.join(src_dir, 'test_c', 'source', 'scenes', pth.replace('.jpg', '.png')), image1.astype(np.uint8))
+            # plt.imsave(os.path.join(src_dir, 'test_l', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[0].astype(np.uint8))
+            # plt.imsave(os.path.join(src_dir, 'test_r', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[1].astype(np.uint8))
+
+            # percent = 10
+            # delta = np.percentile(np.abs(flow_pr), percent)
+            # mask = (flow_pr >= -delta) & (flow_pr <= delta)
+            # masked_flow_pr = np.where(mask, 255, 0)
+
+            # mask_rng_dir = os.path.join(masked_dir, f'{str(percent).replace('.','_')}')
+            # os.makedirs(mask_rng_dir, exist_ok=True)
+            # plt.imsave(os.path.join(mask_rng_dir, pth), masked_flow_pr.squeeze(), cmap='gray')
+            
 
     eval_est.save_metrics()
     result = eval_est.get_mean_metrics()
@@ -278,7 +297,7 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
     path = os.path.basename(os.path.dirname(path))
 
     # ai2_bad_0_005px ~ ai2_bad_15px
-    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'ai2_bad_0_005px', 'ai2_bad_0_01px', 'ai2_bad_0_05px', 'ai2_bad_0_1px', 'ai2_bad_0_5px', 'ai2_bad_1px'])
+    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'si', 'ai2_bad_0_005px', 'ai2_bad_0_01px', 'ai2_bad_0_05px', 'ai2_bad_0_1px', 'ai2_bad_0_5px', 'ai2_bad_1px'])
     
 
     for val_id in tqdm(range(val_num)):
@@ -320,6 +339,7 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
         bads = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
         est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr, flow_gt)
         est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr, flow_gt)
+        si, alpha = eval_est.scale_invariant(flow_pr, flow_gt)
         est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
 
         if save_result:
