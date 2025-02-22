@@ -33,6 +33,7 @@
                 "--feature_converter",
                 "fixed-conv",
                 "--si_loss",
+                "0.5",
             ]
         },
 

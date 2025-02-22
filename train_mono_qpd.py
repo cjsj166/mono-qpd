@@ -68,14 +68,18 @@ def sequence_loss(flow_preds, flow_gt, valid, loss_gamma=0.9, max_flow=700):
 
         fp = flow_preds[i]
 
-        if args.si_loss:
+        si_loss = 0
+        if args.si_loss != 0:
             criterion = LeastSquareScaleInvariantLoss()
-            i_loss = criterion(fp, (flow_gt/2), valid)
-            
-        else:
-            i_loss = (fp-(flow_gt/2)).abs()
-            assert i_loss.shape == valid.shape, [i_loss.shape, valid.shape, flow_gt.shape, flow_preds[i].shape]
-            i_loss = i_loss[valid.bool()].mean()
+            si_loss = criterion(fp, (flow_gt/2), valid) * args.si_loss
+
+        l1_loss = 0
+        if args.si_loss != 1:    
+            l1_loss = (fp-(flow_gt/2)).abs()
+            assert l1_loss.shape == valid.shape, [l1_loss.shape, valid.shape, flow_gt.shape, flow_preds[i].shape]
+            l1_loss = l1_loss[valid.bool()].mean()
+
+        i_loss = si_loss * args.si_loss + l1_loss * (1 - args.si_loss)
         flow_loss += i_weight * i_loss
     
     fp = flow_preds[-1]
@@ -445,7 +449,8 @@ if __name__ == '__main__':
     parser.add_argument('--wdecay', type=float, default=.00001, help="Weight decay in optimizer.")
     parser.add_argument('--CAPA', default=True, help="if use Channel wise and pixel wise attention")
 
-    parser.add_argument('--si_loss', action='store_true', help="scale invariant loss")
+    # parser.add_argument('--si_loss', action='store_true', help="scale invariant loss")
+    parser.add_argument('--si_loss', default=0, type=float, help="scale invariant loss")
     
 
     # Validation parameters
