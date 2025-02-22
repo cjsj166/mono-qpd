@@ -81,9 +81,9 @@ class LeastSquareScaleInvariantLoss(nn.Module):
         """
         (d - (d' * alpha))^2 의 loss를 계산합니다.
         
-        prediction: (B, H, W) 예측 텐서
-        target: (B, H, W) 목표 텐서
-        mask: (B, H, W) 마스크 텐서 (0 또는 1)
+        prediction: (B, C, H, W) 예측 텐서
+        target: (B, C, H, W) 목표 텐서
+        mask: (B, C, H, W) 마스크 텐서 (0 또는 1)
         
         배치 내 각 이미지에 대해 valid 픽셀에 대한 MSE 평균을 계산한 후,
         전체 배치 평균을 반환합니다.
@@ -106,7 +106,31 @@ class LeastSquareScaleInvariantLoss(nn.Module):
         loss_per_image = torch.zeros(prediction.shape[0], device=prediction.device)
         sum_mask = torch.sum(mask, dim=(1,2,3))
         valid = sum_mask != 0
-        loss_per_image[valid] = torch.sum(masked_loss, dim=(2,3))[valid] / sum_mask[valid]
+        loss_per_image[valid] = torch.sum(masked_loss, dim=(1,2,3))[valid] / sum_mask[valid]
         
         # 전체 배치의 평균 loss 반환
         return loss_per_image.mean()
+    
+
+def test_scale_invariant_loss():
+    B, C, H, W = 2, 1, 224, 224
+    pred = torch.rand(B, C, H, W)
+    target = torch.rand(B, C, H, W)
+    loss_fn = ScaleInvariantLoss()
+    loss = loss_fn(pred, target)
+    assert loss.shape == pred.shape, "Loss shape mismatch"
+    print("ScaleInvariantLoss test passed")
+
+def test_least_square_scale_invariant_loss():
+    B, C, H, W = 2, 1, 224, 224
+    pred = torch.rand(B, C, H, W)
+    target = torch.rand(B, C, H, W)
+    mask = torch.ones(B, C, H, W)
+    loss_fn = LeastSquareScaleInvariantLoss()
+    loss = loss_fn(pred, target, mask)
+    assert loss.dim() == 0, "Loss should be a scalar"
+    print("LeastSquareScaleInvariantLoss test passed")
+
+if __name__ == "__main__":
+    test_scale_invariant_loss()
+    test_least_square_scale_invariant_loss()
