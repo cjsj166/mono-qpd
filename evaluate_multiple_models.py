@@ -67,7 +67,7 @@ if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
 
-    restore_ckpts = glob(os.path.join(args.train_dir, 'checkpoints', '*.pth'))
+    restore_ckpts = glob(os.path.join(args.train_dir, '**','checkpoints', '*.pth'))
 
     for restore_ckpt in restore_ckpts:
         ckpt = int(os.path.basename(restore_ckpt).split('_')[0])

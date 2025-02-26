@@ -282,6 +282,25 @@
         },
 
         {
+            "name": "Mono-QPD, exp_fixed-conv, eval",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_multiple_models.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--train_dir",
+                "result/train/exp_converter/exp_fixed-conv/",
+                "--datasets",
+                "QPD-Test", "QPD-Valid", "MDD",
+                "--save_path",
+                "result/eval/conv/exp_fixed-conv/",
+                "--feature_converter",
+                "fixed-conv",
+            ]
+        },
+
+
+        {
             "name": "Mono-QPD, exp1, 375 epoch, eval, qpd-test",
             "type": "debugpy",
             "request": "launch",

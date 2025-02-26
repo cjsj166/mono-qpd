@@ -21,6 +21,7 @@ from mono_qpd.mono_qpd import MonoQPD
 from argparse import Namespace
 import torch.nn as nn
 from mono_qpd.loss import LeastSquareScaleInvariantLoss
+from matplotlib import cm
 
 from metrics.eval import Eval
 from collections import OrderedDict
@@ -117,6 +118,8 @@ def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_r
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(image1, image2, iters=iters, test_mode=True)
         flow_pr = padder.unpad(flow_pr).cpu().squeeze(0)
+
+        # print(flow_pr[0][418:421][317:343])
         
         if flow_pr.shape[0]==2:
             flow_pr = flow_pr[1]-flow_pr[0]
@@ -175,6 +178,7 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
 
     eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['ai1', 'ai2', 'ai2_bad_1px', 'ai2_bad_3px', 'ai2_bad_5px', 'ai2_bad_10px', 'ai2_bad_15px'])
 
+    result = {}
     for val_id in tqdm(range(val_num)):
         if val_id%val_save_skip != 0:
             continue
@@ -243,11 +247,10 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
             plt.imsave(os.path.join(err_dir, pth), np.abs(est_ai2_fit.squeeze() - flow_gt.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
             
             plt.imsave(os.path.join(gt_dir, pth), flow_gt.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
-            
 
             # plt.imsave(os.path.join(src_dir, 'test_c', 'source', 'scenes', pth.replace('.jpg', '.png')), image1.astype(np.uint8))
             # plt.imsave(os.path.join(src_dir, 'test_l', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[0].astype(np.uint8))
-            # plt.imsave(os.path.join(src_dir, 'test_r', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[1].astype(np.uint8))
+            # plt.imsave(os.path.join(src_dir, 'test_r', 'source', 'scenes', pth.replace('B', 'R').replace('.jpg', '.png')), image2[1].astype(np.uint8))
 
             # percent = 10
             # delta = np.percentile(np.abs(flow_pr), percent)
@@ -260,7 +263,7 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
             
 
     eval_est.save_metrics()
-    result = eval_est.get_mean_metrics()
+    result = {**result, **eval_est.get_mean_metrics()}
     return result
 
 
@@ -299,7 +302,7 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
     # ai2_bad_0_005px ~ ai2_bad_15px
     eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'si', 'ai2_bad_0_005px', 'ai2_bad_0_01px', 'ai2_bad_0_05px', 'ai2_bad_0_1px', 'ai2_bad_0_5px', 'ai2_bad_1px'])
     
-
+    result = {}
     for val_id in tqdm(range(val_num)):
 
         if val_id % val_save_skip != 0:
@@ -317,10 +320,11 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
         else:
             image2 = image2.squeeze()[:2]
 
-        # padder = InputPadder(image1.shape, divis_by=32)
-        # image1, image2 = padder.pad(image1, image2)
+        
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(image1, image2, iters=iters, test_mode=True)
+
+        # flow_pr = torch.zeros_like(flow_gt)
 
         # Align dimensions and file format
         flow_pr = flow_pr.squeeze(0).cpu().numpy()
@@ -373,11 +377,27 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
             plt.imsave(os.path.join(gt_dir, pth), flow_gt.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
             plt.imsave(os.path.join(src_dir, pth), image1.astype(np.uint8))
 
+            # Colorize된 이미지를 result에 저장
+            colormap = cm.jet
+
+            # est_ai2_fit colorized 이미지
+            est_colorized = colormap((est_ai2_fit - vmin) / (vmax - vmin))  # 0~1 범위로 정규화
+            result[f'{val_id}_est_colormap'] = (est_colorized * 255).astype(np.uint8)
+
+            # error 이미지 colorized
+            error_image = np.abs(est_ai2_fit - flow_gt)
+            error_colorized = colormap((error_image - vmin_err) / (vmax_err - vmin_err))
+            result[f'{val_id}_err_colormap'] = (error_colorized * 255).astype(np.uint8)
+
+            # flow_gt colorized 이미지
+            gt_colorized = colormap((flow_gt - vmin) / (vmax - vmin))
+            result[f'{val_id}_gt_colormap'] = (gt_colorized * 255).astype(np.uint8)
+
         flow_pr = torch.from_numpy(flow_pr)
         flow_gt = torch.from_numpy(flow_gt)
 
     eval_est.save_metrics()
-    result = eval_est.get_mean_metrics()
+    result = {**result, **eval_est.get_mean_metrics()}
 
     return result
 
