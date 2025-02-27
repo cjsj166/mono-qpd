@@ -93,6 +93,42 @@ class Eval():
             self.metrics_data['sc'].append(sc)
             return sc
         return None
+    
+    def epe_bad_pixel_metrics(self, Y, Target):
+        result = []
+        if any('epe_bad' in metric for metric in self.enabled_metrics):
+            epe = self.end_point_error(Y, Target)
+            if 'epe_bad_0_005px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_0_005px'].append(self.bad_pixel_metric(Y, Target, 0.005))
+                result.append(self.metrics_data['epe_bad_0_005px'])
+            if 'epe_bad_0_01px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_0_01px'].append(self.bad_pixel_metric(Y, Target, 0.01))
+                result.append(self.metrics_data['epe_bad_0_01px'])
+            if 'epe_bad_0_05px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_0_05px'].append(self.bad_pixel_metric(Y, Target, 0.05))
+                result.append(self.metrics_data['epe_bad_0_05px'])
+            if 'epe_bad_0_1px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_0_1px'].append(self.bad_pixel_metric(Y, Target, 0.1))
+                result.append(self.metrics_data['epe_bad_0_1px'])
+            if 'epe_bad_0_5px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_0_5px'].append(self.bad_pixel_metric(Y, Target, 0.5))
+                result.append(self.metrics_data['epe_bad_0_5px'])
+            if 'epe_bad_1px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_1px'].append(self.bad_pixel_metric(Y, Target, 1.0))
+                result.append(self.metrics_data['epe_bad_1px'])
+            if 'epe_bad_3px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_3px'].append(self.bad_pixel_metric(Y, Target, 3.0))
+                result.append(self.metrics_data['epe_bad_3px'])
+            if 'epe_bad_5px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_5px'].append(self.bad_pixel_metric(Y, Target, 5.0))
+                result.append(self.metrics_data['epe_bad_5px'])
+            if 'epe_bad_10px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_10px'].append(self.bad_pixel_metric(Y, Target, 10.0))
+                result.append(self.metrics_data['epe_bad_10px'])
+            if 'epe_bad_15px' in self.enabled_metrics:
+                self.metrics_data['epe_bad_15px'].append(self.bad_pixel_metric(Y, Target, 15.0))
+                result.append(self.metrics_data['epe_bad_15px'])
+        return result
 
     def ai2_bad_pixel_metrics(self, Y, Target):
         result = []

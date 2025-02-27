@@ -22,6 +22,7 @@ from argparse import Namespace
 import torch.nn as nn
 from mono_qpd.loss import LeastSquareScaleInvariantLoss
 from matplotlib import cm
+import torch.utils.data as data
 
 from metrics.eval import Eval
 from collections import OrderedDict
@@ -82,7 +83,7 @@ def save_image(value, path, cmap='jet', vmin=None, vmax=None):
 
 
 @torch.no_grad()
-def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1, image_set='test', path=''):
+def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1, image_set='test', path='', batch_size=1):
     """ Peform validation using the FlyingThings3D (TEST) split """
     model.eval()
     aug_params = {}
@@ -119,7 +120,7 @@ def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_r
             _, flow_pr = model(image1, image2, iters=iters, test_mode=True)
         flow_pr = padder.unpad(flow_pr).cpu().squeeze(0)
 
-        # print(flow_pr[0][418:421][317:343])
+        
         
         if flow_pr.shape[0]==2:
             flow_pr = flow_pr[1]-flow_pr[0]
@@ -145,7 +146,7 @@ def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_r
 
 
 @torch.no_grad()
-def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1, image_set='test', path='', save_path='result/predictions'):
+def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1, image_set='test', path='', save_path='result/predictions', batch_size=1):
     """ Peform validation using the FlyingThings3D (TEST) split """
     model.eval()
     aug_params = {}
@@ -214,6 +215,8 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
         bads = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
         est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
 
+        # print(flow_pr[0][418:421][317:343])
+
         if save_result:
             if not os.path.exists('result/predictions/'+path+'/'):
                 os.makedirs('result/predictions/'+path+'/')
@@ -268,7 +271,7 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
 
 
 @torch.no_grad()
-def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1,image_set='test', path='', save_path='result/train'):
+def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1,image_set='test', path='', save_path='result/train', batch_size=1):
     """ Peform validation using the FlyingThings3D (TEST) split """
     model.eval()
     aug_params = {}
@@ -277,6 +280,9 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
         val_dataset = datasets.QPD(aug_params, image_set=image_set)
     else:
         val_dataset = datasets.QPD(aug_params, image_set=image_set, root=path)
+
+    val_loader = data.DataLoader(val_dataset, batch_size=args.batch_size, 
+        pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
     
     log_dir = 'result'
     est_dir = os.path.join(log_dir, 'dp_est')
@@ -300,16 +306,17 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
     path = os.path.basename(os.path.dirname(path))
 
     # ai2_bad_0_005px ~ ai2_bad_15px
-    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'si', 'ai2_bad_0_005px', 'ai2_bad_0_01px', 'ai2_bad_0_05px', 'ai2_bad_0_1px', 'ai2_bad_0_5px', 'ai2_bad_1px'])
+    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'si', 'epe_bad_0_005px', 'epe_bad_0_01px', 'epe_bad_0_05px', 'epe_bad_0_1px', 'epe_bad_0_5px', 'epe_bad_1px'])
     
     result = {}
+    # for i_batch, data_blob in enumerate(tqdm(val_loader)):
     for val_id in tqdm(range(val_num)):
 
         if val_id % val_save_skip != 0:
             continue
         # if val_id == 2:
         #     break
-
+        # paths, image1, image2, flow_gt, valid_gt = data_blob
         paths, image1, image2, flow_gt, valid_gt = val_dataset[val_id]
         image1 = image1[None].cuda()
         image2 = image2[None].cuda()
@@ -319,7 +326,6 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
             image2 = image2.squeeze()
         else:
             image2 = image2.squeeze()[:2]
-
         
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(image1, image2, iters=iters, test_mode=True)
@@ -340,7 +346,8 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
         # fitting and save
         epe = eval_est.end_point_error(flow_pr, flow_gt)
         rmse = eval_est.root_mean_squared_error(flow_pr, flow_gt)
-        bads = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
+        # bads = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
+        bads = eval_est.epe_bad_pixel_metrics(flow_pr, flow_gt)
         est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr, flow_gt)
         est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr, flow_gt)
         si, alpha = eval_est.scale_invariant(flow_pr, flow_gt)
@@ -430,6 +437,7 @@ if __name__ == '__main__':
     parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
     parser.add_argument('--feature_converter', type=str, default='', help="training datasets.")
 
+    parser.add_argument('--batch_size', type=int, default=1, help="batch size")
     
     args = parser.parse_args()
 
