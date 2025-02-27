@@ -96,6 +96,7 @@ def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_r
     path = os.path.basename(os.path.dirname(path))
     
     est_dir = os.path.join(save_path, 'est')
+    vminvmax_dir = os.path.join(save_path, 'vminvmax')
     src_dir = os.path.join(save_path, 'src')
     os.makedirs(est_dir, exist_ok=True)
     os.makedirs(src_dir, exist_ok=True)
@@ -135,6 +136,7 @@ def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_r
             pth = '/'.join(pth)
 
             os.makedirs(os.path.join(est_dir, os.path.dirname(pth)), exist_ok=True)
+            os.makedirs(os.path.join(vminvmax_dir, os.path.dirname(pth)), exist_ok=True)
             flow_prn = flow_pr.cpu().numpy().squeeze()
 
             os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
@@ -145,8 +147,9 @@ def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_r
             plt.imsave(os.path.join(src_dir, pth), image2[0].astype(np.uint8))
             plt.imsave(os.path.join(src_dir, pth), image2[1].astype(np.uint8))
 
-            # vmin, vmax = -5, 5
-            # plt.imsave(os.path.join(est_dir, pth), flow_prn.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+            print(flow_prn.min(), flow_prn.max())
+            vmin, vmax = -4, 1.5
+            plt.imsave(os.path.join(vminvmax_dir, pth), flow_prn.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
             plt.imsave(os.path.join(est_dir, pth), flow_prn.squeeze(), cmap='jet')
 
     return None
