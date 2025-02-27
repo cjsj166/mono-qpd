@@ -70,6 +70,29 @@ class QuadDataset(data.Dataset):
         flow = flow * new_w / w
 
         return center_img, lrtb_list, flow, valid
+    
+    def resize_one_to_224_multiples(self, img, i=1):
+        h, w = img.shape[-2:]
+
+        if h % 224 != 0:
+            new_h = (h // 224 + i) * 224
+        else:
+            new_h = h
+
+        if w % 224 != 0:
+            new_w = (w // 224 + i) * 224
+        else:
+            new_w = w
+
+        dims = len(img.shape)
+
+        if dims == 3:
+            img = img.unsqueeze(0)
+        img = F.interpolate(img, size=(new_h, new_w), mode='bilinear', align_corners=False)
+        if dims == 3:
+            img = img[0]
+
+        return img
         
 
     def __getitem__(self, index):
@@ -87,7 +110,15 @@ class QuadDataset(data.Dataset):
 
             imgs = torch.stack(img_list, dim=0)
 
-            return center_img, imgs
+            h, w = center_img.shape[-2:]
+            if h%224 != 0 or w%224 != 0:
+                # print(h/w)
+                center_img = self.resize_one_to_224_multiples(center_img, i=-2)
+                imgs = self.resize_one_to_224_multiples(imgs, i=-2)
+                # h, w = center_img.shape[-2:]
+                # print(h/w)
+
+            return self.image_list[index], center_img, imgs
 
         if not self.init_seed:
             worker_info = torch.utils.data.get_worker_info()
@@ -114,12 +145,6 @@ class QuadDataset(data.Dataset):
 
         flow = np.stack([-disp, np.zeros_like(disp)], axis=-1)
 
-        # grayscale images
-        for i in range(0,5):
-            if len(img_list[i].shape) == 2:
-                img_list[i] = np.tile(img_list[i][...,None], (1, 1, 3))
-            else:
-                img_list[i] = img_list[i][..., :3]
         if self.augmentor is not None:
             if self.sparse:
                 img_list, flow, valid = self.augmentor(img_list, flow, valid)
@@ -193,6 +218,20 @@ class QPD(QuadDataset):
 
         self.image_list = self.image_list
         self.disparity_list = self.disparity_list
+
+class Real_QPD(QuadDataset):
+    def __init__(self, aug_params=None, root='', image_set='train'):
+        super(Real_QPD, self).__init__(aug_params, sparse=False, lrtb='', image_set = image_set, is_test=True)
+        assert os.path.exists(root)
+        imagel_list = sorted(glob(os.path.join(root, '**', 'scale3', image_set+'_l','source', 'seq_*/*.png')))
+        imager_list = sorted(glob(os.path.join(root, '**', 'scale3', image_set+'_r','source', 'seq_*/*.png')))
+        imaget_list = sorted(glob(os.path.join(root, '**', 'scale3', image_set+'_t','source', 'seq_*/*.png')))
+        imageb_list = sorted(glob(os.path.join(root, '**', 'scale3', image_set+'_b','source', 'seq_*/*.png')))
+        imagec_list = sorted(glob(os.path.join(root, '**', 'scale3', image_set+'_c','source', 'seq_*/*.png')))
+        
+        for idx, (imgc, imgl, imgr, imgt, imgb) in enumerate(zip(imagec_list, imagel_list, imager_list, imaget_list, imageb_list)):
+            self.image_list += [ [imgc, imgl, imgr, imgt, imgb] ]
+
 
   
 def fetch_dataloader(args):

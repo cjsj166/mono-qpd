@@ -83,21 +83,22 @@ def save_image(value, path, cmap='jet', vmin=None, vmax=None):
 
 
 @torch.no_grad()
-def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1, image_set='test', path='', batch_size=1):
+def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1, image_set='test', path='', save_path='', batch_size=1):
     """ Peform validation using the FlyingThings3D (TEST) split """
     model.eval()
     aug_params = {}
     
     if path == '':
-        val_dataset = datasets.Real_QPD(aug_params, image_set=image_set, no_gt_disp=True)
+        val_dataset = datasets.Real_QPD(aug_params, image_set=image_set)
     else:
-        val_dataset = datasets.Real_QPD(aug_params, image_set=image_set, no_gt_disp=True, root=path)
+        val_dataset = datasets.Real_QPD(aug_params, image_set=image_set, root=path)
 
     path = os.path.basename(os.path.dirname(path))
     
-    log_dir = 'res'
-    est_dir = os.path.join(log_dir, path, 'dp_est')
+    est_dir = os.path.join(save_path, 'est')
+    src_dir = os.path.join(save_path, 'src')
     os.makedirs(est_dir, exist_ok=True)
+    os.makedirs(src_dir, exist_ok=True)
 
     if val_num==None:
         val_num = len(val_dataset)
@@ -119,28 +120,34 @@ def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_r
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(image1, image2, iters=iters, test_mode=True)
         flow_pr = padder.unpad(flow_pr).cpu().squeeze(0)
-
-        
         
         if flow_pr.shape[0]==2:
             flow_pr = flow_pr[1]-flow_pr[0]
+
+        image1 = image1.squeeze(0).permute(1,2,0).cpu().numpy()
+        image2 = image2.permute(0,2,3,1).cpu().numpy()
 
         if save_result and val_id%val_save_skip==0:
             if not os.path.exists('result/predictions/'+path+'/'):
                 os.makedirs('result/predictions/'+path+'/')
             
-            pth_lists = paths[0].split('/')[-3:]
-            pth = '/'.join(pth_lists)
-            pth_lists[-1] = pth_lists[-1].replace('.png', '_-10_3_range.png')
-            fixed_range_result_pth = '/'.join(pth_lists)
-
-            pth = pth.replace('.png', '.npy')
+            pth = paths[0].split('/')[-6:]
+            pth = '/'.join(pth)
 
             os.makedirs(os.path.join(est_dir, os.path.dirname(pth)), exist_ok=True)
-            
             flow_prn = flow_pr.cpu().numpy().squeeze()
 
-            np.save(os.path.join(est_dir, pth), flow_prn * 2)
+            os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
+            os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
+            os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
+
+            plt.imsave(os.path.join(src_dir, pth), image1.astype(np.uint8))
+            plt.imsave(os.path.join(src_dir, pth), image2[0].astype(np.uint8))
+            plt.imsave(os.path.join(src_dir, pth), image2[1].astype(np.uint8))
+
+            # vmin, vmax = -5, 5
+            # plt.imsave(os.path.join(est_dir, pth), flow_prn.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+            plt.imsave(os.path.join(est_dir, pth), flow_prn.squeeze(), cmap='jet')
 
     return None
 
@@ -246,7 +253,7 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
             eval_est.add_colorrange(vmin, vmax)
 
             # Save in colormap
-            plt.imsave(os.path.join(est_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)        
+            plt.imsave(os.path.join(est_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
             plt.imsave(os.path.join(err_dir, pth), np.abs(est_ai2_fit.squeeze() - flow_gt.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
             
             plt.imsave(os.path.join(gt_dir, pth), flow_gt.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
@@ -508,7 +515,7 @@ if __name__ == '__main__':
     if 'Real_QPD' == args.dataset:
         save_path = os.path.join(args.save_path, 'real-qpd-test', os.path.basename(args.restore_ckpt).replace('.pth', ''))
         print(save_path)
-        result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path=args.datasets_path, save_path=save_path)
+        result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path='datasets/Real-QP-Data', save_path=save_path)
 
     print(result)
 
