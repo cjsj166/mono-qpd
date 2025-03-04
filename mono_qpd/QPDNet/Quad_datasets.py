@@ -288,8 +288,6 @@ class MDD(QuadDataset):
         # Nearest neighbor interpolation for valid
         valid = F.interpolate(valid[None, None].float(), size=(new_h, new_w), mode='nearest')[0,0].byte()
 
-        # flow = flow * new_w / w
-
         return center_img, lrtb_list, flow, valid
     
     def crop_224_multiples(self, center_img, lrtb_list, flow, valid):

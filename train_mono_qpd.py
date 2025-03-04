@@ -1,5 +1,6 @@
 from __future__ import print_function, division
 
+import numpy
 import argparse
 import logging
 import numpy as np
@@ -161,7 +162,17 @@ class Logger:
             self.writer = SummaryWriter(log_dir=os.path.join('result/runs', timestamp))
 
         for key in results:
-            self.writer.add_scalar(key, results[key], self.total_steps)
+            
+            if isinstance(results[key], torch.Tensor):
+                if results[key].dim() == 4:
+                    results[key] = results[key][0]
+                self.writer.add_image(key, results[key], self.total_steps)
+            elif isinstance(results[key], numpy.ndarray):
+                if results[key].ndim == 4:
+                    results[key] = results[key][0]
+                self.writer.add_image(key, results[key], self.total_steps)
+            else:
+                self.writer.add_scalar(key, results[key], self.total_steps)
 
     def close(self):
         self.writer.close()

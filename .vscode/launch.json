@@ -323,6 +323,28 @@
         },
 
         {
+            "name": "Mono-QPD, exp1, 375 epoch, eval, real-qpd",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--restore_ckpt",
+                "result/train/exp1/checkpoints/375_epoch_564375_Mono-QPD.pth",
+                "--datasets_path",
+                "datasets/Real-QP-Data",
+                "--dataset",
+                "Real_QPD",
+                "--save_path",
+                "result/eval/conv/exp1/qpd-real/qpd-valid-best",
+                "--save_result",
+                "True",
+                "--feature_converter",
+                "conv",
+            ]
+        },
+
+        {
             "name": "Mono-QPD, exp1, 375 epoch, eval, dp-disp",
             "type": "debugpy",
             "request": "launch",
@@ -341,8 +363,11 @@
                 "True",
                 "--feature_converter",
                 "conv",
+                "--batch_size",
+                "4",
             ]
         },
+
 
         {
             "name": "Mono-QPD, exp1, 245 epoch, eval, qpd-test",

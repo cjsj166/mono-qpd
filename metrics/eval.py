@@ -35,15 +35,20 @@ class Eval():
 
         # Add 'ai1-scale' and 'ai1-bias' if 'ai1' is in enabled_metrics
         if 'ai1' in enabled_metrics:
+            self.enabled_metrics.append('ai1-scale')
+            self.enabled_metrics.append('ai1-bias')
             self.metrics_data['ai1-scale'] = []
             self.metrics_data['ai1-bias'] = []
 
         # Add 'ai2-scale' and 'ai2-bias' if 'ai2' is in enabled_metrics
         if 'ai2' in enabled_metrics:
+            self.enabled_metrics.append('ai2-scale')
+            self.enabled_metrics.append('ai2-bias')
             self.metrics_data['ai2-scale'] = []
             self.metrics_data['ai2-bias'] = []
 
         if 'si' in enabled_metrics:
+            self.enabled_metrics.append('si-scale')
             self.metrics_data['si-scale'] = []
 
         self.filenames = []

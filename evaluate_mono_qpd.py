@@ -291,7 +291,7 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
     else:
         val_dataset = datasets.QPD(aug_params, image_set=image_set, root=path)
 
-    val_loader = data.DataLoader(val_dataset, batch_size=args.batch_size, 
+    val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
         pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
     
     log_dir = 'result'
@@ -319,6 +319,7 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
     eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'si', 'epe_bad_0_005px', 'epe_bad_0_01px', 'epe_bad_0_05px', 'epe_bad_0_1px', 'epe_bad_0_5px', 'epe_bad_1px'])
     
     result = {}
+
     # for i_batch, data_blob in enumerate(tqdm(val_loader)):
     for val_id in tqdm(range(val_num)):
 
@@ -331,6 +332,14 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
         image1 = image1[None].cuda()
         image2 = image2[None].cuda()
 
+        # h, w = image1.shape[2:]
+        # crop_w = 448
+        # crop_h = 448
+        # image1 = image1[:, :, h//2-crop_h//2:h//2+crop_h//2, w//2-crop_w//2:w//2+crop_w//2]
+        # image2 = image2[:, :, :, h//2-crop_h//2:h//2+crop_h//2, w//2-crop_w//2:w//2+crop_w//2]
+        # flow_gt = flow_gt[:, h//2-crop_h//2:h//2+crop_h//2, w//2-crop_w//2:w//2+crop_w//2]
+        # valid_gt = valid_gt[h//2-crop_h//2:h//2+crop_h//2, w//2-crop_w//2:w//2+crop_w//2]
+        
         ## 4 LRTB,  2 LR
         if input_image_num == 4:
             image2 = image2.squeeze()
@@ -349,7 +358,7 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
         
         if flow_pr.shape[0]==2:
             flow_pr = flow_pr[1]-flow_pr[0]
-        # flow_gt = flow_gt/2
+        flow_gt = flow_gt/2
 
         assert flow_pr.shape == flow_gt.shape, (flow_pr.shape, flow_gt.shape)
 
@@ -367,7 +376,6 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
             if not os.path.exists('result/predictions/'+path+'/'):
                 os.makedirs('result/predictions/'+path+'/')
         
-
             pth_lists = paths[0].split('/')[-2:]
             pth = '/'.join(pth_lists)
             # pth = os.path.basename(pth)
@@ -399,16 +407,22 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
 
             # est_ai2_fit colorized 이미지
             est_colorized = colormap((est_ai2_fit - vmin) / (vmax - vmin))  # 0~1 범위로 정규화
-            result[f'{val_id}_est_colormap'] = (est_colorized * 255).astype(np.uint8)
+            est_colorized = (est_colorized * 255).astype(np.uint8)[0, :, :, :3]
+            est_colorized = np.moveaxis(est_colorized, -1, 0)
+            result[f'{val_id}_est_colormap'] = est_colorized
 
             # error 이미지 colorized
             error_image = np.abs(est_ai2_fit - flow_gt)
             error_colorized = colormap((error_image - vmin_err) / (vmax_err - vmin_err))
-            result[f'{val_id}_err_colormap'] = (error_colorized * 255).astype(np.uint8)
+            error_colorized = (error_colorized * 255).astype(np.uint8)[0, :, :, :3]
+            error_colorized = np.moveaxis(error_colorized, -1, 0)
+            result[f'{val_id}_err_colormap'] = error_colorized
 
             # flow_gt colorized 이미지
             gt_colorized = colormap((flow_gt - vmin) / (vmax - vmin))
-            result[f'{val_id}_gt_colormap'] = (gt_colorized * 255).astype(np.uint8)
+            gt_colorized = (gt_colorized * 255).astype(np.uint8)[0, :, :, :3]
+            gt_colorized = np.moveaxis(gt_colorized, -1, 0)
+            result[f'{val_id}_gt_colormap'] = gt_colorized
 
         flow_pr = torch.from_numpy(flow_pr)
         flow_gt = torch.from_numpy(flow_gt)
