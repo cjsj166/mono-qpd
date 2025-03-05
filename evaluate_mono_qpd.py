@@ -206,6 +206,7 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
     gt_dir = os.path.join(save_path, 'gt')
     src_dir = os.path.join(save_path, 'src')
     hist_dir = os.path.join(save_path, 'hist')
+    src_test_c_dir = os.path.join(src_dir, 'test_c', 'source', 'scenes')
     # masked_dir = os.path.join(save_path, 'masked')
     os.makedirs(est_dir, exist_ok=True)
     os.makedirs(err_dir, exist_ok=True)
@@ -216,6 +217,7 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
     # os.makedirs(os.path.join(src_dir, 'test_r', 'source', 'scenes'), exist_ok=True)
     # os.makedirs(masked_dir, exist_ok=True)
     os.makedirs(hist_dir, exist_ok=True)
+    os.makedirs(src_test_c_dir, exist_ok=True)
 
     if val_num==None:
         val_num = len(val_dataset)
@@ -313,7 +315,7 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
                 
                 plt.imsave(os.path.join(gt_dir, pth), flow_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
 
-                plt.imsave(os.path.join(src_dir, 'test_c', 'source', 'scenes', pth.replace('.jpg', '.png')), image1_i.astype(np.uint8))
+                plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), image1_i.astype(np.uint8))
                 # plt.imsave(os.path.join(src_dir, 'test_l', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[0].astype(np.uint8))
                 # plt.imsave(os.path.join(src_dir, 'test_r', 'source', 'scenes', pth.replace('B', 'R').replace('.jpg', '.png')), image2[1].astype(np.uint8))
 
