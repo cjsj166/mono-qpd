@@ -519,6 +519,11 @@ if __name__ == '__main__':
     parser.add_argument('--save_name', default='val')
     parser.add_argument('--save_path', default='result/validations/eval.txt')
 
+    parser.add_argument('--qpd_valid_bs', type=int, default=16)
+    parser.add_argument('--qpd_test_bs', type=int, default=16)
+    parser.add_argument('--dp_disp_bs', type=int, default=16)
+    parser.add_argument('--real_qpd_bs', type=int, default=16)
+
     # Depth Anything V2
     parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
     parser.add_argument('--feature_converter', type=str, default='', help="training datasets.")
@@ -582,19 +587,19 @@ if __name__ == '__main__':
     if 'QPD-Test' == args.dataset:
         save_path = os.path.join(args.save_path, 'qpd-test', os.path.basename(args.restore_ckpt).replace('.pth', ''))
         print(save_path)
-        result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path='datasets/QP-Data', save_path=save_path)
+        result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=args.qpd_test_bs if args.qpd_test_bs else 1)
     if 'QPD-Valid' == args.dataset:
         save_path = os.path.join(args.save_path, 'qpd-valid', os.path.basename(args.restore_ckpt).replace('.pth', ''))
         print(save_path)
-        result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="validation", path='datasets/QP-Data', save_path=save_path)
+        result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=args.qpd_valid_bs if args.qpd_valid_bs else 1)
     if 'MDD' == args.dataset:
         save_path = os.path.join(args.save_path, 'dp-disp', os.path.basename(args.restore_ckpt).replace('.pth', ''))
         print(save_path)
-        result = validate_MDD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path='datasets/MDD_dataset', save_path=save_path)
+        result = validate_MDD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=args.dp_disp_bs if args.dp_disp_bs else 1)
     if 'Real_QPD' == args.dataset:
         save_path = os.path.join(args.save_path, 'real-qpd-test', os.path.basename(args.restore_ckpt).replace('.pth', ''))
         print(save_path)
-        result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path='datasets/Real-QP-Data', save_path=save_path)
+        result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, input_image_num = args.input_image_num, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=args.real_qpd_bs if args.real_qpd_bs else 1)
 
     print(result)
 
