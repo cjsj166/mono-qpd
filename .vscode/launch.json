@@ -319,6 +319,8 @@
                 "True",
                 "--feature_converter",
                 "conv", 
+                "--batch_size",
+                "4"
             ]
         },
 
@@ -341,6 +343,8 @@
                 "True",
                 "--feature_converter",
                 "conv",
+                "--batch_size",
+                "4",
             ]
         },
 

@@ -83,7 +83,7 @@ def save_image(value, path, cmap='jet', vmin=None, vmax=None):
 
 
 @torch.no_grad()
-def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1, image_set='test', path='', save_path='', batch_size=1):
+def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result=False, val_num=None, val_save_skip=1, image_set='test', path='', save_path='', batch_size=31):
     """ Peform validation using the FlyingThings3D (TEST) split """
     model.eval()
     aug_params = {}
@@ -93,7 +93,8 @@ def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_r
     else:
         val_dataset = datasets.Real_QPD(aug_params, image_set=image_set, root=path)
 
-    path = os.path.basename(os.path.dirname(path))
+    val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+        pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
     
     est_dir = os.path.join(save_path, 'est')
     vminvmax_dir = os.path.join(save_path, 'vminvmax')
@@ -103,54 +104,83 @@ def validate_Real_QPD(model, input_image_num, iters=32, mixed_prec=False, save_r
 
     if val_num==None:
         val_num = len(val_dataset)
+    path = os.path.basename(os.path.dirname(path))
 
-    for val_id in tqdm(range(val_num)):
-        paths, image1, image2 = val_dataset[val_id]
-        image1 = image1[None].cuda()
-        image2 = image2[None].cuda()
+    # ai2_bad_0_005px ~ ai2_bad_15px
+    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'si', 'epe_bad_0_005px', 'epe_bad_0_01px', 'epe_bad_0_05px', 'epe_bad_0_1px', 'epe_bad_0_5px', 'epe_bad_1px'])
+    
+    result = {}
 
+    if val_save_skip < batch_size:
+        val_save_skip = 1
+    else:
+        val_save_skip = val_save_skip // batch_size
+
+    # for val_id in tqdm(range(val_num)):
+    for i_batch, data_blob in enumerate(tqdm(val_loader)):
+
+        if i_batch % val_save_skip != 0:
+            continue
+        # if val_id == 2:
+        #     break
+        paths, image1, image2 = data_blob
+        # paths, image1, image2, flow_gt, valid_gt = val_dataset[val_id]
+        # image1 = image1[None].cuda()
+        # image2 = image2[None].cuda()
+        
         ## 4 LRTB,  2 LR
-        if input_image_num == 4:
-            image2 = image2.squeeze()
+        # if input_image_num == 4:
+        #     image2 = image2
+        # else:
+        #     image2 = image2[:, :2]
+
+        if args.input_image_num == 4:
+            image2 = torch.cat([image2[:,0],image2[:,1],image2[:,2],image2[:,3]], dim=0).contiguous()
         else:
-            image2 = image2.squeeze()[:2]
-
-        padder = InputPadder(image1.shape, divis_by=32)
-        image1, image2 = padder.pad(image1, image2)
-
+            image2 = torch.cat([image2[:,0],image2[:,1]], dim=0).contiguous()
+        
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(image1, image2, iters=iters, test_mode=True)
-        flow_pr = padder.unpad(flow_pr).cpu().squeeze(0)
+
+
+        # flow_pr = torch.zeros_like(flow_gt)
+
+        # Align dimensions and file format
+        flow_pr = flow_pr.cpu().numpy()
+        # flow_gt = flow_gt.cpu().numpy()
+        image1 = image1.permute(0,2,3,1).cpu().numpy()
         
-        if flow_pr.shape[0]==2:
-            flow_pr = flow_pr[1]-flow_pr[0]
+        # if flow_pr.shape[0]==2:
+        #     flow_pr = flow_pr[1]-flow_pr[0]
+        # flow_gt = flow_gt/2
 
-        image1 = image1.squeeze(0).permute(1,2,0).cpu().numpy()
-        image2 = image2.permute(0,2,3,1).cpu().numpy()
+        # assert flow_pr.shape == flow_gt.shape, (flow_pr.shape, flow_gt.shape)
 
-        if save_result and val_id%val_save_skip==0:
+        for i in range(batch_size):
+            flow_pr_i = flow_pr[i]
+            image1_i = image1[i]
             if not os.path.exists('result/predictions/'+path+'/'):
                 os.makedirs('result/predictions/'+path+'/')
             
-            pth = paths[0].split('/')[-6:]
+            pth = paths[0][i].split('/')[-6:]
             pth = '/'.join(pth)
 
             os.makedirs(os.path.join(est_dir, os.path.dirname(pth)), exist_ok=True)
             os.makedirs(os.path.join(vminvmax_dir, os.path.dirname(pth)), exist_ok=True)
-            flow_prn = flow_pr.cpu().numpy().squeeze()
+            # flow_prn = flow_pr.cpu().numpy().squeeze()
 
             os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
             os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
             os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
 
-            plt.imsave(os.path.join(src_dir, pth), image1.astype(np.uint8))
-            plt.imsave(os.path.join(src_dir, pth), image2[0].astype(np.uint8))
-            plt.imsave(os.path.join(src_dir, pth), image2[1].astype(np.uint8))
+            plt.imsave(os.path.join(src_dir, pth), image1_i.astype(np.uint8))
+            # plt.imsave(os.path.join(src_dir, pth), image2[0].astype(np.uint8))
+            # plt.imsave(os.path.join(src_dir, pth), image2[1].astype(np.uint8))
 
-            print(flow_prn.min(), flow_prn.max())
+            # print(flow_pr_i.min(), flow_pr_i.max())
             vmin, vmax = -4, 1.5
-            plt.imsave(os.path.join(vminvmax_dir, pth), flow_prn.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
-            plt.imsave(os.path.join(est_dir, pth), flow_prn.squeeze(), cmap='jet')
+            plt.imsave(os.path.join(vminvmax_dir, pth), flow_pr_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+            plt.imsave(os.path.join(est_dir, pth), flow_pr_i.squeeze(), cmap='jet')
 
     return None
 
@@ -165,6 +195,9 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
         val_dataset = datasets.MDD(aug_params, image_set=image_set)
     else:
         val_dataset = datasets.MDD(aug_params, image_set=image_set, root=path, resize_ratio=4)
+
+    val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+        pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
 
     path = os.path.basename(os.path.basename(path))
     
@@ -190,90 +223,109 @@ def validate_MDD(model, input_image_num, iters=32, mixed_prec=False, save_result
     eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['ai1', 'ai2', 'ai2_bad_1px', 'ai2_bad_3px', 'ai2_bad_5px', 'ai2_bad_10px', 'ai2_bad_15px'])
 
     result = {}
-    for val_id in tqdm(range(val_num)):
-        if val_id%val_save_skip != 0:
+
+    if val_save_skip < batch_size:
+        val_save_skip = 1
+    else:
+        val_save_skip = val_save_skip // batch_size
+
+    # for val_id in tqdm(range(val_num)):
+    for i_batch, data_blob in enumerate(tqdm(val_loader)):
+
+        if i_batch % val_save_skip != 0:
             continue
+        # if val_id == 2:
+        #     break
+        paths, image1, image2, flow_gt, valid_gt = data_blob
+        # paths, image1, image2, flow_gt, valid_gt = val_dataset[val_id]
+        # image1 = image1[None].cuda()
+        # image2 = image2[None].cuda()
         
-        paths, image1, image2, flow_gt, valid_gt = val_dataset[val_id]
-        
-        image1 = image1[None].cuda()
-        image2 = image2[None].cuda()
-
         ## 4 LRTB,  2 LR
-        if input_image_num == 2:
-            image2 = image2.squeeze()
+        # if input_image_num == 4:
+        #     image2 = image2
+        # else:
+        #     image2 = image2[:, :2]
+
+        if args.input_image_num == 4:
+            image2 = torch.cat([image2[:,0],image2[:,1],image2[:,2],image2[:,3]], dim=0).contiguous()
         else:
-            image2 = image2.squeeze()[:2]
-
-        # padder = InputPadder(image1.shape, divis_by=32)
-        # image1, image2 = padder.pad(image1, image2)
-
+            image2 = torch.cat([image2[:,0],image2[:,1]], dim=0).contiguous()
+        
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(image1, image2, iters=iters, test_mode=True)
-        # flow_pr = padder.unpad(flow_pr).cpu().squeeze(0)
-        flow_pr = flow_pr.cpu().squeeze(0).numpy()
-        
+
+
+        # flow_pr = torch.zeros_like(flow_gt)
+
+        # Align dimensions and file format
+        flow_pr = flow_pr.cpu().numpy()
         flow_gt = flow_gt.cpu().numpy()
-        image1 = image1.cpu().squeeze(0).permute(1,2,0).numpy()
-        image2 = image2.cpu().permute(0,2,3,1).numpy()
+        image1 = image1.permute(0,2,3,1).cpu().numpy()
+        # image2 = image2.cpu().permute(0,2,3,1).numpy()
 
-        if flow_pr.shape[0]==2:
-            flow_pr = flow_pr[0]-flow_pr[1]
+        # if flow_pr.shape[0]==2:
+        #     flow_pr = flow_pr[0]-flow_pr[1]
+        assert flow_pr.shape == flow_gt.shape, (flow_pr.shape, flow_gt.shape)
 
-        est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr, flow_gt)
-        est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr, flow_gt)
-        bads = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
-        est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
+        for i in range(batch_size):
+            flow_pr_i = flow_pr[i]
+            flow_gt_i = flow_gt[i]
+            image1_i = image1[i]
+            est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr_i, flow_gt_i)
+            est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr_i, flow_gt_i)
+            bads = eval_est.ai2_bad_pixel_metrics(flow_pr_i, flow_gt_i)
+            est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
 
-        # print(flow_pr[0][418:421][317:343])
+            # print(flow_pr_i[0][418:421][317:343])
 
-        if save_result:
-            if not os.path.exists('result/predictions/'+path+'/'):
-                os.makedirs('result/predictions/'+path+'/')
-            
-            pth_lists = paths[0].split('/')[-3:]
-            pth = '/'.join(pth_lists)
-            pth = os.path.basename(pth)
+            if save_result:
+                if not os.path.exists('result/predictions/'+path+'/'):
+                    os.makedirs('result/predictions/'+path+'/')
+                
+                pth_lists = paths[0][i].split('/')[-3:]
+                pth = '/'.join(pth_lists)
+                pth = os.path.basename(pth)
 
-            # Set range
-            vmargin = 0.3
-            vrng = flow_gt.max() - flow_gt.min()
-            vmin, vmax = flow_gt.min() - vrng * vmargin, flow_gt.max() + vrng * vmargin
-            vmin_err, vmax_err = 0, vrng * vmargin
+                # Set range
+                vmargin = 0.3
+                vrng = flow_gt_i.max() - flow_gt_i.min()
+                vmin, vmax = flow_gt_i.min() - vrng * vmargin, flow_gt_i.max() + vrng * vmargin
+                vmin_err, vmax_err = 0, vrng * vmargin
 
-            # vmin, vmax = -2, 2
+                # vmin, vmax = -2, 2
 
-            # # Plot histogram of flow_pr
-            # plt.figure()
-            # plt.hist(flow_pr.flatten(), bins=50, color='blue', alpha=0.7)
-            # plt.title(f'{val_id}')
-            # plt.xlabel('Value')
-            # plt.ylabel('Frequency')
-            # plt.grid(True)
-            # plt.savefig(os.path.join(hist_dir, f"{val_id}_histogram.png"))
-            # plt.close()
+                # # Plot histogram of flow_pr_i
+                # plt.figure()
+                # plt.hist(flow_pr_i.flatten(), bins=50, color='blue', alpha=0.7)
+                # plt.title(f'{val_id}')
+                # plt.xlabel('Value')
+                # plt.ylabel('Frequency')
+                # plt.grid(True)
+                # plt.savefig(os.path.join(hist_dir, f"{val_id}_histogram.png"))
+                # plt.close()
 
-            eval_est.add_colorrange(vmin, vmax)
+                eval_est.add_colorrange(vmin, vmax)
 
-            # Save in colormap
-            plt.imsave(os.path.join(est_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
-            plt.imsave(os.path.join(err_dir, pth), np.abs(est_ai2_fit.squeeze() - flow_gt.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
-            
-            plt.imsave(os.path.join(gt_dir, pth), flow_gt.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+                # Save in colormap
+                plt.imsave(os.path.join(est_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+                plt.imsave(os.path.join(err_dir, pth), np.abs(est_ai2_fit.squeeze() - flow_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+                
+                plt.imsave(os.path.join(gt_dir, pth), flow_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
 
-            # plt.imsave(os.path.join(src_dir, 'test_c', 'source', 'scenes', pth.replace('.jpg', '.png')), image1.astype(np.uint8))
-            # plt.imsave(os.path.join(src_dir, 'test_l', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[0].astype(np.uint8))
-            # plt.imsave(os.path.join(src_dir, 'test_r', 'source', 'scenes', pth.replace('B', 'R').replace('.jpg', '.png')), image2[1].astype(np.uint8))
+                plt.imsave(os.path.join(src_dir, 'test_c', 'source', 'scenes', pth.replace('.jpg', '.png')), image1_i.astype(np.uint8))
+                # plt.imsave(os.path.join(src_dir, 'test_l', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[0].astype(np.uint8))
+                # plt.imsave(os.path.join(src_dir, 'test_r', 'source', 'scenes', pth.replace('B', 'R').replace('.jpg', '.png')), image2[1].astype(np.uint8))
 
-            # percent = 10
-            # delta = np.percentile(np.abs(flow_pr), percent)
-            # mask = (flow_pr >= -delta) & (flow_pr <= delta)
-            # masked_flow_pr = np.where(mask, 255, 0)
+                # percent = 10
+                # delta = np.percentile(np.abs(flow_pr), percent)
+                # mask = (flow_pr >= -delta) & (flow_pr <= delta)
+                # masked_flow_pr = np.where(mask, 255, 0)
 
-            # mask_rng_dir = os.path.join(masked_dir, f'{str(percent).replace('.','_')}')
-            # os.makedirs(mask_rng_dir, exist_ok=True)
-            # plt.imsave(os.path.join(mask_rng_dir, pth), masked_flow_pr.squeeze(), cmap='gray')
-            
+                # mask_rng_dir = os.path.join(masked_dir, f'{str(percent).replace('.','_')}')
+                # os.makedirs(mask_rng_dir, exist_ok=True)
+                # plt.imsave(os.path.join(mask_rng_dir, pth), masked_flow_pr.squeeze(), cmap='gray')
+                
 
     eval_est.save_metrics()
     result = {**result, **eval_est.get_mean_metrics()}
@@ -320,112 +372,122 @@ def validate_QPD(model, input_image_num, iters=32, mixed_prec=False, save_result
     
     result = {}
 
-    # for i_batch, data_blob in enumerate(tqdm(val_loader)):
-    for val_id in tqdm(range(val_num)):
+    if val_save_skip < batch_size:
+        val_save_skip = 1
+    else:
+        val_save_skip = val_save_skip // batch_size
 
-        if val_id % val_save_skip != 0:
+    # for val_id in tqdm(range(val_num)):
+    for i_batch, data_blob in enumerate(tqdm(val_loader)):
+
+        if i_batch % val_save_skip != 0:
             continue
         # if val_id == 2:
         #     break
-        # paths, image1, image2, flow_gt, valid_gt = data_blob
-        paths, image1, image2, flow_gt, valid_gt = val_dataset[val_id]
-        image1 = image1[None].cuda()
-        image2 = image2[None].cuda()
-
-        # h, w = image1.shape[2:]
-        # crop_w = 448
-        # crop_h = 448
-        # image1 = image1[:, :, h//2-crop_h//2:h//2+crop_h//2, w//2-crop_w//2:w//2+crop_w//2]
-        # image2 = image2[:, :, :, h//2-crop_h//2:h//2+crop_h//2, w//2-crop_w//2:w//2+crop_w//2]
-        # flow_gt = flow_gt[:, h//2-crop_h//2:h//2+crop_h//2, w//2-crop_w//2:w//2+crop_w//2]
-        # valid_gt = valid_gt[h//2-crop_h//2:h//2+crop_h//2, w//2-crop_w//2:w//2+crop_w//2]
+        paths, image1, image2, flow_gt, valid_gt = data_blob
+        # paths, image1, image2, flow_gt, valid_gt = val_dataset[val_id]
+        # image1 = image1[None].cuda()
+        # image2 = image2[None].cuda()
         
         ## 4 LRTB,  2 LR
-        if input_image_num == 4:
-            image2 = image2.squeeze()
+        # if input_image_num == 4:
+        #     image2 = image2
+        # else:
+        #     image2 = image2[:, :2]
+
+        if args.input_image_num == 4:
+            image2 = torch.cat([image2[:,0],image2[:,1],image2[:,2],image2[:,3]], dim=0).contiguous()
         else:
-            image2 = image2.squeeze()[:2]
+            image2 = torch.cat([image2[:,0],image2[:,1]], dim=0).contiguous()
         
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(image1, image2, iters=iters, test_mode=True)
 
+
         # flow_pr = torch.zeros_like(flow_gt)
 
         # Align dimensions and file format
-        flow_pr = flow_pr.squeeze(0).cpu().numpy()
+        flow_pr = flow_pr.cpu().numpy()
         flow_gt = flow_gt.cpu().numpy()
-        image1 = image1.squeeze(0).permute(1,2,0).cpu().numpy()
+        image1 = image1.permute(0,2,3,1).cpu().numpy()
         
-        if flow_pr.shape[0]==2:
-            flow_pr = flow_pr[1]-flow_pr[0]
+        # if flow_pr.shape[0]==2:
+        #     flow_pr = flow_pr[1]-flow_pr[0]
         flow_gt = flow_gt/2
 
         assert flow_pr.shape == flow_gt.shape, (flow_pr.shape, flow_gt.shape)
 
-        # fitting and save
-        epe = eval_est.end_point_error(flow_pr, flow_gt)
-        rmse = eval_est.root_mean_squared_error(flow_pr, flow_gt)
-        # bads = eval_est.ai2_bad_pixel_metrics(flow_pr, flow_gt)
-        bads = eval_est.epe_bad_pixel_metrics(flow_pr, flow_gt)
-        est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr, flow_gt)
-        est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr, flow_gt)
-        si, alpha = eval_est.scale_invariant(flow_pr, flow_gt)
-        est_ai2_fit = flow_pr * est_b2[0] + est_b2[1]
+        for i in range(batch_size):
+            flow_pr_i = flow_pr[i]
+            flow_gt_i = flow_gt[i]
+            image1_i = image1[i]
 
-        if save_result:
-            if not os.path.exists('result/predictions/'+path+'/'):
-                os.makedirs('result/predictions/'+path+'/')
-        
-            pth_lists = paths[0].split('/')[-2:]
-            pth = '/'.join(pth_lists)
-            # pth = os.path.basename(pth)
+            # fitting and save
+            epe = eval_est.end_point_error(flow_pr_i, flow_gt_i)
+            rmse = eval_est.root_mean_squared_error(flow_pr_i, flow_gt_i)
+            # bads = eval_est.ai2_bad_pixel_metrics(flow_pr_i, flow_gt_i)
+            bads = eval_est.epe_bad_pixel_metrics(flow_pr_i, flow_gt_i)
+            est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr_i, flow_gt_i)
+            est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr_i, flow_gt_i)
+            si, alpha = eval_est.scale_invariant(flow_pr_i, flow_gt_i)
+            est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
 
-            # Set range
-            vmargin = 0.1
-            vrng = flow_gt.max() - flow_gt.min()
-            vmin, vmax = flow_gt.min() - vrng * vmargin, flow_gt.max() + vrng * vmargin
-            vmin_err, vmax_err = 0, vrng * vmargin
+            val_id = i_batch * batch_size + i
 
-            vmin, vmax = np.min([est_ai2_fit, flow_gt]), np.max([est_ai2_fit, flow_gt])
-            vmin_err, vmax_err = np.min([est_ai2_fit - flow_gt, flow_gt - est_ai2_fit]), np.max([est_ai2_fit - flow_gt, flow_gt - est_ai2_fit])            
-            eval_est.add_colorrange(vmin, vmax)
-
-            os.makedirs(os.path.dirname(os.path.join(est_dir, pth)), exist_ok=True)
-            os.makedirs(os.path.dirname(os.path.join(err_dir, pth)), exist_ok=True)
-            os.makedirs(os.path.dirname(os.path.join(gt_dir, pth)), exist_ok=True)
-            os.makedirs(os.path.dirname(os.path.join(src_dir, pth)), exist_ok=True)
-
-            # Save in colormap
-            plt.imsave(os.path.join(est_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)        
-            plt.imsave(os.path.join(err_dir, pth), np.abs(est_ai2_fit.squeeze() - flow_gt.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+            if save_result:
+                if not os.path.exists('result/predictions/'+path+'/'):
+                    os.makedirs('result/predictions/'+path+'/')
             
-            plt.imsave(os.path.join(gt_dir, pth), flow_gt.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
-            plt.imsave(os.path.join(src_dir, pth), image1.astype(np.uint8))
+                pth_lists = paths[0][i].split('/')[-2:]
+                pth = '/'.join(pth_lists)
+                # pth = os.path.basename(pth)
 
-            # Colorize된 이미지를 result에 저장
-            colormap = cm.jet
+                # Set range
+                vmargin = 0.1
+                vrng = flow_gt_i.max() - flow_gt_i.min()
+                vmin, vmax = flow_gt_i.min() - vrng * vmargin, flow_gt_i.max() + vrng * vmargin
+                vmin_err, vmax_err = 0, vrng * vmargin
 
-            # est_ai2_fit colorized 이미지
-            est_colorized = colormap((est_ai2_fit - vmin) / (vmax - vmin))  # 0~1 범위로 정규화
-            est_colorized = (est_colorized * 255).astype(np.uint8)[0, :, :, :3]
-            est_colorized = np.moveaxis(est_colorized, -1, 0)
-            result[f'{val_id}_est_colormap'] = est_colorized
+                vmin, vmax = np.min([est_ai2_fit, flow_gt_i]), np.max([est_ai2_fit, flow_gt_i])
+                vmin_err, vmax_err = np.min([est_ai2_fit - flow_gt_i, flow_gt_i - est_ai2_fit]), np.max([est_ai2_fit - flow_gt_i, flow_gt_i - est_ai2_fit])            
+                eval_est.add_colorrange(vmin, vmax)
 
-            # error 이미지 colorized
-            error_image = np.abs(est_ai2_fit - flow_gt)
-            error_colorized = colormap((error_image - vmin_err) / (vmax_err - vmin_err))
-            error_colorized = (error_colorized * 255).astype(np.uint8)[0, :, :, :3]
-            error_colorized = np.moveaxis(error_colorized, -1, 0)
-            result[f'{val_id}_err_colormap'] = error_colorized
+                os.makedirs(os.path.dirname(os.path.join(est_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(err_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(gt_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(src_dir, pth)), exist_ok=True)
 
-            # flow_gt colorized 이미지
-            gt_colorized = colormap((flow_gt - vmin) / (vmax - vmin))
-            gt_colorized = (gt_colorized * 255).astype(np.uint8)[0, :, :, :3]
-            gt_colorized = np.moveaxis(gt_colorized, -1, 0)
-            result[f'{val_id}_gt_colormap'] = gt_colorized
+                # Save in colormap
+                plt.imsave(os.path.join(est_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)        
+                plt.imsave(os.path.join(err_dir, pth), np.abs(est_ai2_fit.squeeze() - flow_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+                
+                plt.imsave(os.path.join(gt_dir, pth), flow_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+                plt.imsave(os.path.join(src_dir, pth), image1.astype(np.uint8))
 
-        flow_pr = torch.from_numpy(flow_pr)
-        flow_gt = torch.from_numpy(flow_gt)
+                # Colorize된 이미지를 result에 저장
+                colormap = cm.jet
+
+                # est_ai2_fit colorized 이미지
+                est_colorized = colormap((est_ai2_fit - vmin) / (vmax - vmin))  # 0~1 범위로 정규화
+                est_colorized = (est_colorized * 255).astype(np.uint8)[0, :, :, :3]
+                est_colorized = np.moveaxis(est_colorized, -1, 0)
+                result[f'{val_id}_est_colormap'] = est_colorized
+
+                # error 이미지 colorized
+                error_image = np.abs(est_ai2_fit - flow_gt_i)
+                error_colorized = colormap((error_image - vmin_err) / (vmax_err - vmin_err))
+                error_colorized = (error_colorized * 255).astype(np.uint8)[0, :, :, :3]
+                error_colorized = np.moveaxis(error_colorized, -1, 0)
+                result[f'{val_id}_err_colormap'] = error_colorized
+
+                # flow_gt_i colorized 이미지
+                gt_colorized = colormap((flow_gt_i - vmin) / (vmax - vmin))
+                gt_colorized = (gt_colorized * 255).astype(np.uint8)[0, :, :, :3]
+                gt_colorized = np.moveaxis(gt_colorized, -1, 0)
+                result[f'{val_id}_gt_colormap'] = gt_colorized
+
+        # flow_pr = torch.from_numpy(flow_pr)
+        # flow_gt = torch.from_numpy(flow_gt)
 
     eval_est.save_metrics()
     result = {**result, **eval_est.get_mean_metrics()}
