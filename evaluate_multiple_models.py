@@ -50,31 +50,15 @@ if __name__ == '__main__':
     # Depth Anything V2
     parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
     parser.add_argument('--feature_converter', type=str, default='', help="training datasets.")
-
     
     args = parser.parse_args()
-
-    # args.save_result = args.save_result == str(True)
-
-    # Argument categorization
-    # da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
-    # else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'mixed_precision', 'batch_size', 'datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path'}
-
-    # def split_arguments(args):
-    #     args_dict = vars(args)
-    #     da_v2_args = {key: args_dict[key] for key in da_v2_keys if key in args_dict}
-    #     else_args = {key: args_dict[key] for key in args_dict if key in else_keys}
-
-    #     return {
-    #         'da_v2': Namespace(**da_v2_args),
-    #         'else': Namespace(**else_args),
-    #     }
     
 
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
 
     restore_ckpts = glob(os.path.join(args.train_dir, '**','checkpoints', '*.pth'), recursive=True)
+    restore_ckpts = sorted(restore_ckpts, key=lambda x: int(os.path.basename(x).split('_')[0]))
 
     for restore_ckpt in restore_ckpts:
         ckpt = int(os.path.basename(restore_ckpt).split('_')[0])
@@ -113,7 +97,6 @@ if __name__ == '__main__':
             save_path = os.path.join(args.save_path, 'qpd-test', os.path.basename(restore_ckpt).replace('.pth', ''))
             print(save_path)
             result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=args.qpd_test_bs if args.qpd_test_bs else 1)
-
         if 'QPD-Valid' in args.datasets:
             save_path = os.path.join(args.save_path, 'qpd-valid', os.path.basename(restore_ckpt).replace('.pth', ''))
             print(save_path)
