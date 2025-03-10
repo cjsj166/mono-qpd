@@ -264,10 +264,10 @@ def train(args):
         total_steps = 0
         optimizer, scheduler = fetch_optimizer(args, model, -1)
 
-        if args.restore_ckpt_qpd_net is not None:
+        if args.restore_ckpt_qpd_net:
             model.qpdnet.load_state_dict(torch.load(args.restore_ckpt_qpd_net))
 
-        if args.restore_ckpt_da_v2 is not None:
+        if args.restore_ckpt_da_v2:
             model.da_v2.load_state_dict(torch.load(args.restore_ckpt_da_v2))
 
         model = nn.DataParallel(model)
@@ -458,79 +458,16 @@ def train(args):
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='interp', help="name your experiment")
+    # parser.add_argument('--tsubame', type=bool, default=False, help="name your experiment")
+    parser.add_argument('--tsubame', action='store_true', help="iterate the low-res GRUs more frequently")
     args = parser.parse_args()
 
-    conf = get_train_config(args.exp_name)
+    if args.tsubame:
+        dcl = get_train_config(args.exp_name)
+        conf = dcl.tsubame()
+    else:
+        conf = get_train_config(args.exp_name)
     # conf_namespace = argparse.Namespace(**conf)
     print(conf)
 
     train(conf)
-
-
-
-
-# if __name__ == '__main__':
-
-#     parser = argparse.ArgumentParser()
-#     parser.add_argument('--name', default='Mono-QPD', help="name your experiment")
-#     parser.add_argument('--restore_ckpt_da_v2', default=None, help="restore checkpoint")
-#     parser.add_argument('--restore_ckpt_qpd_net', default=None, help="restore checkpoint")
-#     parser.add_argument('--restore_ckpt_mono_qpd', default=None, help="restore checkpoint")
-#     parser.add_argument('--initialize_scheduler', default=False, action='store_true', help='initialize the scheduler')
-#     parser.add_argument('--dec_update', default=False, action='store_true', help='initialize the scheduler')
-#     parser.add_argument('--mixed_precision', default=False, action='store_true', help='use mixed precision')
-
-#     # Training parameters
-#     parser.add_argument('--batch_size', type=int, default=4, help="batch size used during training.")
-#     parser.add_argument('--train_datasets', nargs='+', default=['QPD'], help="training datasets.")
-#     parser.add_argument('--datasets_path', default='dd_dp_dataset_hypersim_377\\', help="training datasets.")
-#     parser.add_argument('--lr', type=float, default=0.0002, help="max learning rate.")
-#     parser.add_argument('--num_steps', type=int, default=200000, help="length of training schedule.")
-#     parser.add_argument('--stop_step', type=int, default=None, help="training stop step(option) ")
-#     parser.add_argument('--input_image_num', type=int, default=2, help="batch size used during training.")
-#     parser.add_argument('--image_size', type=int, nargs='+', default=[448, 448], help="size of the random image crops used during training.")
-#     parser.add_argument('--train_iters', type=int, default=8, help="number of updates to the disparity field in each forward pass.")
-#     parser.add_argument('--wdecay', type=float, default=.00001, help="Weight decay in optimizer.")
-#     parser.add_argument('--CAPA', default=True, help="if use Channel wise and pixel wise attention")
-#     parser.add_argument('--si_loss', default=0, type=float, help="scale invariant loss")
-    
-
-#     # Validation parameters
-#     parser.add_argument('--valid_iters', type=int, default=8, help='number of flow-field updates during validation forward pass')
-
-#     # Architecure choices
-#     parser.add_argument('--corr_implementation', choices=["reg"], default="reg", help="correlation volume implementation")
-#     parser.add_argument('--shared_backbone', action='store_true', help="use a single backbone for the context and feature encoders")
-#     parser.add_argument('--corr_levels', type=int, default=4, help="number of levels in the correlation pyramid")
-#     parser.add_argument('--corr_radius', type=int, default=4, help="width of the correlation pyramid")
-#     parser.add_argument('--n_downsample', type=int, default=2, help="resolution of the disparity field (1/2^K)")
-#     parser.add_argument('--context_norm', type=str, default="batch", choices=['group', 'batch', 'instance', 'none'], help="normalization of context encoder")
-#     parser.add_argument('--slow_fast_gru', action='store_true', help="iterate the low-res GRUs more frequently")
-#     parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
-#     parser.add_argument('--hidden_dims', nargs='+', type=int, default=[128]*3, help="hidden state and context dimensions")
-
-#     # Data augmentation
-#     parser.add_argument('--img_gamma', type=float, nargs='+', default=None, help="gamma range")
-#     parser.add_argument('--saturation_range', type=float, nargs='+', default=None, help='color saturation')
-#     parser.add_argument('--do_flip', default=False, choices=['h', 'v'], help='flip the images horizontally or vertically')
-#     parser.add_argument('--spatial_scale', type=float, nargs='+', default=[0, 0], help='re-scale the images randomly')
-#     parser.add_argument('--noyjitter', action='store_true', help='don\'t simulate imperfect rectification')
-#     parser.add_argument('--datatype', type=str, default='dual', help='dual or quad')
-#     parser.add_argument('--qpd_gt_types', type=str, nargs='+', default=['disp'], help='disp or flow')
-#     parser.add_argument('--dp_disp_gt_types', type=str, nargs='+', default=['inv_depth'], help='disp or flow')
-    
-#     # Depth Anything V2
-#     parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
-#     parser.add_argument('--img-size', default=518, type=int)
-#     parser.add_argument('--epochs', default=40, type=int)
-#     parser.add_argument('--local-rank', default=0, type=int)
-#     parser.add_argument('--freeze_da_v2', action='store_true')
-#     parser.add_argument('--port', default=None, type=int)
-
-#     # mono qpd parameters
-#     parser.add_argument('--feature_converter', type=str, default='', help="training datasets.")
-#     parser.add_argument('--save_path', type=str, help="path to save")
-
-#     args = parser.parse_args()
-    
-#     train(args)

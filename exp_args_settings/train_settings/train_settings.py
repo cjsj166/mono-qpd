@@ -64,17 +64,24 @@ class TrainConfig:
 
     
     @classmethod
-    def tsubame_interp(cls):
-        conf = cls.interp()
-        conf.batch_size = 16
-        conf.restore_ckpt_da_v2 = ''
-        conf.image_size = (448, 448)
-        conf.datasets_path = 'datasets/QP-Data'
-        conf.freeze_da_v2 = True
-        conf.save_path = 'result/train/'
-        conf.feature_converter = 'interp'
+    def tsubame(cls):
+        # cls.batch_size = 16
+        # cls.restore_ckpt_da_v2 = ''
+        # cls.image_size = (448, 448)
+        # cls.datasets_path = 'datasets/QP-Data'
+        # cls.freeze_da_v2 = True
+        # cls.save_path = 'result/train/'
+        # cls.feature_converter = 'interp'
 
-        return conf
+        return cls(
+            batch_size=16,
+            restore_ckpt_da_v2='',
+            image_size=(448, 448),
+            datasets_path='datasets/QP-Data',
+            freeze_da_v2=True,
+            save_path='result/train/',
+            feature_converter='interp'
+        )
 
 
 if __name__ == '__main__':

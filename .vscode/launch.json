@@ -94,6 +94,7 @@
             "args": [
                 "--exp_name",
                 "Interp",
+                "--tsubame",
             ]
         },
 
