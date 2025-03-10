@@ -33,8 +33,6 @@ def fix_key(state_dict):
 # DepthAnything model is loaded and executed. QPDNet model itself is not executed in this code. 
 # But the estimated result is loaded from the dp_src path.
 
-
-
 @torch.no_grad()
 def validate_MDD(depth_anything, args):
 

@@ -14,18 +14,13 @@ import torch.optim as optim
 # from QPDNet.qpd_net import QPDNet
 from mono_qpd.mono_qpd import MonoQPD
 import os
-
 from mono_qpd.loss import ScaleInvariantLoss, LeastSquareScaleInvariantLoss
-
 from evaluate_mono_qpd import *
 import mono_qpd.QPDNet.Quad_datasets as datasets
-
 from argparse import Namespace
-
-from evaluate_mono_qpd import validate_QPD, validate_MDD
-
+from evaluate_mono_qpd import validate_QPD, validate_DPD_Disp
 from datetime import datetime
-
+from exp_args_settings.train_settings import get_train_config
 
 
 try:
@@ -45,7 +40,7 @@ except:
             pass
 
 
-def sequence_loss(flow_preds, flow_gt, valid, loss_gamma=0.9, max_flow=700):
+def sequence_loss(flow_preds, flow_gt, valid, si_loss_weight=0.0, loss_gamma=0.9, max_flow=700):
     """ Loss function defined over sequence of flow predictions """
 
     b,c,h,w = flow_gt.shape
@@ -57,7 +52,7 @@ def sequence_loss(flow_preds, flow_gt, valid, loss_gamma=0.9, max_flow=700):
     mag = torch.sum(flow_gt**2, dim=1).sqrt()
 
     # exclude extremly large displacements
-    valid = ((valid >= 0.5) & (mag < max_flow)).unsqueeze(1)
+    valid = ((valid.squeeze(0) >= 0.5) & (mag < max_flow)).unsqueeze(1)
     assert valid.shape == flow_gt.shape, [valid.shape, flow_gt.shape]
     assert not torch.isinf(flow_gt[valid.bool()]).any()
 
@@ -70,17 +65,17 @@ def sequence_loss(flow_preds, flow_gt, valid, loss_gamma=0.9, max_flow=700):
         fp = flow_preds[i]
 
         si_loss = 0
-        if args.si_loss != 0:
+        if si_loss_weight != 0:
             criterion = LeastSquareScaleInvariantLoss()
-            si_loss = criterion(fp, (flow_gt/2), valid) * args.si_loss
+            si_loss = criterion(fp, (flow_gt/2), valid) * si_loss_weight
 
         l1_loss = 0
-        if args.si_loss != 1:    
+        if si_loss_weight != 1:    
             l1_loss = (fp-(flow_gt/2)).abs()
             assert l1_loss.shape == valid.shape, [l1_loss.shape, valid.shape, flow_gt.shape, flow_preds[i].shape]
             l1_loss = l1_loss[valid.bool()].mean()
 
-        i_loss = si_loss * args.si_loss + l1_loss * (1 - args.si_loss)
+        i_loss = si_loss * si_loss_weight + l1_loss * (1 - si_loss_weight)
         flow_loss += i_weight * i_loss
     
     fp = flow_preds[-1]
@@ -192,8 +187,29 @@ def check_nan_hook(name):
         check_nan(module, name, output)        
     return check_nan_hook
 
+# def split_arguments(args):
+#     args_dict = vars(args)
+#     da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
+
+#     da_v2_args = {key: args_dict[key] for key in da_v2_keys if key in args_dict}
+#     else_args = {key: args_dict[key] for key in args_dict if key not in da_v2_keys}
+
+#     return {
+#         'da_v2': Namespace(**da_v2_args),
+#         'else': Namespace(**else_args),
+#     }
+
+
 # args.txt 만들기, runs timestamp폴더
 def train(args):
+    # Split arguments
+    # args = split_arguments(args)
+
+    torch.manual_seed(1234)
+    np.random.seed(1234)
+    logging.basicConfig(level=logging.INFO,
+                        format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
+
 
     model = MonoQPD(args)
     print("Parameter Count: %d" % count_parameters(model))
@@ -202,8 +218,8 @@ def train(args):
     for name, layer in model.named_modules():
         layer.register_forward_hook(check_nan_hook(name))
 
-    da_v2_args = args['da_v2']
-    args = args['else']
+    # da_v2_args = args['da_v2']
+    # args = args['else']
 
     # Prepare the save directory
     timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
@@ -213,7 +229,6 @@ def train(args):
 
     os.makedirs(model_save_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
-
 
     train_loader = datasets.fetch_dataloader(args)
     
@@ -252,14 +267,14 @@ def train(args):
         if args.restore_ckpt_qpd_net is not None:
             model.qpdnet.load_state_dict(torch.load(args.restore_ckpt_qpd_net))
 
-        if da_v2_args.restore_ckpt_da_v2 is not None:
-            model.da_v2.load_state_dict(torch.load(da_v2_args.restore_ckpt_da_v2))
+        if args.restore_ckpt_da_v2 is not None:
+            model.da_v2.load_state_dict(torch.load(args.restore_ckpt_da_v2))
 
         model = nn.DataParallel(model)
         model.cuda()
 
 
-    if da_v2_args.freeze_da_v2:
+    if args.freeze_da_v2:
         for param in model.module.da_v2.parameters():
             param.requires_grad = False
     
@@ -272,8 +287,8 @@ def train(args):
         for key, value in vars(args).items():
             f.write(f'{key}: {value}\n')
         f.write('\n')
-        for key, value in vars(da_v2_args).items():
-            f.write(f'{key}: {value}\n')
+        # for key, value in vars(da_v2_args).items():
+        #     f.write(f'{key}: {value}\n')
 
     logger = Logger(model, scheduler, total_steps, log_dir=log_dir)
 
@@ -295,9 +310,15 @@ def train(args):
     dpdisp_epeepoch,dpdisp_rmseepoch,dpdisp_ai2epoch = 0,0,0
 
     while should_keep_training:
-        for i_batch, (_, *data_blob) in enumerate(tqdm(train_loader)):
+        for i_batch, data_blob in enumerate(tqdm(train_loader)):
             optimizer.zero_grad()
-            center_img, lrtblist, flow, valid = [x.cuda() for x in data_blob]
+
+            center_img = data_blob['center'].cuda()
+            lrtblist = data_blob['lrtb_list'].cuda()
+            flow = data_blob['disp'].cuda()
+            valid = data_blob['disp_valid'].cuda()
+        
+            # center_img, lrtblist, flow, valid = [x.cuda() for x in data_blob]
 
             assert not torch.isnan(center_img).any(), "Invalid values in input images"
             assert not torch.isnan(lrtblist).any(), "Invalid values in input images"
@@ -305,10 +326,12 @@ def train(args):
             b,s,c,h,w = lrtblist.shape
 
             image1 = center_img.contiguous().view(b,c,h,w)
-            if args.input_image_num == 4:
+            if args.datatype == 'quad':
                 image2 = torch.cat([lrtblist[:,0],lrtblist[:,1],lrtblist[:,2],lrtblist[:,3]], dim=0).contiguous()
-            else:
+            elif args.datatype == 'dual':
                 image2 = torch.cat([lrtblist[:,0],lrtblist[:,1]], dim=0).contiguous()
+            else:
+                raise NotImplementedError
 
             assert model.training
             flow_predictions = model(image1, image2, iters=args.train_iters)
@@ -317,15 +340,15 @@ def train(args):
                 rot_flow_predictions=[]
                 for i in range(len(flow_predictions)):
                     rot_flow_predictions.append(torch.rot90(flow_predictions[i], k=-1, dims=[2,3]))   
-                loss, metrics = sequence_loss(rot_flow_predictions, flow, valid)
+                loss, metrics = sequence_loss(rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss)
             elif args.input_image_num == 24:
                 rot_flow_predictions=[]
                 for i in range(len(flow_predictions)):
                     rot_flow_predictions.append(torch.rot90(flow_predictions[i], k=1, dims=[2,3]))   
-                loss, metrics = sequence_loss(rot_flow_predictions, flow, valid)
+                loss, metrics = sequence_loss(rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss)
             else:
                 try:
-                    loss, metrics = sequence_loss(flow_predictions, flow, valid)
+                    loss, metrics = sequence_loss(flow_predictions, flow, valid, si_loss_weight=args.si_loss)
                     
                 except AssertionError as e:
                     if "Invalid values in flow predictions" in str(e):
@@ -372,7 +395,7 @@ def train(args):
                     val_save_skip = 50
                 else:
                     val_save_skip = 50
-                results = validate_QPD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, input_image_num=args.input_image_num, image_set='validation', path='datasets/QP-Data', save_path=save_dir)
+                results = validate_QPD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir)
                     
                 if qpd_epebest>=results['epe']:
                     qpd_epebest = results['epe']
@@ -396,7 +419,7 @@ def train(args):
                 logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
                 logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
 
-                results = validate_MDD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=30, input_image_num=args.input_image_num, image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
+                results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=30, datatype=args.datatype, gt_types=['inv_depth'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
 
                 if dpdisp_ai2best>=results['ai2']:
                     dpdisp_ai2best = results['ai2']
@@ -432,99 +455,82 @@ def train(args):
 
     return model_save_path
 
-
 if __name__ == '__main__':
-
     parser = argparse.ArgumentParser()
-    parser.add_argument('--name', default='Mono-QPD', help="name your experiment")
-    parser.add_argument('--restore_ckpt_da_v2', default=None, help="restore checkpoint")
-    parser.add_argument('--restore_ckpt_qpd_net', default=None, help="restore checkpoint")
-    parser.add_argument('--restore_ckpt_mono_qpd', default=None, help="restore checkpoint")
-
-    parser.add_argument('--initialize_scheduler', default=False, action='store_true', help='initialize the scheduler')
-
-    parser.add_argument('--dec_update', default=False, action='store_true', help='initialize the scheduler')
-
-    parser.add_argument('--mixed_precision', default=False, action='store_true', help='use mixed precision')
-
-    # Training parameters
-    parser.add_argument('--batch_size', type=int, default=4, help="batch size used during training.")
-    parser.add_argument('--train_datasets', nargs='+', default=['QPD'], help="training datasets.")
-    parser.add_argument('--datasets_path', default='dd_dp_dataset_hypersim_377\\', help="training datasets.")
-    parser.add_argument('--lr', type=float, default=0.0002, help="max learning rate.")
-    parser.add_argument('--num_steps', type=int, default=200000, help="length of training schedule.")
-    parser.add_argument('--stop_step', type=int, default=None, help="training stop step(option) ")
-    parser.add_argument('--input_image_num', type=int, default=2, help="batch size used during training.")
-    parser.add_argument('--image_size', type=int, nargs='+', default=[448, 448], help="size of the random image crops used during training.")
-    parser.add_argument('--train_iters', type=int, default=8, help="number of updates to the disparity field in each forward pass.")
-    parser.add_argument('--wdecay', type=float, default=.00001, help="Weight decay in optimizer.")
-    parser.add_argument('--CAPA', default=True, help="if use Channel wise and pixel wise attention")
-
-    # parser.add_argument('--si_loss', action='store_true', help="scale invariant loss")
-    parser.add_argument('--si_loss', default=0, type=float, help="scale invariant loss")
-    
-
-    # Validation parameters
-    parser.add_argument('--valid_iters', type=int, default=8, help='number of flow-field updates during validation forward pass')
-
-    # Architecure choices
-    parser.add_argument('--corr_implementation', choices=["reg"], default="reg", help="correlation volume implementation")
-    parser.add_argument('--shared_backbone', action='store_true', help="use a single backbone for the context and feature encoders")
-    parser.add_argument('--corr_levels', type=int, default=4, help="number of levels in the correlation pyramid")
-    parser.add_argument('--corr_radius', type=int, default=4, help="width of the correlation pyramid")
-    parser.add_argument('--n_downsample', type=int, default=2, help="resolution of the disparity field (1/2^K)")
-    parser.add_argument('--context_norm', type=str, default="batch", choices=['group', 'batch', 'instance', 'none'], help="normalization of context encoder")
-    parser.add_argument('--slow_fast_gru', action='store_true', help="iterate the low-res GRUs more frequently")
-    parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
-    parser.add_argument('--hidden_dims', nargs='+', type=int, default=[128]*3, help="hidden state and context dimensions")
-
-
-    # Data augmentation
-    parser.add_argument('--img_gamma', type=float, nargs='+', default=None, help="gamma range")
-    parser.add_argument('--saturation_range', type=float, nargs='+', default=None, help='color saturation')
-    parser.add_argument('--do_flip', default=False, choices=['h', 'v'], help='flip the images horizontally or vertically')
-    parser.add_argument('--spatial_scale', type=float, nargs='+', default=[0, 0], help='re-scale the images randomly')
-    parser.add_argument('--noyjitter', action='store_true', help='don\'t simulate imperfect rectification')
-    
-    # Depth Anything V2
-    parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
-    parser.add_argument('--img-size', default=518, type=int)
-    parser.add_argument('--epochs', default=40, type=int)
-    parser.add_argument('--local-rank', default=0, type=int)
-    parser.add_argument('--freeze_da_v2', action='store_true')
-    parser.add_argument('--port', default=None, type=int)
-
-    # mono qpd parameters
-    parser.add_argument('--feature_converter', type=str, default='', help="training datasets.")
-    parser.add_argument('--save_path', type=str, help="path to save")
-
+    parser.add_argument('--exp_name', default='interp', help="name your experiment")
     args = parser.parse_args()
 
-    # Argument categorization
-    da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
-    else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'restore_ckpt_mono_qpd', 'mixed_precision', 'batch_size', 'train_datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path', 'stop_step', 'initialize_scheduler', 'dec_update', 'si_loss'}
+    conf = get_train_config(args.exp_name)
+    # conf_namespace = argparse.Namespace(**conf)
+    print(conf)
 
-    def split_arguments(args):
-        args_dict = vars(args)
-        da_v2_args = {key: args_dict[key] for key in da_v2_keys if key in args_dict}
-        else_args = {key: args_dict[key] for key in args_dict if key in else_keys}
+    train(conf)
 
-        return {
-            'da_v2': Namespace(**da_v2_args),
-            'else': Namespace(**else_args),
-        }
 
-    # Split arguments
-    split_args = split_arguments(args)
 
-    torch.manual_seed(1234)
-    np.random.seed(1234)
 
+# if __name__ == '__main__':
+
+#     parser = argparse.ArgumentParser()
+#     parser.add_argument('--name', default='Mono-QPD', help="name your experiment")
+#     parser.add_argument('--restore_ckpt_da_v2', default=None, help="restore checkpoint")
+#     parser.add_argument('--restore_ckpt_qpd_net', default=None, help="restore checkpoint")
+#     parser.add_argument('--restore_ckpt_mono_qpd', default=None, help="restore checkpoint")
+#     parser.add_argument('--initialize_scheduler', default=False, action='store_true', help='initialize the scheduler')
+#     parser.add_argument('--dec_update', default=False, action='store_true', help='initialize the scheduler')
+#     parser.add_argument('--mixed_precision', default=False, action='store_true', help='use mixed precision')
+
+#     # Training parameters
+#     parser.add_argument('--batch_size', type=int, default=4, help="batch size used during training.")
+#     parser.add_argument('--train_datasets', nargs='+', default=['QPD'], help="training datasets.")
+#     parser.add_argument('--datasets_path', default='dd_dp_dataset_hypersim_377\\', help="training datasets.")
+#     parser.add_argument('--lr', type=float, default=0.0002, help="max learning rate.")
+#     parser.add_argument('--num_steps', type=int, default=200000, help="length of training schedule.")
+#     parser.add_argument('--stop_step', type=int, default=None, help="training stop step(option) ")
+#     parser.add_argument('--input_image_num', type=int, default=2, help="batch size used during training.")
+#     parser.add_argument('--image_size', type=int, nargs='+', default=[448, 448], help="size of the random image crops used during training.")
+#     parser.add_argument('--train_iters', type=int, default=8, help="number of updates to the disparity field in each forward pass.")
+#     parser.add_argument('--wdecay', type=float, default=.00001, help="Weight decay in optimizer.")
+#     parser.add_argument('--CAPA', default=True, help="if use Channel wise and pixel wise attention")
+#     parser.add_argument('--si_loss', default=0, type=float, help="scale invariant loss")
     
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
 
-    # Path("result/checkpoints").mkdir(exist_ok=True, parents=True)
-    # Path("result/predictions").mkdir(exist_ok=True, parents=True)
+#     # Validation parameters
+#     parser.add_argument('--valid_iters', type=int, default=8, help='number of flow-field updates during validation forward pass')
+
+#     # Architecure choices
+#     parser.add_argument('--corr_implementation', choices=["reg"], default="reg", help="correlation volume implementation")
+#     parser.add_argument('--shared_backbone', action='store_true', help="use a single backbone for the context and feature encoders")
+#     parser.add_argument('--corr_levels', type=int, default=4, help="number of levels in the correlation pyramid")
+#     parser.add_argument('--corr_radius', type=int, default=4, help="width of the correlation pyramid")
+#     parser.add_argument('--n_downsample', type=int, default=2, help="resolution of the disparity field (1/2^K)")
+#     parser.add_argument('--context_norm', type=str, default="batch", choices=['group', 'batch', 'instance', 'none'], help="normalization of context encoder")
+#     parser.add_argument('--slow_fast_gru', action='store_true', help="iterate the low-res GRUs more frequently")
+#     parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
+#     parser.add_argument('--hidden_dims', nargs='+', type=int, default=[128]*3, help="hidden state and context dimensions")
+
+#     # Data augmentation
+#     parser.add_argument('--img_gamma', type=float, nargs='+', default=None, help="gamma range")
+#     parser.add_argument('--saturation_range', type=float, nargs='+', default=None, help='color saturation')
+#     parser.add_argument('--do_flip', default=False, choices=['h', 'v'], help='flip the images horizontally or vertically')
+#     parser.add_argument('--spatial_scale', type=float, nargs='+', default=[0, 0], help='re-scale the images randomly')
+#     parser.add_argument('--noyjitter', action='store_true', help='don\'t simulate imperfect rectification')
+#     parser.add_argument('--datatype', type=str, default='dual', help='dual or quad')
+#     parser.add_argument('--qpd_gt_types', type=str, nargs='+', default=['disp'], help='disp or flow')
+#     parser.add_argument('--dp_disp_gt_types', type=str, nargs='+', default=['inv_depth'], help='disp or flow')
     
-    train(split_args)
+#     # Depth Anything V2
+#     parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
+#     parser.add_argument('--img-size', default=518, type=int)
+#     parser.add_argument('--epochs', default=40, type=int)
+#     parser.add_argument('--local-rank', default=0, type=int)
+#     parser.add_argument('--freeze_da_v2', action='store_true')
+#     parser.add_argument('--port', default=None, type=int)
+
+#     # mono qpd parameters
+#     parser.add_argument('--feature_converter', type=str, default='', help="training datasets.")
+#     parser.add_argument('--save_path', type=str, help="path to save")
+
+#     args = parser.parse_args()
+    
+#     train(args)

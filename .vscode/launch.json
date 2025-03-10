@@ -84,6 +84,19 @@
                 "interp",
             ]
         },
+
+        {
+            "name": "MonoQPD, dataclass train, qpd-train, interp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "Interp",
+            ]
+        },
+
         
         {
             "name": "MonoQPD, train, qpd-train, skipconv-interp",
@@ -217,6 +230,7 @@
         },
 
 
+
         {
             "name": "MonoQPD, train, qpd-train, conv, tsubame",
             "type": "debugpy",
@@ -237,6 +251,8 @@
                 "result/train/",
                 "--feature_converter",
                 "conv",
+                "--qpd_test_bs",
+                "4",
             ]
         },
 
@@ -281,6 +297,8 @@
             ]
         },
 
+        
+
         {
             "name": "Mono-QPD, exp_fixed-conv, eval",
             "type": "debugpy",
@@ -291,11 +309,36 @@
                 "--train_dir",
                 "result/train/exp_converter/exp_fixed-conv/",
                 "--datasets",
-                "QPD-Test", "QPD-Valid", "MDD",
+                "QPD-Test", "QPD-Valid", "DPD_Disp",
                 "--save_path",
                 "result/eval/conv/exp_fixed-conv/",
                 "--feature_converter",
                 "fixed-conv",
+            ]
+        },
+
+        {
+            "name": "Mono-QPD, exp1, multi_eval",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_multiple_models.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--train_dir",
+                "result/train/exp1/",
+                "--datasets",
+                // "QPD-Valid", 
+                "DPD-Disp", 
+                "--save_path",
+                "result/eval/multiple_eval_test/",
+                "--save_result",
+                "False",
+                "--feature_converter",
+                "conv", 
+                "--qpd_valid_bs",
+                "1",
+                "--dp_disp_bs",
+                "1",
             ]
         },
 
@@ -360,15 +403,15 @@
                 "--datasets_path",
                 "datasets/QP-Data",
                 "--dataset",
-                "MDD",
+                "DPD_Disp",
                 "--save_path",
                 "result/eval/conv/exp1/dp-disp/qpd-valid-best",
                 "--save_result",
                 "True",
                 "--feature_converter",
                 "conv",
-                "--batch_size",
-                "4",
+                "--dp_disp_bs",
+                "1",
             ]
         },
 
@@ -408,7 +451,7 @@
                 "--datasets_path",
                 "datasets/QP-Data",
                 "--dataset",
-                "MDD",
+                "DPD_Disp",
                 "--save_path",
                 "result/eval/conv/exp1/dp-disp/dp-disp-best",
                 "--save_result",
@@ -432,7 +475,7 @@
                 "--datasets_path",
                 "datasets/MDD_dataset",
                 "--dataset",
-                "MDD",
+                "DPD_Disp",
                 "--save_path",
                 "result/eval/conv/dp-disp/132_epoch_198660_Mono-QPD",
                 "--feature_converter",
@@ -473,7 +516,7 @@
                 "--datasets_path",
                 "datasets/MDD_dataset",
                 "--dataset",
-                "MDD",
+                "DPD_Disp",
                 "--save_path",
                 "result/eval/conv/dp-disp/5_epoch_7526_Mono-QPD",
                 "--feature_converter",
@@ -514,7 +557,7 @@
                 "--datasets_path",
                 "datasets/MDD_dataset",
                 "--dataset",
-                "MDD",
+                "DPD_Disp",
                 "--save_path",
                 "result/eval/conv/dp-disp/10_epoch_15051_Mono-QPD",
                 "--feature_converter",
@@ -555,7 +598,7 @@
                 "--datasets_path",
                 "datasets/MDD_dataset",
                 "--dataset",
-                "MDD",
+                "DPD_Disp",
                 "--save_path",
                 "result/eval/conv/dp-disp/15_epoch_22576_Mono-QPD",
                 "--feature_converter",
@@ -575,7 +618,7 @@
                 "--datasets_path",
                 "datasets/MDD_dataset",
                 "--dataset",
-                "MDD",
+                "DPD_Disp",
                 "--save_path",
                 "result/eval/10_epoch_15051_Mono-QPD",
                 "--feature_converter",
@@ -596,7 +639,7 @@
                 "--datasets_path",
                 "datasets/MDD_dataset",
                 "--dataset",
-                "MDD",
+                "DPD_Disp",
                 "--save_path",
                 "result/eval/20_epoch_30101_Mono-QPD",
                 "--feature_converter",
@@ -683,7 +726,7 @@
                 "--datasets_path",
                 "datasets/MDD_dataset",
                 "--dataset",
-                "MDD",
+                "DPD_Disp",
             ]
         },
 

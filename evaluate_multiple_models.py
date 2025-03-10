@@ -1,4 +1,4 @@
-from evaluate_mono_qpd import validate_QPD, validate_MDD, validate_Real_QPD, fix_key, count_parameters
+from evaluate_mono_qpd import validate_QPD, validate_DPD_Disp, validate_Real_QPD, fix_key, count_parameters
 import argparse
 from argparse import Namespace
 import torch
@@ -40,6 +40,13 @@ if __name__ == '__main__':
     parser.add_argument('--ckpt_max_epoch', type=int, default=500)
     parser.add_argument('--batch_size', type=int, default=4, help="batch size for evaluation")
 
+    # Data settings
+    parser.add_argument('--qpd_valid_bs', type=int, default=1)
+    parser.add_argument('--qpd_test_bs', type=int, default=1)
+    parser.add_argument('--dp_disp_bs', type=int, default=1)
+    parser.add_argument('--real_qpd_bs', type=int, default=1)
+    parser.add_argument('--datatype', type=str, default='dual', help='dual or quad')
+
     # Depth Anything V2
     parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
     parser.add_argument('--feature_converter', type=str, default='', help="training datasets.")
@@ -50,26 +57,24 @@ if __name__ == '__main__':
     # args.save_result = args.save_result == str(True)
 
     # Argument categorization
-    da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
-    else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'mixed_precision', 'batch_size', 'datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path'}
+    # da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
+    # else_keys = {'name', 'restore_ckpt_da_v2', 'restore_ckpt_qpd_net', 'mixed_precision', 'batch_size', 'datasets', 'datasets_path', 'lr', 'num_steps', 'input_image_num', 'image_size', 'train_iters', 'wdecay', 'CAPA', 'valid_iters', 'corr_implementation', 'shared_backbone', 'corr_levels', 'corr_radius', 'n_downsample', 'context_norm', 'slow_fast_gru', 'n_gru_layers', 'hidden_dims', 'img_gamma', 'saturation_range', 'do_flip', 'spatial_scale', 'noyjitter', 'feature_converter', 'save_path'}
 
-    def split_arguments(args):
-        args_dict = vars(args)
-        da_v2_args = {key: args_dict[key] for key in da_v2_keys if key in args_dict}
-        else_args = {key: args_dict[key] for key in args_dict if key in else_keys}
+    # def split_arguments(args):
+    #     args_dict = vars(args)
+    #     da_v2_args = {key: args_dict[key] for key in da_v2_keys if key in args_dict}
+    #     else_args = {key: args_dict[key] for key in args_dict if key in else_keys}
 
-        return {
-            'da_v2': Namespace(**da_v2_args),
-            'else': Namespace(**else_args),
-        }
-    
-    split_args = split_arguments(args)
+    #     return {
+    #         'da_v2': Namespace(**da_v2_args),
+    #         'else': Namespace(**else_args),
+    #     }
     
 
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
 
-    restore_ckpts = glob(os.path.join(args.train_dir, '**','checkpoints', '*.pth'))
+    restore_ckpts = glob(os.path.join(args.train_dir, '**','checkpoints', '*.pth'), recursive=True)
 
     for restore_ckpt in restore_ckpts:
         ckpt = int(os.path.basename(restore_ckpt).split('_')[0])
@@ -80,7 +85,7 @@ if __name__ == '__main__':
         if  ckpt % 5 != 0:
             continue
 
-        model = MonoQPD(split_args)
+        model = MonoQPD(args)
         if restore_ckpt is not None:
             assert restore_ckpt.endswith(".pth")
             logging.info("Loading checkpoint...")
@@ -107,18 +112,19 @@ if __name__ == '__main__':
         if 'QPD-Test' in args.datasets:
             save_path = os.path.join(args.save_path, 'qpd-test', os.path.basename(restore_ckpt).replace('.pth', ''))
             print(save_path)
-            result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=False, input_image_num = args.input_image_num, image_set="test", path='datasets/QP-Data', save_path=save_path)
+            result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=args.qpd_test_bs if args.qpd_test_bs else 1)
+
         if 'QPD-Valid' in args.datasets:
             save_path = os.path.join(args.save_path, 'qpd-valid', os.path.basename(restore_ckpt).replace('.pth', ''))
             print(save_path)
-            result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=False, input_image_num = args.input_image_num, image_set="validation", path='datasets/QP-Data', save_path=save_path)
-        if 'MDD' in args.datasets:
+            result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=args.qpd_valid_bs if args.qpd_valid_bs else 1)
+        if 'DPD-Disp' in args.datasets:
             save_path = os.path.join(args.save_path, 'dp-disp', os.path.basename(restore_ckpt).replace('.pth', ''))
             print(save_path)
-            result = validate_MDD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=False, input_image_num = args.input_image_num, image_set="test", path='datasets/MDD_dataset', save_path=save_path)
-        if 'Real_QPD' in args.datasets:
+            result = validate_DPD_Disp(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=args.dp_disp_bs if args.dp_disp_bs else 1)
+        if 'Real-QPD' in args.datasets:
             save_path = os.path.join(args.save_path, 'real-qpd-test', os.path.basename(restore_ckpt).replace('.pth', ''))
             print(save_path)
-            result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=False, input_image_num = args.input_image_num, image_set="test", path=args.datasets_path, save_path=save_path)
+            result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=args.real_qpd_bs if args.real_qpd_bs else 1)
 
         print(result)

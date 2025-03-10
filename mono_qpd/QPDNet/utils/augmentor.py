@@ -319,27 +319,26 @@ class SparseFlowAugmentor:
 
 
 class QuadAugmentor:
-    def __init__(self, crop_size, min_scale=-0.2, max_scale=0.5, do_flip=True, yjitter=False, saturation_range=[0.6,1.4], gamma=[1,1,1,1]):
+    def __init__(self, crop_size, min_scale=0, max_scale=0, do_flip=False, yjitter=False, brightness=0, contrast=0, hue=0, saturation_range=[1.0, 1.0], gamma=[1,1,1,1]):
 
         # spatial augmentation params
         self.crop_size = crop_size
         self.min_scale = min_scale
         self.max_scale = max_scale
-        self.spatial_aug_prob = 1.0
-        self.stretch_prob = 0.8
-        self.max_stretch = 0.2
+        self.spatial_aug_prob = 0
+        self.stretch_prob = 0
+        self.max_stretch = 0
 
         # flip augmentation params
         self.yjitter = yjitter
         self.do_flip = do_flip
-        self.h_flip_prob = 0.5
-        # self.v_flip_prob = 0.1
+        self.h_flip_prob = 0
         self.v_flip_prob = 0
 
         # photometric augmentation params
-        self.photo_aug = Compose([ColorJitter(brightness=0.4, contrast=0.4, saturation=saturation_range, hue=0.5/3.14), AdjustGamma(*gamma)])
-        self.asymmetric_color_aug_prob = 0.2
-        self.eraser_aug_prob = 0.5
+        self.photo_aug = Compose([ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation_range, hue=hue), AdjustGamma(*gamma)])
+        self.asymmetric_color_aug_prob = 0
+        self.eraser_aug_prob = 0
 
     def color_transform(self, img_list):
         """ Photometric augmentation """
@@ -348,13 +347,9 @@ class QuadAugmentor:
         # asymmetric
         if np.random.rand() < self.asymmetric_color_aug_prob:
             for i in range(img_len):
-                new_img_list.append(np.array(self.photo_aug(Image.fromarray(img_list[i])), dtype=np.uint8))
-            
-        # symmetric
+                new_img_list.append(np.array(self.photo_aug(Image.fromarray(img_list[i])), dtype=np.uint8))            
         else:
-            # print("img_list", img_list[0].shape)
             image_stack = np.concatenate(img_list, axis=0)
-            # print("image_stack", image_stack.shape)
             image_stack = np.array(self.photo_aug(Image.fromarray(image_stack)), dtype=np.uint8)
             new_img_list=np.split(image_stack, img_len, axis=0)
 
@@ -400,7 +395,6 @@ class QuadAugmentor:
             # rescale the images
             for i in range(img_len):
                 img_list[i] = cv2.resize(img_list[i], None, fx=scale_x, fy=scale_y, interpolation=cv2.INTER_LINEAR)
-            # print("flow ", flow.shape)
             flow = cv2.resize(flow, None, fx=scale_x, fy=scale_y, interpolation=cv2.INTER_LINEAR)
             flow = flow * [scale_x, scale_y]
 
@@ -409,11 +403,6 @@ class QuadAugmentor:
                 for i in range(img_len):
                     img_list[i] = img_list[i][:, ::-1]
                 flow = flow[:, ::-1] * [-1.0, 1.0]
-
-            # if np.random.rand() < self.h_flip_prob and self.do_flip == 'h': # h-flip for stereo
-            #     tmp = img1[:, ::-1]
-            #     img1 = img2[:, ::-1]
-            #     img2 = tmp
 
             if np.random.rand() < self.v_flip_prob and self.do_flip == 'v': # v-flip
                 for i in range(img_len):
@@ -440,16 +429,64 @@ class QuadAugmentor:
 
         return img_list, flow
 
+    def dict_to_list(self, items):
+        img_list = []
+        img_list = items['AiF'] if 'AiF' in items else [] \
+                    + [items['center']] \
+                    + items['lrtb_list']    
+        return img_list
 
-    def __call__(self, img_list, flow):
+    def list_to_dict(self, img_list, keys):
+        items = {}
+        if 'AiF' in keys:
+            items['AiF'] = img_list.pop(0)
+        items['center'] = img_list[0]
+        items['lrtb_list'] = img_list[1:]
+        return items
+
+    def __call__(self, items):
+        # preserve items not needed for augmentor
+        items_to_leave = {key:value for key, value in items.items() if key not in ['AiF', 'center', 'lrtb_list', 'disp']}
+
+        # Unpack items
+        img_list = self.dict_to_list(items)
+        if 'disp' in items:
+            disp = items['disp']
+
+        # Augment
         img_list = self.color_transform(img_list)
         img_list = self.eraser_transform(img_list)
-        img_list, flow = self.spatial_transform(img_list, flow)
+        if 'disp' in items:
+            flow = np.stack([disp, np.zeros_like(disp)], axis=-1)
+            img_list, flow = self.spatial_transform(img_list, flow)
+            disp = flow[:, :, :, 0]
 
-        img_list = np.ascontiguousarray(img_list)
-        flow = np.ascontiguousarray(flow)
+        # Pack items        
+        items = {}
+        items = self.list_to_dict(img_list, items.keys())
+        items['disp'] = disp
 
-        return img_list, flow
+        # Retrieve items not needed for augmentor
+        items.update(items_to_leave) 
+                
+        # img_list = np.ascontiguousarray(img_list[:-1])
+        # if 'AiF' in items:
+        #     AiF = np.ascontiguousarray(img_list[-1])
+        # if 'disp' in items:
+        #     disp = np.ascontiguousarray(disp)
+
+        return items
+
+
+    # def __call__(self, img_list, flow):
+    #     img_list = self.color_transform(img_list)
+    #     img_list = self.eraser_transform(img_list)
+    #     img_list, flow = self.spatial_transform(img_list, flow)
+
+    #     img_list = np.ascontiguousarray(img_list)
+    #     flow = np.ascontiguousarray(flow)
+
+    #     return img_list, flow
 
 class SparseQuadAugmentor:
     def __init__(self, crop_size, min_scale=-0.2, max_scale=0.5, do_flip=False, yjitter=False, saturation_range=[0.7,1.3], gamma=[1,1,1,1]):

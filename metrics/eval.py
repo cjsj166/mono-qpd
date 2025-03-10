@@ -65,6 +65,9 @@ class Eval():
 
     def affine_invariant_1(self, Y, Target, confidence_map=None, irls_iters=5, eps=1e-3):
         if 'ai1' in self.enabled_metrics:
+            # Y = np.round(Y).astype(np.uint8)
+            # Target = np.round(Target).astype(np.uint8)
+
             ai1, b1 = affine_invariant_1(Y, Target, confidence_map, irls_iters, eps)
             self.metrics_data['ai1'].append(ai1)
             self.metrics_data['ai1-scale'].append(b1[0])
@@ -74,6 +77,9 @@ class Eval():
     
     def affine_invariant_2(self, Y, Target, confidence_map=None, eps=1e-3):
         if 'ai2' in self.enabled_metrics:
+            # Y = np.round(Y).astype(np.uint8)
+            # Target = np.round(Target).astype(np.uint8)
+
             ai2, b2 = affine_invariant_2(Y, Target, confidence_map, eps)
             self.metrics_data['ai2'].append(ai2)
             self.metrics_data['ai2-scale'].append(b2[0])
@@ -102,73 +108,26 @@ class Eval():
     def epe_bad_pixel_metrics(self, Y, Target):
         result = []
         if any('epe_bad' in metric for metric in self.enabled_metrics):
-            epe = self.end_point_error(Y, Target)
-            if 'epe_bad_0_005px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_0_005px'].append(self.bad_pixel_metric(Y, Target, 0.005))
-                result.append(self.metrics_data['epe_bad_0_005px'])
-            if 'epe_bad_0_01px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_0_01px'].append(self.bad_pixel_metric(Y, Target, 0.01))
-                result.append(self.metrics_data['epe_bad_0_01px'])
-            if 'epe_bad_0_05px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_0_05px'].append(self.bad_pixel_metric(Y, Target, 0.05))
-                result.append(self.metrics_data['epe_bad_0_05px'])
-            if 'epe_bad_0_1px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_0_1px'].append(self.bad_pixel_metric(Y, Target, 0.1))
-                result.append(self.metrics_data['epe_bad_0_1px'])
-            if 'epe_bad_0_5px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_0_5px'].append(self.bad_pixel_metric(Y, Target, 0.5))
-                result.append(self.metrics_data['epe_bad_0_5px'])
-            if 'epe_bad_1px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_1px'].append(self.bad_pixel_metric(Y, Target, 1.0))
-                result.append(self.metrics_data['epe_bad_1px'])
-            if 'epe_bad_3px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_3px'].append(self.bad_pixel_metric(Y, Target, 3.0))
-                result.append(self.metrics_data['epe_bad_3px'])
-            if 'epe_bad_5px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_5px'].append(self.bad_pixel_metric(Y, Target, 5.0))
-                result.append(self.metrics_data['epe_bad_5px'])
-            if 'epe_bad_10px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_10px'].append(self.bad_pixel_metric(Y, Target, 10.0))
-                result.append(self.metrics_data['epe_bad_10px'])
-            if 'epe_bad_15px' in self.enabled_metrics:
-                self.metrics_data['epe_bad_15px'].append(self.bad_pixel_metric(Y, Target, 15.0))
-                result.append(self.metrics_data['epe_bad_15px'])
+            
+            for metric in self.enabled_metrics:
+                if metric.startswith('epe_bad'):
+                    threshold = float('.'.join(metric.split('_')[2:]))
+                    self.metrics_data[metric].append(self.bad_pixel_metric(Y, Target, threshold))
+                    result.append(self.metrics_data[metric])
+
         return result
 
     def ai2_bad_pixel_metrics(self, Y, Target):
         result = []
-        if any('bad' in metric for metric in self.enabled_metrics):
+        if any('ai2_bad' in metric for metric in self.enabled_metrics):
             ai2, b2 = self.affine_invariant_2(Y, Target)
-            if 'ai2_bad_0_005px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_0_005px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 0.005))
-                result.append(self.metrics_data['ai2_bad_0_005px'])
-            if 'ai2_bad_0_01px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_0_01px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 0.01))
-                result.append(self.metrics_data['ai2_bad_0_01px'])
-            if 'ai2_bad_0_05px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_0_05px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 0.05))
-                result.append(self.metrics_data['ai2_bad_0_05px'])
-            if 'ai2_bad_0_1px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_0_1px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 0.1))
-                result.append(self.metrics_data['ai2_bad_0_1px'])
-            if 'ai2_bad_0_5px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_0_5px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 0.5))
-                result.append(self.metrics_data['ai2_bad_0_5px'])
-            if 'ai2_bad_1px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_1px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 1.0))
-                result.append(self.metrics_data['ai2_bad_1px'])
-            if 'ai2_bad_3px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_3px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 3.0))
-                result.append(self.metrics_data['ai2_bad_3px'])
-            if 'ai2_bad_5px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_5px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 5.0))
-                result.append(self.metrics_data['ai2_bad_5px'])
-            if 'ai2_bad_10px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_10px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 10.0))
-                result.append(self.metrics_data['ai2_bad_10px'])
-            if 'ai2_bad_15px' in self.enabled_metrics:
-                self.metrics_data['ai2_bad_15px'].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, 15.0))
-                result.append(self.metrics_data['ai2_bad_15px'])
+            
+            for metric in self.enabled_metrics:
+                if metric.startswith('ai2_bad'):
+                    threshold = float('.'.join(metric.split('_')[2:]))
+                    self.metrics_data[metric].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, threshold))
+                    result.append(self.metrics_data[metric])
+
         return result
     
     def bad_pixel_metric(self, Y, Target, threshold):
@@ -216,7 +175,27 @@ class Eval():
             mean_line = "mean "
             for metric in self.enabled_metrics:
                 if metric in mean_metrics:
-                    mean_line += f"{mean_metrics[metric]:.3f} "
+                    mean_line += f"{mean_metrics[metric]:.5f} "
             mean_line += "\n"
             f.write(mean_line)
             f.write("----end----\n")
+
+"""
+dir_path = '/mnt/d/Mono+Dual/QPDNet/result/eval/dp-disp'
+gt_pattern = dir('/mnt/e/dual-pixel-dataset/MDD_dataset/test_c/target_depth/_npy_gt_832_1504/*.TIF')
+"""
+
+
+if __name__ == '__main__':
+    # Test
+    eval = Eval()
+    eval.add_filename('test1.jpg')
+    eval.add_filename('test2.jpg')
+    eval.add_colorrange(0, 255)
+    eval.add_colorrange(0, 255)
+
+    Y = np.random.rand(1, 100, 100)
+    Target = np.random.rand(1, 100, 100)
+    eval.affine_invariant_1(Y, Target)
+    eval.affine_invariant_2(Y, Target)
+    eval.scale_invariant(Y, Target)
