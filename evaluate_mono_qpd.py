@@ -144,7 +144,8 @@ def validate_Real_QPD(model, datatype='dual', iters=32, mixed_prec=False, save_r
 
         # assert flow_pr.shape == flow_gt.shape, (flow_pr.shape, flow_gt.shape)
 
-        for i in range(batch_size):
+        current_batch_size = flow_pr.shape[0]
+        for i in range(current_batch_size):
             flow_pr_i = flow_pr[i]
             center_i = center[i]
 
