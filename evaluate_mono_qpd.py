@@ -344,6 +344,7 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
     else:
         val_save_skip = val_save_skip // batch_size
 
+    val_save_skip = 2
     # for val_id in tqdm(range(val_num)):
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
 
@@ -377,9 +378,15 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
         assert flow_pr.shape == disp_gt.shape, (flow_pr.shape, disp_gt.shape)
 
         for i in range(batch_size):
-            flow_pr_i = flow_pr[i]
-            disp_gt_i = disp_gt[i]
-            center_i = center[i]
+            
+            if batch_size == 1:
+                flow_pr_i = flow_pr
+                disp_gt_i = disp_gt
+                center_i = center
+            else:
+                flow_pr_i = flow_pr[i]
+                disp_gt_i = disp_gt[i]
+                center_i = center[i]
 
             # fitting and save
             epe = eval_est.end_point_error(flow_pr_i, disp_gt_i)
@@ -420,7 +427,7 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
                 plt.imsave(os.path.join(err_dir, pth), np.abs(flow_pr_i.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
                 
                 plt.imsave(os.path.join(gt_dir, pth), disp_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
-                plt.imsave(os.path.join(src_dir, pth), center.astype(np.uint8))
+                plt.imsave(os.path.join(src_dir, pth), center_i.astype(np.uint8))
 
                 # Colorize된 이미지를 result에 저장
                 colormap = cm.jet
