@@ -344,7 +344,7 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
     else:
         val_save_skip = val_save_skip // batch_size
 
-    val_save_skip = 2
+
     # for val_id in tqdm(range(val_num)):
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
 
@@ -379,14 +379,14 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
 
         for i in range(batch_size):
             
-            if batch_size == 1:
-                flow_pr_i = flow_pr
-                disp_gt_i = disp_gt
-                center_i = center
-            else:
-                flow_pr_i = flow_pr[i]
-                disp_gt_i = disp_gt[i]
-                center_i = center[i]
+            # if batch_size == 1:
+            #     flow_pr_i = flow_pr
+            #     disp_gt_i = disp_gt
+            #     center_i = center
+            # else:
+            flow_pr_i = flow_pr[i]
+            disp_gt_i = disp_gt[i]
+            center_i = center[i]
 
             # fitting and save
             epe = eval_est.end_point_error(flow_pr_i, disp_gt_i)
