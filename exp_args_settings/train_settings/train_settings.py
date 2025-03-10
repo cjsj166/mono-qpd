@@ -1,6 +1,7 @@
 import argparse
 from dataclasses import dataclass
 from typing import Tuple
+import numpy as np
 # import train_mono_qpd
 
 @dataclass
@@ -14,9 +15,9 @@ class TrainConfig:
     mixed_precision: bool = False
     
     # Training parameters
-    batch_size: int = 2
+    batch_size: int = 4
     train_datasets: Tuple[str] = ('QPD',)
-    datasets_path: str = 'dd_dp_dataset_hypersim_377\\'
+    datasets_path: str = 'datasets/QP-Data'
     lr: float = 0.0002
     num_steps: int = 200000
     stop_step: int = None
@@ -74,12 +75,10 @@ class TrainConfig:
         # cls.feature_converter = 'interp'
 
         return cls(
-            batch_size=16,
-            restore_ckpt_da_v2='',
+            batch_size=8,
             image_size=(448, 448),
-            datasets_path='datasets/QP-Data',
-            save_path='result/train/',
-            feature_converter='interp'
+            feature_converter='interp',
+            lr=np.sqrt(8) * cls.lr,
         )
 
 
