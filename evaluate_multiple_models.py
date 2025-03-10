@@ -89,6 +89,7 @@ if __name__ == '__main__':
         model.cuda()
         model.eval()
 
+        print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
         print(f"The model has {format(count_parameters(model)/1e6, '.2f')}M learnable parameters.")
         print(f"Model restored from {restore_ckpt}")
 
@@ -96,19 +97,19 @@ if __name__ == '__main__':
         
         if 'QPD-Test' in args.datasets:
             save_path = os.path.join(args.save_path, 'qpd-test', os.path.basename(restore_ckpt).replace('.pth', ''))
-            print(save_path)
+            print('QPD-Test')
             result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=args.qpd_test_bs if args.qpd_test_bs else 1)
         if 'QPD-Valid' in args.datasets:
             save_path = os.path.join(args.save_path, 'qpd-valid', os.path.basename(restore_ckpt).replace('.pth', ''))
-            print(save_path)
+            print('QPD-Valid')
             result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=args.qpd_valid_bs if args.qpd_valid_bs else 1)
         if 'DPD-Disp' in args.datasets:
             save_path = os.path.join(args.save_path, 'dp-disp', os.path.basename(restore_ckpt).replace('.pth', ''))
-            print(save_path)
+            print('DPD-Disp')
             result = validate_DPD_Disp(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=args.dp_disp_bs if args.dp_disp_bs else 1)
         if 'Real-QPD' in args.datasets:
             save_path = os.path.join(args.save_path, 'real-qpd-test', os.path.basename(restore_ckpt).replace('.pth', ''))
-            print(save_path)
+            print('Real-QPD')
             result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=args.real_qpd_bs if args.real_qpd_bs else 1)
 
         print(result)
