@@ -52,7 +52,7 @@ def sequence_loss(flow_preds, flow_gt, valid, si_loss_weight=0.0, loss_gamma=0.9
     mag = torch.sum(flow_gt**2, dim=1).sqrt()
 
     # exclude extremly large displacements
-    valid = ((valid.squeeze(0) >= 0.5) & (mag < max_flow)).unsqueeze(1)
+    valid = ((valid.squeeze(1) >= 0.5) & (mag < max_flow)).unsqueeze(1)
     assert valid.shape == flow_gt.shape, [valid.shape, flow_gt.shape]
     assert not torch.isinf(flow_gt[valid.bool()]).any()
 
@@ -317,7 +317,6 @@ def train(args):
             lrtblist = data_blob['lrtb_list'].cuda()
             flow = data_blob['disp'].cuda()
             valid = data_blob['disp_valid'].cuda()
-        
             # center_img, lrtblist, flow, valid = [x.cuda() for x in data_blob]
 
             assert not torch.isnan(center_img).any(), "Invalid values in input images"

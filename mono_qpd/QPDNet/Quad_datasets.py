@@ -191,9 +191,9 @@ class QuadDataset(data.Dataset):
 
         # Add validity mask
         if 'disp' in self.gt_types:
-            items['disp_valid'] = torch.ones(1, items['disp'].shape[0], items['disp'].shape[1]).float()
+            items['disp_valid'] = torch.ones(1, items['disp'].shape[-2], items['disp'].shape[-1]).float()
         if 'inv_depth' in self.gt_types:
-            items['inv_depth_valid'] = torch.ones(1, items['inv_depth'].shape[0], items['inv_depth'].shape[1]).float()
+            items['inv_depth_valid'] = torch.ones(1, items['inv_depth'].shape[-2], items['inv_depth'].shape[-1]).float()
 
         return items
 

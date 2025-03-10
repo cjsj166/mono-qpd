@@ -14,7 +14,7 @@ class TrainConfig:
     mixed_precision: bool = False
     
     # Training parameters
-    batch_size: int = 4
+    batch_size: int = 2
     train_datasets: Tuple[str] = ('QPD',)
     datasets_path: str = 'dd_dp_dataset_hypersim_377\\'
     lr: float = 0.0002
@@ -74,7 +74,7 @@ class TrainConfig:
         # cls.feature_converter = 'interp'
 
         return cls(
-            batch_size=8,
+            batch_size=16,
             restore_ckpt_da_v2='',
             image_size=(448, 448),
             datasets_path='datasets/QP-Data',
