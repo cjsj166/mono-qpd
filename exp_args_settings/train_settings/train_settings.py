@@ -61,24 +61,18 @@ class TrainConfig:
     port: int = None
     feature_converter: str = ''
     save_path: str = None
-
-
+    qpd_valid_bs: int = 1
+    val_save_skip: int = 50
     
     @classmethod
     def tsubame(cls):
-        # cls.batch_size = 16
-        # cls.restore_ckpt_da_v2 = ''
-        # cls.image_size = (448, 448)
-        # cls.datasets_path = 'datasets/QP-Data'
-        # cls.freeze_da_v2 = True
-        # cls.save_path = 'result/train/'
-        # cls.feature_converter = 'interp'
-
         return cls(
             batch_size=8,
             image_size=(448, 448),
             feature_converter='interp',
             lr=np.sqrt(8) * cls.lr,
+            qpd_valid_bs=8,
+            val_save_skip=1,
         )
 
 
