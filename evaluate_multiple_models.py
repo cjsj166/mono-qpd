@@ -59,7 +59,7 @@ if __name__ == '__main__':
 
     restore_ckpts = glob(os.path.join(args.train_dir, '**','checkpoints', '*.pth'), recursive=True)
     restore_ckpts = sorted(restore_ckpts, key=lambda x: int(os.path.basename(x).split('_')[0]))
-
+# f"a {restore_ckpts}"
     for restore_ckpt in restore_ckpts:
         ckpt = int(os.path.basename(restore_ckpt).split('_')[0])
 
@@ -90,6 +90,7 @@ if __name__ == '__main__':
         model.eval()
 
         print(f"The model has {format(count_parameters(model)/1e6, '.2f')}M learnable parameters.")
+        print(f"Model restored from {restore_ckpt}")
 
         use_mixed_precision = args.corr_implementation.endswith("_cuda")
         
