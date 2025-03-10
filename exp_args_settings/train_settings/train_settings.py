@@ -56,7 +56,7 @@ class TrainConfig:
     img_size: int = 518
     epochs: int = 40
     local_rank: int = 0
-    freeze_da_v2: bool = False
+    freeze_da_v2: bool = True
     port: int = None
     feature_converter: str = ''
     save_path: str = None
@@ -74,11 +74,10 @@ class TrainConfig:
         # cls.feature_converter = 'interp'
 
         return cls(
-            batch_size=16,
+            batch_size=8,
             restore_ckpt_da_v2='',
             image_size=(448, 448),
             datasets_path='datasets/QP-Data',
-            freeze_da_v2=True,
             save_path='result/train/',
             feature_converter='interp'
         )
