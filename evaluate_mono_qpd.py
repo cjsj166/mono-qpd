@@ -210,6 +210,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
     else:
         val_save_skip = val_save_skip // batch_size
 
+
     # for val_id in tqdm(range(val_num)):
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
 
@@ -241,7 +242,8 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
         
         assert flow_pr.shape == inv_depth_gt.shape, (flow_pr.shape, inv_depth_gt.shape)
 
-        for i in range(batch_size):
+        current_batch_size = flow_pr.shape[0]
+        for i in range(current_batch_size):
             flow_pr_i = flow_pr[i]
             inv_depth_gt_i = inv_depth_gt[i]
             center_i = center[i]
@@ -378,7 +380,8 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
 
         assert flow_pr.shape == disp_gt.shape, (flow_pr.shape, disp_gt.shape)
 
-        for i in range(batch_size):
+        current_batch_size = flow_pr.shape[0]
+        for i in range(current_batch_size):
             
             # if batch_size == 1:
             #     flow_pr_i = flow_pr
