@@ -53,6 +53,7 @@ if __name__ == '__main__':
     
     args = parser.parse_args()
     
+    print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
