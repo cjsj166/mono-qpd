@@ -1,0 +1,40 @@
+Mon Mar 10 23:33:45 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.127.05             Driver Version: 550.127.05     CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H100                    On  |   00000000:84:00.0 Off |                    0 |
+| N/A   24C    P0             72W /  699W |       1MiB /  95830MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Interp(name='Mono-QPD', restore_ckpt_da_v2='mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth', restore_ckpt_qpd_net=None, restore_ckpt_mono_qpd=None, initialize_scheduler=False, dec_update=False, mixed_precision=False, batch_size=8, train_datasets=('QPD',), datasets_path='datasets/QP-Data', lr=0.000565685424949238, num_steps=200000, stop_step=None, input_image_num=2, image_size=(448, 448), train_iters=8, wdecay=1e-05, CAPA=True, si_loss=0.0, valid_iters=8, corr_implementation='reg', shared_backbone=False, corr_levels=4, corr_radius=4, n_downsample=2, context_norm='batch', slow_fast_gru=False, n_gru_layers=3, hidden_dims=(128, 128, 128), img_gamma=None, saturation_range=None, do_flip=None, spatial_scale=(0, 0), noyjitter=False, datatype='dual', qpd_gt_types=('disp',), dp_disp_gt_types=('inv_depth',), encoder='vitl', img_size=518, epochs=40, local_rank=0, freeze_da_v2=True, port=None, feature_converter='interp', save_path='result/train/Interp', qpd_valid_bs=16, val_save_skip=1)
+Parameter Count: 347202348
+000_epoch_1_Mono-QPD.pth
+val_qpd/epe: 2.6416995525360107
+val_qpd/rmse: 3.2475435733795166
+val_qpd/ai1: 0.6133520007133484
+val_qpd/ai2: 0.8167771100997925
+val_qpd/si: 1.3516157865524292
+val_qpd/epe_bad_0_005: 0.9987940030041622
+val_qpd/epe_bad_0_01: 0.9975934316469187
+val_qpd/epe_bad_0_05: 0.9879848748195824
+val_qpd/epe_bad_0_1: 0.9759536720218517
+val_qpd/epe_bad_0_5: 0.8802009164582775
+val_qpd/epe_bad_1: 0.7629100854465964
+val_qpd/ai1-scale: -0.10990363455452515
+val_qpd/ai1-bias: -0.1716314504781244
+val_qpd/ai2-scale: -0.1168832783414949
+val_qpd/ai2-bias: -0.25021819685092944
+val_qpd/si-scale: -0.1364835649728775
+005_epoch_1880_Mono-QPD.pth

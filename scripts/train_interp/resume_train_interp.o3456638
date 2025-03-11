@@ -1,0 +1,56 @@
+Tue Mar 11 22:28:22 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.127.05             Driver Version: 550.127.05     CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H100                    On  |   00000000:64:00.0 Off |                    0 |
+| N/A   24C    P0             70W /  699W |       1MiB /  95830MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Interp(name='Mono-QPD', restore_ckpt_da_v2='mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth', restore_ckpt_qpd_net=None, restore_ckpt_mono_qpd='result/train/Interp/20250311_084732/checkpoints/020_epoch_7520_Mono-QPD.pth', initialize_scheduler=False, dec_update=False, mixed_precision=False, batch_size=8, train_datasets=('QPD',), datasets_path='datasets/QP-Data', lr=0.000565685424949238, num_steps=200000, stop_step=None, input_image_num=2, image_size=(448, 448), train_iters=8, wdecay=1e-05, CAPA=True, si_loss=0.0, valid_iters=8, corr_implementation='reg', shared_backbone=False, corr_levels=4, corr_radius=4, n_downsample=2, context_norm='batch', slow_fast_gru=False, n_gru_layers=3, hidden_dims=(128, 128, 128), img_gamma=None, saturation_range=None, do_flip=None, spatial_scale=(0, 0), noyjitter=False, datatype='dual', qpd_gt_types=('disp',), dp_disp_gt_types=('inv_depth',), encoder='vitl', img_size=518, epochs=40, local_rank=0, freeze_da_v2=True, port=None, feature_converter='interp', save_path='result/train/Interp', qpd_valid_bs=1, val_save_skip=1)
+Parameter Count: 347202348
+025_epoch_9400_Mono-QPD.pth
+val_qpd/epe: 0.13936738669872284
+val_qpd/rmse: 0.2098880112171173
+val_qpd/ai1: 0.051160264760255814
+val_qpd/ai2: 0.11204275488853455
+val_qpd/si: 0.04129992052912712
+val_qpd/epe_bad_0_005: 0.9345024828393529
+val_qpd/epe_bad_0_01: 0.8434507140129901
+val_qpd/epe_bad_0_05: 0.632877980036587
+val_qpd/epe_bad_0_1: 0.4140526006352377
+val_qpd/epe_bad_0_5: 0.0525280565042629
+val_qpd/epe_bad_1: 0.007336790287661118
+val_qpd/ai1-scale: 0.864033624581317
+val_qpd/ai1-bias: 0.009035091626635246
+val_qpd/ai2-scale: 0.8647652702445979
+val_qpd/ai2-bias: 0.006644910275229904
+val_qpd/si-scale: 0.8666220307350159
+030_epoch_11280_Mono-QPD.pth
+val_qpd/epe: 0.1346910297870636
+val_qpd/rmse: 0.1970900446176529
+val_qpd/ai1: 0.047864582389593124
+val_qpd/ai2: 0.1074724793434143
+val_qpd/si: 0.04534974694252014
+val_qpd/epe_bad_0_005: 0.8978317690151718
+val_qpd/epe_bad_0_01: 0.8642669015591435
+val_qpd/epe_bad_0_05: 0.7239099081758524
+val_qpd/epe_bad_0_1: 0.4548366408138091
+val_qpd/epe_bad_0_5: 0.028847331078813102
+val_qpd/epe_bad_1: 0.007547535307297262
+val_qpd/ai1-scale: 0.8680438250421144
+val_qpd/ai1-bias: -0.003697536104534007
+val_qpd/ai2-scale: 0.8676855458785375
+val_qpd/ai2-bias: -0.009503609957876047
+val_qpd/si-scale: 0.8687246441841125
