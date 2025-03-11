@@ -19,7 +19,7 @@ class TrainConfig:
     train_datasets: Tuple[str] = ('QPD',)
     datasets_path: str = 'datasets/QP-Data'
     lr: float = 0.0002
-    num_steps: int = 200000
+    num_steps: int = 600000
     stop_step: int = None
     input_image_num: int = 2
     image_size: Tuple[int] = (224, 224)

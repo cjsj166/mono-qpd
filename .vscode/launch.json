@@ -100,6 +100,21 @@
             ]
         },
 
+        // python train_script_composer.py --exp_name Interp --tsubame -r
+        {
+            "name": "train_script_composer test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_script_composer.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "Interp",
+                "--tsubame",
+                "-r"
+            ]
+        },
+
         
         {
             "name": "MonoQPD, train, qpd-train, skipconv-interp",
