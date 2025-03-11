@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # change the job name as [the experiment name + current time stamp]
     script[2] = f"#$ -N train_{args.exp_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}\n"
 
-    script[-1] = f"python train.py --exp_name {args.exp_name}"
+    script[-1] = f"python train_mono_qpd.py --exp_name {args.exp_name}"
 
     # get the train config
     if args.tsubame:
@@ -51,13 +51,15 @@ if __name__ == "__main__":
 
     # get the latest checkpoint if user don't specify the checkpoint
     if args.restore_ckpt:
+        load_ckpt = Path(args.restore_ckpt)
         script[-1] = script[-1] + f" --restore_ckpt {args.restore_ckpt}"
-        load_ckpt_epoch = extract_epoch(args.restore_ckpt)
+        load_ckpt_epoch = extract_epoch(load_ckpt)
     else:
         latest_ckpt = get_latest_ckpt(conf.save_path)
         if latest_ckpt:
+            load_ckpt = latest_ckpt
             script[-1] = script[-1] + f" --restore_ckpt {latest_ckpt}"
-            load_ckpt_epoch = extract_epoch(latest_ckpt)
+            load_ckpt_epoch = extract_epoch(load_ckpt)
         else:
             load_ckpt_epoch = 0
 
@@ -74,7 +76,7 @@ if __name__ == "__main__":
     save_path = Path("scripts") / args.exp_name
     save_path.mkdir(parents=True, exist_ok=True)
 
-    if latest_ckpt:
+    if load_ckpt:
         save_path = save_path / "resume_train.sh"
     else:
         save_path = save_path / "train.sh"
@@ -82,6 +84,6 @@ if __name__ == "__main__":
     with save_path.open("w") as f:
         f.write(script)
     
-    print(f"sub {save_path}")
+    print(f"cd {save_path.parent}; sub {save_path}")
 
 
