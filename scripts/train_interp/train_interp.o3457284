@@ -1,0 +1,73 @@
+Wed Mar 12 00:10:04 2025       
++-----------------------------------------------------------------------------------------+
+| NVIDIA-SMI 550.127.05             Driver Version: 550.127.05     CUDA Version: 12.4     |
+|-----------------------------------------+------------------------+----------------------+
+| GPU  Name                 Persistence-M | Bus-Id          Disp.A | Volatile Uncorr. ECC |
+| Fan  Temp   Perf          Pwr:Usage/Cap |           Memory-Usage | GPU-Util  Compute M. |
+|                                         |                        |               MIG M. |
+|=========================================+========================+======================|
+|   0  NVIDIA H100                    On  |   00000000:64:00.0 Off |                    0 |
+| N/A   24C    P0             70W /  699W |       1MiB /  95830MiB |      0%      Default |
+|                                         |                        |             Disabled |
++-----------------------------------------+------------------------+----------------------+
+                                                                                         
++-----------------------------------------------------------------------------------------+
+| Processes:                                                                              |
+|  GPU   GI   CI        PID   Type   Process name                              GPU Memory |
+|        ID   ID                                                               Usage      |
+|=========================================================================================|
+|  No running processes found                                                             |
++-----------------------------------------------------------------------------------------+
+Interp(name='Mono-QPD', restore_ckpt_da_v2='mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth', restore_ckpt_qpd_net=None, restore_ckpt_mono_qpd=None, initialize_scheduler=False, dec_update=False, mixed_precision=False, batch_size=8, train_datasets=('QPD',), datasets_path='datasets/QP-Data', lr=0.000565685424949238, num_steps=600000, stop_step=None, input_image_num=2, image_size=(448, 448), train_iters=8, wdecay=1e-05, CAPA=True, si_loss=0.0, valid_iters=8, corr_implementation='reg', shared_backbone=False, corr_levels=4, corr_radius=4, n_downsample=2, context_norm='batch', slow_fast_gru=False, n_gru_layers=3, hidden_dims=(128, 128, 128), img_gamma=None, saturation_range=None, do_flip=None, spatial_scale=(0, 0), noyjitter=False, datatype='dual', qpd_gt_types=('disp',), dp_disp_gt_types=('inv_depth',), encoder='vitl', img_size=518, epochs=40, local_rank=0, freeze_da_v2=True, port=None, feature_converter='interp', save_path='result/train/Interp', qpd_valid_bs=1, val_save_skip=1)
+Parameter Count: 347202348
+000_epoch_1_Mono-QPD.pth
+val_qpd/epe: 2.6406919956207275
+val_qpd/rmse: 3.2464089393615723
+val_qpd/ai1: 0.6134160757064819
+val_qpd/ai2: 0.8168501853942871
+val_qpd/si: 1.3554317951202393
+val_qpd/epe_bad_0_005: 0.9987903002483888
+val_qpd/epe_bad_0_01: 0.9975912026508795
+val_qpd/epe_bad_0_05: 0.9879841326950188
+val_qpd/epe_bad_0_1: 0.9759588642714488
+val_qpd/epe_bad_0_5: 0.880202086025611
+val_qpd/epe_bad_1: 0.7628750194053773
+val_qpd/ai1-scale: -0.10982462688834327
+val_qpd/ai1-bias: -0.17207043879967007
+val_qpd/ai2-scale: -0.11673166696161819
+val_qpd/ai2-bias: -0.25061972647250197
+val_qpd/si-scale: -0.13609404861927032
+005_epoch_1880_Mono-QPD.pth
+val_qpd/epe: 0.1786462813615799
+val_qpd/rmse: 0.2863294780254364
+val_qpd/ai1: 0.08901692181825638
+val_qpd/ai2: 0.1747632473707199
+val_qpd/si: 0.06285063177347183
+val_qpd/epe_bad_0_005: 0.9607160794005103
+val_qpd/epe_bad_0_01: 0.9227135692887352
+val_qpd/epe_bad_0_05: 0.6870856689715359
+val_qpd/epe_bad_0_1: 0.4386195276836063
+val_qpd/epe_bad_0_5: 0.07975780515742482
+val_qpd/epe_bad_1: 0.03465078712406015
+val_qpd/ai1-scale: 0.8471163262405995
+val_qpd/ai1-bias: 9.51449244044012e-05
+val_qpd/ai2-scale: 0.8415119258077377
+val_qpd/ai2-bias: -0.0009972383432510653
+val_qpd/si-scale: 0.8446627855300903
+010_epoch_3760_Mono-QPD.pth
+val_qpd/epe: 0.138458251953125
+val_qpd/rmse: 0.21301667392253876
+val_qpd/ai1: 0.0728330984711647
+val_qpd/ai2: 0.1492915004491806
+val_qpd/si: 0.05851154401898384
+val_qpd/epe_bad_0_005: 0.9412646405704552
+val_qpd/epe_bad_0_01: 0.8940841343733218
+val_qpd/epe_bad_0_05: 0.7064922315554513
+val_qpd/epe_bad_0_1: 0.43894941647506047
+val_qpd/epe_bad_0_5: 0.03373956567618824
+val_qpd/epe_bad_1: 0.010665058992346939
+val_qpd/ai1-scale: 0.8818895274372409
+val_qpd/ai1-bias: -0.01037386507441122
+val_qpd/ai2-scale: 0.8877512189887475
+val_qpd/ai2-bias: -0.01713785351642657
+val_qpd/si-scale: 0.889230489730835
