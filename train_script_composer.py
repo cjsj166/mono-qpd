@@ -13,7 +13,8 @@ def get_latest_ckpt(path):
 
     sorted_ckpts = sorted(ckpts, key=extract_epoch)
 
-    assert len(sorted_ckpts) > 0, "No checkpoint found"
+    if len(sorted_ckpts) == 0:
+        return None
     
     latest_ckpt = sorted_ckpts[-1]
 
@@ -23,9 +24,9 @@ def get_latest_ckpt(path):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--base_script', default='scripts/basic_script.sh', help="name your experiment")
-    parser.add_argument('--exp_name', default='Interp', help="name your experiment")
+    parser.add_argument('--exp_name', default='Interp', required=True, help="name your experiment")
     parser.add_argument('--tsubame', action='store_true', help="when you run on tsubame")
-    parser.add_argument('-r', action='store_true', help="resume train until it reaches the max epoch")
+    parser.add_argument('--restore_ckpt', default=None, help="restore the checkpoint")
     
     args = parser.parse_args()
 
@@ -48,14 +49,39 @@ if __name__ == "__main__":
     else:
         conf = get_train_config(args.exp_name)
 
-    # get the latest checkpoint
-    if args.r:
+    # get the latest checkpoint if user don't specify the checkpoint
+    if args.restore_ckpt:
+        script[-1] = script[-1] + f" --restore_ckpt {args.restore_ckpt}"
+        load_ckpt_epoch = extract_epoch(args.restore_ckpt)
+    else:
         latest_ckpt = get_latest_ckpt(conf.save_path)
-        script[-1] = script[-1] + f" --restore_ckpt {latest_ckpt}"
+        if latest_ckpt:
+            script[-1] = script[-1] + f" --restore_ckpt {latest_ckpt}"
+            load_ckpt_epoch = extract_epoch(latest_ckpt)
+        else:
+            load_ckpt_epoch = 0
 
-    total_epoch = conf.num_steps / 3010
+    # if total_epoch is already reached, do not train
+    if 'QPD' in conf.train_datasets:
+        total_epoch = conf.num_steps / 3010
+        if load_ckpt_epoch >= total_epoch:
+            print("Already reached the max epoch")
+            exit(0)
 
-    script = "".join(script)    
-    print(script)
+    script = "".join(script)
+
+    # save the script file
+    save_path = Path("scripts") / args.exp_name
+    save_path.mkdir(parents=True, exist_ok=True)
+
+    if latest_ckpt:
+        save_path = save_path / "resume_train.sh"
+    else:
+        save_path = save_path / "train.sh"
+
+    with save_path.open("w") as f:
+        f.write(script)
+    
+    print(f"sub {save_path}")
 
 

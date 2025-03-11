@@ -111,7 +111,8 @@
                 "--exp_name",
                 "Interp",
                 "--tsubame",
-                "-r"
+                "--restore_ckpt",
+                "result/train/Interp/20250311_222842/checkpoints/025_epoch_9400_Mono-QPD.pth"
             ]
         },
 
