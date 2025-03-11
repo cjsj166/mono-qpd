@@ -39,7 +39,7 @@ if __name__ == "__main__":
     # change the job name as [the experiment name + current time stamp]
     script[2] = f"#$ -N train_{args.exp_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}\n"
 
-    script[-1] = f"python train.py --exp_name {args.exp_name}"
+    script[-1] = f"python train_mono_qpd.py --exp_name {args.exp_name}"
 
     # get the train config
     if args.tsubame:
