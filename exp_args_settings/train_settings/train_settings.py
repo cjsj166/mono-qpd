@@ -22,7 +22,7 @@ class TrainConfig:
     num_steps: int = 200000
     stop_step: int = None
     input_image_num: int = 2
-    image_size: Tuple[int] = (448, 448)
+    image_size: Tuple[int] = (224, 224)
     train_iters: int = 8
     wdecay: float = 0.00001
     CAPA: bool = True
