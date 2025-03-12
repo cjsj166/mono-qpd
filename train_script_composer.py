@@ -50,6 +50,7 @@ if __name__ == "__main__":
         conf = get_train_config(args.exp_name)
 
     # get the latest checkpoint if user don't specify the checkpoint
+    load_ckpt = None
     if args.restore_ckpt:
         load_ckpt = Path(args.restore_ckpt)
         script[-1] = script[-1] + f" --restore_ckpt {args.restore_ckpt}"
