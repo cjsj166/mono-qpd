@@ -85,6 +85,6 @@ if __name__ == "__main__":
     with save_path.open("w") as f:
         f.write(script)
     
-    print(f"cd {save_path.parent};sub {save_path}")
+    print(f"cd {save_path.parent};sub {save_path.name}")
 
 
