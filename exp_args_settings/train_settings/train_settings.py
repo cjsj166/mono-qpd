@@ -63,10 +63,17 @@ class TrainConfig:
     save_path: str = None
     qpd_valid_bs: int = 1
     val_save_skip: int = 50
-    
+
+    # evaluation settings
+    qpd_valid_bs: int = 1
+    qpd_test_bs: int = 1
+    real_qpd_bs: int = 1
+    dp_disp_bs: int = 1
+
     @classmethod
     def tsubame(cls):
         return cls(
+            num_steps = 150000, # 150000 * 8 / 3010 = 398.67 epochs
             batch_size=8,
             image_size=(448, 448),
             feature_converter='interp',

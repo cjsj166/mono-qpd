@@ -65,8 +65,8 @@ if __name__ == "__main__":
 
     # if total_epoch is already reached, do not train
     if 'QPD' in conf.train_datasets:
-        total_epoch = conf.num_steps / 3010
-        if load_ckpt_epoch >= total_epoch:
+        total_epoch = int(conf.num_steps * conf.batch_size / 3010)
+        if load_ckpt_epoch >= total_epoch - total_epoch % 5:
             print("Already reached the max epoch")
             exit(0)
 
@@ -84,6 +84,6 @@ if __name__ == "__main__":
     with save_path.open("w") as f:
         f.write(script)
     
-    print(f"cd {save_path.parent}; sub {save_path}")
+    print(f"cd {save_path.parent};sub {save_path}")
 
 

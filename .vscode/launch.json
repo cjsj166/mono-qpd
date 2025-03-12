@@ -100,6 +100,29 @@
             ]
         },
 
+        {
+            "name": "Mono-QPD, dataclass multi-eval, interp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_multiple_models.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "Interp",
+                "--ckpt_min_epoch", "10",
+                "--ckpt_max_epoch", "100",
+                // "--train_dir",
+                // "result/train/exp1/",
+                // "--datasets",
+                // "QPD-Valid",
+                // "--save_path",
+                // "result/eval/conv/exp1/",
+                // "--feature_converter",
+                // "conv",
+            ]
+        },
+
+
         // python train_script_composer.py --exp_name Interp --tsubame -r
         {
             "name": "train_script_composer test",
