@@ -40,7 +40,7 @@ if __name__ == '__main__':
 
         model = MonoQPD(conf)
         if restore_ckpt is not None:
-            assert restore_ckpt.endswith(".pth")
+            assert restore_ckpt.name.endswith(".pth")
             logging.info("Loading checkpoint...")
             checkpoint = torch.load(restore_ckpt)
             # model.load_state_dict(checkpoint, strict=True)
@@ -58,7 +58,7 @@ if __name__ == '__main__':
         model.cuda()
         model.eval()
 
-        print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
+        print("\n")
         print(f"The model has {format(count_parameters(model)/1e6, '.2f')}M learnable parameters.")
         print(f"Model restored from {restore_ckpt}")
 

@@ -19,7 +19,7 @@ def get_latest_ckpt(path):
     return latest_ckpt
 
 def get_ckpts_in_dir(dir_path):
-    ckpts_pattern = Path(dir_path) / '**' / '*.pth'
-    ckpts = ckpts_pattern.rglob()
+    dir_path = Path(dir_path)
+    ckpts = dir_path.rglob('**/*.pth')
     ckpts = sorted(ckpts, key=extract_epoch)
     return ckpts 
