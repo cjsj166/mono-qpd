@@ -69,4 +69,4 @@ if __name__ == "__main__":
                 job_script = "".join(job_script)
                 f.write(job_script)
         
-        print("; ".join([f"cd {save_dir}; sub {job_script_path.name}" for job_script_path in job_scripts]))
+        print(";".join([f"cd {save_dir}; sub {job_script_path.name}" for job_script_path in job_scripts]))
