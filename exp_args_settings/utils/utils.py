@@ -2,6 +2,7 @@ from pathlib import Path
 
 
 def extract_epoch(ckpt):
+    ckpt = Path(ckpt)
     return int(str(ckpt.name).split("_")[0])
 
 def get_latest_ckpt(path):
