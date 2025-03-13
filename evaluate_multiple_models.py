@@ -8,59 +8,28 @@ from mono_qpd.mono_qpd import MonoQPD
 from glob import glob
 import torch.utils.data as data
 import os
-
+from exp_args_settings.utils import extract_epoch
+from exp_args_settings.train_settings import get_train_config
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('--train_dir', help="Path to the file containing the model names to evaluate", type=str) # restore ckpts
-    
-    parser.add_argument('--datasets', nargs='+', help="dataset for evaluation", default=["QPD-Test"])
-    parser.add_argument('--datasets_path', default='/mnt/d/Mono+Dual/QP-Data', help="test datasets.")    
-    parser.add_argument('--mixed_precision', action='store_true', help='use mixed precision')
-    parser.add_argument('--valid_iters', type=int, default=8, help='number of flow-field updates during forward pass')
-    parser.add_argument('--input_image_num', type=int, default=2, help="2 for LR and 4 for LRTB")
-    parser.add_argument('--CAPA', default=True, help="if use Channel wise and pixel wise attention")
-
-    # Architecure choices
-    parser.add_argument('--hidden_dims', nargs='+', type=int, default=[128]*3, help="hidden state and context dimensions")
-    parser.add_argument('--corr_implementation', choices=["reg", "alt", "reg_cuda", "alt_cuda"], default="reg", help="correlation volume implementation")
-    parser.add_argument('--shared_backbone', action='store_true', help="use a single backbone for the context and feature encoders")
-    parser.add_argument('--corr_levels', type=int, default=4, help="number of levels in the correlation pyramid")
-    parser.add_argument('--corr_radius', type=int, default=4, help="width of the correlation pyramid")
-    parser.add_argument('--n_downsample', type=int, default=2, help="resolution of the disparity field (1/2^K)")
-    parser.add_argument('--context_norm', type=str, default="batch", choices=['group', 'batch', 'instance', 'none'], help="normalization of context encoder")
-    parser.add_argument('--slow_fast_gru', action='store_true', help="iterate the low-res GRUs more frequently")
-    parser.add_argument('--n_gru_layers', type=int, default=3, help="number of hidden GRU levels")
-    parser.add_argument('--save_result', type=bool, default=False)
-    parser.add_argument('--save_name', default='val')
-    
-    # Evaluation settings
-    parser.add_argument('--save_path', default='result/validations/eval.txt')
-    parser.add_argument('--ckpt_min_epoch', type=int, default=0)
-    parser.add_argument('--ckpt_max_epoch', type=int, default=500)
-    parser.add_argument('--batch_size', type=int, default=4, help="batch size for evaluation")
-
-    # Data settings
-    parser.add_argument('--qpd_valid_bs', type=int, default=1)
-    parser.add_argument('--qpd_test_bs', type=int, default=1)
-    parser.add_argument('--dp_disp_bs', type=int, default=1)
-    parser.add_argument('--real_qpd_bs', type=int, default=1)
-    parser.add_argument('--datatype', type=str, default='dual', help='dual or quad')
-
-    # Depth Anything V2
-    parser.add_argument('--encoder', default='vitl', choices=['vits', 'vitb', 'vitl', 'vitg'])
-    parser.add_argument('--feature_converter', type=str, default='', help="training datasets.")
-    
+    parser.add_argument('--exp_name', default='Interp', help="name your experiment")
+    parser.add_argument('--tsubame', action='store_true', help="when you run on tsubame")
+    parser.add_argument('--restore_ckpt', type=str, default=None, help="restore checkpoint")
     args = parser.parse_args()
-    
-    print("\n\n\n\n\n\n\n\n\n\n\n\n\n\n\n")
 
+    if args.tsubame:
+        dcl = get_train_config(args.exp_name)
+        conf = dcl.tsubame()
+    else:
+        conf = get_train_config(args.exp_name)
+    
     logging.basicConfig(level=logging.INFO,
                         format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
 
-    restore_ckpts = glob(os.path.join(args.train_dir, '**','checkpoints', '*.pth'), recursive=True)
-    restore_ckpts = sorted(restore_ckpts, key=lambda x: int(os.path.basename(x).split('_')[0]))
-# f"a {restore_ckpts}"
+    restore_ckpts = glob(os.path.join(conf.save_path, '**', '*.pth'), recursive=True)
+    restore_ckpts = sorted(restore_ckpts, key=extract_epoch)
+
     for restore_ckpt in restore_ckpts:
         ckpt = int(os.path.basename(restore_ckpt).split('_')[0])
 
