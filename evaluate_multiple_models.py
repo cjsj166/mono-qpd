@@ -8,8 +8,9 @@ from mono_qpd.mono_qpd import MonoQPD
 from glob import glob
 import torch.utils.data as data
 import os
-from exp_args_settings.utils import extract_epoch
+from exp_args_settings.utils import get_ckpts_in_dir
 from exp_args_settings.train_settings import get_train_config
+from pathlib import Path
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -25,10 +26,8 @@ if __name__ == '__main__':
         conf = dcl.tsubame()
     else:
         conf = get_train_config(args.exp_name)
-    
 
-    restore_ckpts = glob(os.path.join(conf.save_path, '**', '*.pth'), recursive=True)
-    restore_ckpts = sorted(restore_ckpts, key=extract_epoch)
+    restore_ckpts = get_ckpts_in_dir(conf.save_path)
 
     for restore_ckpt in restore_ckpts:
         ckpt = int(os.path.basename(restore_ckpt).split('_')[0])
