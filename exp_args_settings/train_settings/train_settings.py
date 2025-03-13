@@ -69,6 +69,7 @@ class TrainConfig:
     qpd_test_bs: int = 1
     real_qpd_bs: int = 1
     dp_disp_bs: int = 1
+    val_datasets: Tuple[str] = ('QPD-Valid',)
 
     @classmethod
     def tsubame(cls):

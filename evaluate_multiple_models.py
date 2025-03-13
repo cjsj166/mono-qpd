@@ -15,7 +15,9 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--tsubame', action='store_true', help="when you run on tsubame")
-    parser.add_argument('--restore_ckpt', type=str, default=None, help="restore checkpoint")
+    parser.add_argument('--ckpt_min_epoch', type=int, default=0)
+    parser.add_argument('--ckpt_max_epoch', type=int, default=500)
+
     args = parser.parse_args()
 
     if args.tsubame:
@@ -24,8 +26,6 @@ if __name__ == '__main__':
     else:
         conf = get_train_config(args.exp_name)
     
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
 
     restore_ckpts = glob(os.path.join(conf.save_path, '**', '*.pth'), recursive=True)
     restore_ckpts = sorted(restore_ckpts, key=extract_epoch)
@@ -39,7 +39,7 @@ if __name__ == '__main__':
         if  ckpt % 5 != 0:
             continue
 
-        model = MonoQPD(args)
+        model = MonoQPD(conf)
         if restore_ckpt is not None:
             assert restore_ckpt.endswith(".pth")
             logging.info("Loading checkpoint...")
@@ -65,21 +65,21 @@ if __name__ == '__main__':
 
         use_mixed_precision = args.corr_implementation.endswith("_cuda")
         
-        if 'QPD-Test' in args.datasets:
+        if 'QPD-Test' in conf.val_datasets:
             save_path = os.path.join(args.save_path, 'qpd-test', os.path.basename(restore_ckpt).replace('.pth', ''))
             print('QPD-Test')
-            result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=args.qpd_test_bs if args.qpd_test_bs else 1)
-        if 'QPD-Valid' in args.datasets:
+            result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=False, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
+        if 'QPD-Valid' in conf.val_datasets:
             save_path = os.path.join(args.save_path, 'qpd-valid', os.path.basename(restore_ckpt).replace('.pth', ''))
             print('QPD-Valid')
-            result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=args.qpd_valid_bs if args.qpd_valid_bs else 1)
-        if 'DPD-Disp' in args.datasets:
+            result = validate_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=False, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_valid_bs if conf.qpd_valid_bs else 1)
+        if 'DPD-Disp' in conf.val_datasets:
             save_path = os.path.join(args.save_path, 'dp-disp', os.path.basename(restore_ckpt).replace('.pth', ''))
             print('DPD-Disp')
-            result = validate_DPD_Disp(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=args.dp_disp_bs if args.dp_disp_bs else 1)
-        if 'Real-QPD' in args.datasets:
+            result = validate_DPD_Disp(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=False, datatype = conf.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
+        if 'Real-QPD' in conf.val_datasets:
             save_path = os.path.join(args.save_path, 'real-qpd-test', os.path.basename(restore_ckpt).replace('.pth', ''))
             print('Real-QPD')
-            result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=args.save_result, datatype = args.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=args.real_qpd_bs if args.real_qpd_bs else 1)
+            result = validate_Real_QPD(model, iters=args.valid_iters, mixed_prec=use_mixed_precision, save_result=False, datatype = conf.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=conf.real_qpd_bs if conf.real_qpd_bs else 1)
 
         print(result)
