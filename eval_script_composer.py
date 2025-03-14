@@ -25,6 +25,7 @@ if __name__ == "__main__":
 
     # change the job name as [the experiment name + current time stamp]
     script[2] = f"#$ -N multi_eval_{args.exp_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}\n"
+    script[4] = f"#$ -l h_rt=6:00:00"
     script[-1] = f"python evaluate_multiple_models.py --exp_name {args.exp_name}"
 
 
