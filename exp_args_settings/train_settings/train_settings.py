@@ -70,6 +70,7 @@ class TrainConfig:
     real_qpd_bs: int = 1
     dp_disp_bs: int = 1
     val_datasets: Tuple[str] = ('QPD-Valid',)
+    eval_datasets: Tuple[str] = ('QPD-Test', 'Real-QPD', 'DPD-Disp')
 
     @classmethod
     def tsubame(cls):
@@ -79,7 +80,10 @@ class TrainConfig:
             image_size=(448, 448),
             feature_converter='interp',
             lr=np.sqrt(8) * cls.lr,
-            # qpd_valid_bs=12,
+            qpd_valid_bs=10,
+            qpd_test_bs=10,
+            real_qpd_bs=10,
+            dp_disp_bs=10,
             val_save_skip=1,
         )
 

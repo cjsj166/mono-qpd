@@ -10,7 +10,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', required=True, help="Experiment name")
     parser.add_argument('--tsubame', action='store_true', help="when you run on tsubame")
-    parser.add_argument('--epoch', type=int, default=None, help="Specific epoch to evaluate")
+    parser.add_argument('--ckpt_epoch', type=int, default=None, help="Specific epoch to evaluate")
     parser.add_argument('--ckpt_min_epoch', type=int, default=0)
     parser.add_argument('--ckpt_max_epoch', type=int, default=500)
     parser.add_argument('--job_num', type=int, default=1, help="Number of parallel jobs")
@@ -24,12 +24,13 @@ if __name__ == "__main__":
         script = f.readlines()
 
     # change the job name as [the experiment name + current time stamp]
-    script[2] = f"#$ -N multi_eval_{args.exp_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}\n"
     script[3] = f"#$ -l gpu_h=1\n"
     script[4] = f"#$ -l h_rt=6:00:00\n"
-    script[-1] = f"python evaluate_multiple_models.py --exp_name {args.exp_name}\n"
+    script[2] = f"#$ -N multi_eval_{args.exp_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}\n"
+    script[-1] = f"python evaluate_multiple_models.py --exp_name {args.exp_name}"
 
-
+    
+    
     # get the train config
     if args.tsubame:
         dcl = get_train_config(args.exp_name)
@@ -48,10 +49,13 @@ if __name__ == "__main__":
         print("No checkpoint found")
         exit(0)
     
-    if args.epoch:
-        script_path = save_dir / f"{args.epoch:03d}.sh"
-        script[-1] = script[-1] + f" --ckpt_min_epoch {args.epoch} --ckpt_max_epoch {args.epoch}"
-        with script_path.opne("w") as f:
+    if args.ckpt_epoch:
+        script_path = save_dir / f"{args.ckpt_epoch:03d}.sh"
+        # script[-1] = script[-1] + f" --ckpt_min_epoch {args.ckpt_epoch} --ckpt_max_epoch {args.ckpt_epoch}"
+        script[-1] = script[-1].replace("evaluate_multiple_models.py", "evaluate_mono_qpd.py")
+        script[-1] = script[-1] + f" --ckpt_epoch {args.ckpt_epoch}\n"
+
+        with script_path.open("w") as f:
             script = "".join(script)
             f.write(script)
         print(f"cd {script_path.parent};sub {script_path.name}")

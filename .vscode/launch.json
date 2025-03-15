@@ -101,6 +101,22 @@
         },
 
         {
+
+            "name": "Mono-QPD, dataclass eval, interp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "Interp",
+                "--ckpt_epoch", "380",
+               
+            ]
+        },
+
+
+        {
             "name": "Mono-QPD, dataclass multi-eval, interp",
             "type": "debugpy",
             "request": "launch",
@@ -111,14 +127,7 @@
                 "Interp",
                 "--ckpt_min_epoch", "10",
                 "--ckpt_max_epoch", "100",
-                // "--train_dir",
-                // "result/train/exp1/",
-                // "--datasets",
-                // "QPD-Valid",
-                // "--save_path",
-                // "result/eval/conv/exp1/",
-                // "--feature_converter",
-                // "conv",
+
             ]
         },
 
@@ -144,6 +153,21 @@
                 // "conv",
             ]
         },
+
+        {
+            "name": "eval_script_composer --ckpt_epoch arg test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "eval_script_composer.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "Interp",
+                "--ckpt_epoch", "380",
+                "--tsubame",
+            ]
+        },
+
 
 
         // python train_script_composer.py --exp_name Interp --tsubame -r
