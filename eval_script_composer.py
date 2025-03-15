@@ -13,8 +13,8 @@ if __name__ == "__main__":
     parser.add_argument('--epoch', type=int, default=None, help="Specific epoch to evaluate")
     parser.add_argument('--ckpt_min_epoch', type=int, default=0)
     parser.add_argument('--ckpt_max_epoch', type=int, default=500)
-
     parser.add_argument('--job_num', type=int, default=1, help="Number of parallel jobs")
+    parser.add_argument('--eval_dataset', nargs='+', default=[], help="Additional dataset to evaluate")
     
     args = parser.parse_args()
 
@@ -41,6 +41,7 @@ if __name__ == "__main__":
     save_dir = Path(f"scripts/{args.exp_name}/evaluations")
     save_dir.mkdir(parents=True, exist_ok=True)
     
+    # get the checkpoints from train directory
     ckpts = get_ckpts_in_dir(conf.save_path)
 
     if not ckpts:
