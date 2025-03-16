@@ -80,10 +80,10 @@ class TrainConfig:
             image_size=(448, 448),
             feature_converter='interp',
             lr=np.sqrt(8) * cls.lr,
-            qpd_valid_bs=10,
-            qpd_test_bs=10,
-            real_qpd_bs=10,
-            dp_disp_bs=10,
+            qpd_valid_bs=5,
+            qpd_test_bs=5,
+            real_qpd_bs=5,
+            dp_disp_bs=5,
             val_save_skip=1,
         )
 
