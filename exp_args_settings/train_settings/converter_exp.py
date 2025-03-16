@@ -78,7 +78,7 @@ class Interp150K(TrainConfig):
     num_steps: int = 150000
     batch_size: int = 16
     image_size: Tuple[int, int] = (448, 448)
-    lr: int = 0.0002
+    lr: int = 0.0002 * np.sqrt(16)
     qpd_valid_bs: int = 4
     qpd_test_bs: int = 4
     real_qpd_bs: int = 4
