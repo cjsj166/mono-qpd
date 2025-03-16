@@ -75,11 +75,11 @@ class TrainConfig:
     @classmethod
     def tsubame(cls):
         return cls(
-            num_steps = 100000, # 100000 * 12 / 3010 = 398.67 epochs
+            num_steps = 200000, # 100000 * 12 / 3010 = 398.67 epochs
             batch_size=12,
             image_size=(448, 448),
             feature_converter='interp',
-            lr=np.sqrt(8) * cls.lr,
+            lr=np.sqrt(12) * cls.lr,
             qpd_valid_bs=4,
             qpd_test_bs=4,
             real_qpd_bs=4,
