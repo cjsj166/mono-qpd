@@ -10,7 +10,7 @@ class Interp(TrainConfig):
     # FIXME: batch_size -> 12
     batch_size: int = 1
     image_size: Tuple[int, int] = (448, 448)
-    lr=np.sqrt(12) * 0.0002
+    lr=np.sqrt(8) * 0.0002
     qpd_valid_bs: int = 4
     qpd_test_bs: int = 4
     real_qpd_bs: int = 4
@@ -41,10 +41,10 @@ class Interp200K(TrainConfig):
 
 @dataclass
 class InterpOriginal(TrainConfig):
-    num_steps: int = 300000
+    num_steps: int = 600000
     batch_size: int = 2
     image_size: Tuple[int, int] = (448, 448)
-    lr=0.0002
+    lr: int = 0.0002
     qpd_valid_bs: int = 4
     qpd_test_bs: int = 4
     real_qpd_bs: int = 4
@@ -55,8 +55,6 @@ class InterpOriginal(TrainConfig):
     save_path: str = 'result/train/InterpOriginal'
     feature_converter: str = 'interp'
     val_datasets: Tuple[str] = ('DPD-Disp',)
-
-
 
 if __name__ == "__main__":
     conf = Interp()
