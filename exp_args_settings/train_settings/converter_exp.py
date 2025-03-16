@@ -7,7 +7,7 @@ from typing import Tuple
 class Interp(TrainConfig):
     batch_size: int = 2
     restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
-    save_path: str = 'result/train/Interp'
+    save_path: str = 'result/train/200k_Interp'
     feature_converter: str = 'interp'
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
