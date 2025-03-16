@@ -1,4 +1,4 @@
-from .converter_exp import Interp
+from .converter_exp import *
 from .train_settings import *
 
 def get_train_config(class_name: str):
