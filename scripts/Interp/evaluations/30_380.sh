@@ -9,4 +9,4 @@ source  ~/.bashrc
 module load cuda/12.1 cudnn/9.0.0
 conda activate mono-qpd
 cd /gs/bs/tga-lab_otm/dlee/mono-qpd
-python evaluate_multiple_models.py --exp_name Interp --ckpt_min_epoch 5 --ckpt_max_epoch 25
+python evaluate_multiple_models.py --exp_name Interp --ckpt_min_epoch 30 --ckpt_max_epoch 380

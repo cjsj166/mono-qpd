@@ -15,17 +15,12 @@ from pathlib import Path
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
-    parser.add_argument('--tsubame', action='store_true', help="when you run on tsubame")
     parser.add_argument('--ckpt_min_epoch', type=int, default=0)
     parser.add_argument('--ckpt_max_epoch', type=int, default=500)
 
     args = parser.parse_args()
 
-    if args.tsubame:
-        dcl = get_train_config(args.exp_name)
-        conf = dcl.tsubame()
-    else:
-        conf = get_train_config(args.exp_name)
+    conf = get_train_config(args.exp_name)
 
     restore_ckpts = get_ckpts_in_dir(conf.save_path)
 

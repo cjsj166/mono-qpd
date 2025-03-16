@@ -9,7 +9,6 @@ import math
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', required=True, help="Experiment name")
-    parser.add_argument('--tsubame', action='store_true', help="when you run on tsubame")
     parser.add_argument('--ckpt_epoch', type=int, default=None, help="Specific epoch to evaluate")
     parser.add_argument('--ckpt_min_epoch', type=int, default=0)
     parser.add_argument('--ckpt_max_epoch', type=int, default=500)
@@ -29,15 +28,8 @@ if __name__ == "__main__":
     script[2] = f"#$ -N multi_eval_{args.exp_name}_{datetime.now().strftime('%Y%m%d%H%M%S')}\n"
     script[-1] = f"python evaluate_multiple_models.py --exp_name {args.exp_name}"
 
-    
-    
     # get the train config
-    if args.tsubame:
-        dcl = get_train_config(args.exp_name)
-        conf = dcl.tsubame()
-        script[-1] = script[-1] + f" --tsubame"
-    else:
-        conf = get_train_config(args.exp_name)
+    conf = get_train_config(args.exp_name)
 
     save_dir = Path(f"scripts/{args.exp_name}/evaluations")
     save_dir.mkdir(parents=True, exist_ok=True)

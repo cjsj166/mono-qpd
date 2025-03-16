@@ -72,22 +72,6 @@ class TrainConfig:
     val_datasets: Tuple[str] = ('QPD-Valid',)
     eval_datasets: Tuple[str] = ('QPD-Test', 'Real-QPD', 'DPD-Disp')
 
-    @classmethod
-    def tsubame(cls):
-        return cls(
-            num_steps = 200000, # 100000 * 12 / 3010 = 398.67 epochs
-            batch_size=12,
-            image_size=(448, 448),
-            feature_converter='interp',
-            lr=np.sqrt(12) * cls.lr,
-            qpd_valid_bs=4,
-            qpd_test_bs=4,
-            real_qpd_bs=4,
-            dp_disp_bs=4,
-            val_save_skip=1,
-        )
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='interp', help="name your experiment")

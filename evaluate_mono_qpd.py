@@ -468,17 +468,12 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
-    parser.add_argument('--tsubame', action='store_true', help="when you run on tsubame")
     parser.add_argument('--ckpt_epoch', type=int, default=0)
     parser.add_argument('--eval_datasets', nargs='+', default=[], required=True, help="Additional dataset to evaluate")
     
     args = parser.parse_args()
 
-    if args.tsubame:
-        dcl = get_train_config(args.exp_name)
-        conf = dcl.tsubame()
-    else:
-        conf = get_train_config(args.exp_name)
+    conf = get_train_config(args.exp_name)
 
     ckpts = get_ckpts_in_dir(conf.save_path)
 

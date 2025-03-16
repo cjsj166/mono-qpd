@@ -94,7 +94,6 @@
             "args": [
                 "--exp_name",
                 "Interp",
-                // "--tsubame",
                 "--restore_ckpt",
                 "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
             ]
@@ -138,11 +137,11 @@
             "program": "eval_script_composer.py",
             "console": "integratedTerminal",
             "args": [
-                "--exp_name",
-                "Interp",
+                "--exp_name", "Interp",
                 "--ckpt_min_epoch", "10",
                 "--ckpt_max_epoch", "100",
                 "--job_num", "2",
+                "--eval_datasets", "DPD_Disp",
                 // "--train_dir",
                 // "result/train/exp1/",
                 // "--datasets",
@@ -164,13 +163,11 @@
                 "--exp_name",
                 "Interp",
                 "--ckpt_epoch", "380",
-                "--tsubame",
             ]
         },
 
 
 
-        // python train_script_composer.py --exp_name Interp --tsubame -r
         {
             "name": "train_script_composer test",
             "type": "debugpy",
@@ -180,7 +177,6 @@
             "args": [
                 "--exp_name",
                 "Interp",
-                "--tsubame",
                 "--restore_ckpt",
                 "result/train/Interp/20250311_222842/checkpoints/025_epoch_9400_Mono-QPD.pth"
             ]
