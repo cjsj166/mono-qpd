@@ -240,7 +240,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
 
         # Align dimensions and file format
         flow_pr = flow_pr.cpu().numpy()
-        inv_depth_gt = inv_depth_gt.cpu().numpy()
+        inv_depth_gt = - inv_depth_gt.cpu().numpy()
         center = center.permute(0,2,3,1).cpu().numpy()
         
         assert flow_pr.shape == inv_depth_gt.shape, (flow_pr.shape, inv_depth_gt.shape)
