@@ -470,7 +470,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--tsubame', action='store_true', help="when you run on tsubame")
     parser.add_argument('--ckpt_epoch', type=int, default=0)
-    parser.add_argument('--eval_dataset', nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+    parser.add_argument('--eval_datasets', nargs='+', default=[], required=True, help="Additional dataset to evaluate")
     
     args = parser.parse_args()
 

@@ -14,7 +14,7 @@ if __name__ == "__main__":
     parser.add_argument('--ckpt_min_epoch', type=int, default=0)
     parser.add_argument('--ckpt_max_epoch', type=int, default=500)
     parser.add_argument('--job_num', type=int, default=1, help="Number of parallel jobs")
-    parser.add_argument('--eval_dataset', nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+    parser.add_argument('--eval_datasets', nargs='+', default=[], required=True, help="Additional dataset to evaluate")
     
     args = parser.parse_args()
 
@@ -53,7 +53,7 @@ if __name__ == "__main__":
         script_path = save_dir / f"{args.ckpt_epoch:03d}.sh"
         script[-1] = script[-1].replace("evaluate_multiple_models.py", "evaluate_mono_qpd.py")
         script[-1] = script[-1] + f" --ckpt_epoch {args.ckpt_epoch}"
-        script[-1] = script[-1] + f" --eval_datasets {' '.join(args.eval_dataset)}\n"
+        script[-1] = script[-1] + f" --eval_datasets {' '.join(args.eval_datasets)}\n"
 
         with script_path.open("w") as f:
             script = "".join(script)
