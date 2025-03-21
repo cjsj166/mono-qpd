@@ -64,7 +64,7 @@ if __name__ == "__main__":
             job_scripts.append(script_path)
             
             job_script = script[:]
-            job_script[-1] = job_script[-1] + f" --ckpt_min_epoch {job_min_epoch} --ckpt_max_epoch {job_max_epoch}"
+            job_script[-1] = job_script[-1] + f" --ckpt_min_epoch {job_min_epoch} --ckpt_max_epoch {job_max_epoch} --eval_datasets {' '.join(args.eval_datasets)}"
             with script_path.open("w") as f:
                 job_script = "".join(job_script)
                 f.write(job_script)
