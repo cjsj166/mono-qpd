@@ -107,8 +107,6 @@ class Interp75K(TrainConfig):
     feature_converter: str = 'interp'
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
-
-
 if __name__ == "__main__":
     conf = Interp()
     print(conf)

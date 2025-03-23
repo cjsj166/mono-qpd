@@ -13,6 +13,19 @@
         },
 
         {
+            "name": "exp_util test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "exp_data_organizer.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "Interp",
+            ]
+        },
+
+
+        {
             "name": "MonoQPD, train, qpd-train, fixed-conv, si-loss",
             "type": "debugpy",
             "request": "launch",
