@@ -114,6 +114,21 @@
 
         {
 
+            "name": "Mono-QPD, dataclass eval, InterpOriginal, 135epoch",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpOriginal",
+                "--ckpt_epoch", "135",
+                "--eval_datasets", "DPD_Disp"
+            ]
+        },
+
+        {
+
             "name": "Mono-QPD, dataclass eval, interp",
             "type": "debugpy",
             "request": "launch",
