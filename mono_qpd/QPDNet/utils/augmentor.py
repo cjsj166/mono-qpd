@@ -319,26 +319,26 @@ class SparseFlowAugmentor:
 
 
 class QuadAugmentor:
-    def __init__(self, crop_size, min_scale=0, max_scale=0, do_flip=False, yjitter=False, brightness=0, contrast=0, hue=0, saturation_range=[1.0, 1.0], gamma=[1,1,1,1]):
+    def __init__(self, crop_size, min_scale=-0.2, max_scale=0.5, do_flip=True, yjitter=False, brightness=0.4, contrast=0.4, hue=0.5/3.14, saturation_range=[0.6, 1.4], gamma=[1,1,1,1]):
 
         # spatial augmentation params
         self.crop_size = crop_size
         self.min_scale = min_scale
         self.max_scale = max_scale
-        self.spatial_aug_prob = 0
-        self.stretch_prob = 0
-        self.max_stretch = 0
+        self.spatial_aug_prob = 1.0
+        self.stretch_prob = 0.8
+        self.max_stretch = 0.2
 
         # flip augmentation params
         self.yjitter = yjitter
         self.do_flip = do_flip
-        self.h_flip_prob = 0
-        self.v_flip_prob = 0
+        self.h_flip_prob = 0.5
+        self.v_flip_prob = 0.1
 
         # photometric augmentation params
         self.photo_aug = Compose([ColorJitter(brightness=brightness, contrast=contrast, saturation=saturation_range, hue=hue), AdjustGamma(*gamma)])
-        self.asymmetric_color_aug_prob = 0
-        self.eraser_aug_prob = 0
+        self.asymmetric_color_aug_prob = 0.2
+        self.eraser_aug_prob = 0.5
 
     def color_transform(self, img_list):
         """ Photometric augmentation """
