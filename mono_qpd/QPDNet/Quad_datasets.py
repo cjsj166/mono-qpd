@@ -287,6 +287,10 @@ def fetch_dataloader(args):
 
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
         pin_memory=True, shuffle=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=True)
+    
+    # Below line is only for debugging
+    # train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
+    #     pin_memory=True, shuffle=True, num_workers=0, drop_last=True)
 
     logging.info('Training with %d image pairs' % len(train_dataset))
     return train_loader

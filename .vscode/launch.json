@@ -107,8 +107,8 @@
             "args": [
                 "--exp_name",
                 "Interp",
-                "--restore_ckpt",
-                "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
+                // "--restore_ckpt",
+                // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
             ]
         },
 

@@ -457,9 +457,10 @@ class QuadAugmentor:
         img_list = self.color_transform(img_list)
         img_list = self.eraser_transform(img_list)
         if 'disp' in items:
-            flow = np.stack([disp, np.zeros_like(disp)], axis=-1)
+            flow = np.concatenate([disp, np.zeros_like(disp)], axis=-1)
+            # flow = np.stack([disp, np.zeros_like(disp)], axis=-1)
             img_list, flow = self.spatial_transform(img_list, flow)
-            disp = flow[:, :, :, 0]
+            disp = flow[:, :, :1]
 
         # Pack items        
         items = {}
