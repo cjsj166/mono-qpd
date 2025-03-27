@@ -2,6 +2,7 @@ import argparse
 from dataclasses import dataclass
 from typing import Tuple
 import numpy as np
+from pathlib import Path
 # import train_mono_qpd
 
 @dataclass
@@ -71,6 +72,12 @@ class TrainConfig:
     dp_disp_bs: int = 1
     val_datasets: Tuple[str] = ('QPD-Valid',)
     eval_datasets: Tuple[str] = ('QPD-Test', 'Real-QPD', 'DPD-Disp')
+
+    def __post_init__(self):
+        save_path = Path('result/train') / self.__class__.__name__
+
+        self.save_path = str(save_path)
+
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

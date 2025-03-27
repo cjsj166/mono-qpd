@@ -13,7 +13,7 @@ if __name__ == "__main__":
     parser.add_argument('--ckpt_min_epoch', type=int, default=0)
     parser.add_argument('--ckpt_max_epoch', type=int, default=500)
     parser.add_argument('--job_num', type=int, default=1, help="Number of parallel jobs")
-    parser.add_argument('--eval_datasets', nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
     
     args = parser.parse_args()
 

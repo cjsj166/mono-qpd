@@ -6,3 +6,4 @@
 datasets/
 *.pth
 wu_metrics
+tsubame_result

@@ -104,3 +104,6 @@ def spearman_correlation(
         return (E(x * y) - mu_x * mu_y) / (np.sqrt(var_x * var_y))
 
     return _pearson_correlation(rx, ry)
+
+if __name__ == "__main__":
+    

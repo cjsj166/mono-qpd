@@ -17,7 +17,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--ckpt_min_epoch', type=int, default=0)
     parser.add_argument('--ckpt_max_epoch', type=int, default=500)
-    parser.add_argument('--eval_datasets', nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
 
     args = parser.parse_args()
 
@@ -68,13 +68,13 @@ if __name__ == '__main__':
             save_path = os.path.join(conf.save_path, 'qpd-valid', os.path.basename(restore_ckpt).replace('.pth', ''))
             print('QPD-Valid')
             result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=False, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_valid_bs if conf.qpd_valid_bs else 1)
-        if 'DPD-Disp' in args.eval_datasets:
+        if 'DPD_Disp' in args.eval_datasets:
             save_path = os.path.join(conf.save_path, 'dp-disp', os.path.basename(restore_ckpt).replace('.pth', ''))
-            print('DPD-Disp')
+            print('DPD_Disp')
             result = validate_DPD_Disp(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=False, datatype = conf.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
-        if 'Real-QPD' in args.eval_datasets:
+        if 'Real_QPD' in args.eval_datasets:
             save_path = os.path.join(conf.save_path, 'real-qpd-test', os.path.basename(restore_ckpt).replace('.pth', ''))
-            print('Real-QPD')
+            print('Real_QPD')
             result = validate_Real_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=False, datatype = conf.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=conf.real_qpd_bs if conf.real_qpd_bs else 1)
 
         print(result)
