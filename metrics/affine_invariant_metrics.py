@@ -106,4 +106,12 @@ def spearman_correlation(
     return _pearson_correlation(rx, ry)
 
 if __name__ == "__main__":
+    # Test spearman_correlation
+    X = np.array([[1, 2], [3, 4]])
+    Y = np.array([[4, 3], [2, 1]])
+
+    W = np.array([[1, 1], [1, 1]])
+    result = 1 - np.abs(spearman_correlation(X, Y, W))
+
+    print("Spearman correlation:", result)
     

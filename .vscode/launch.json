@@ -21,6 +21,7 @@
             "args": [
                 "--exp_name",
                 "Interp",
+                
             ]
         },
 
@@ -138,7 +139,7 @@
                 "--exp_name",
                 "Interp",
                 "--ckpt_epoch", "380",
-               
+                "--eval_datasets", "DPD_Disp"
             ]
         },
 

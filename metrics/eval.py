@@ -100,7 +100,7 @@ class Eval():
 
     def spearman_correlation(self, Y, Target):
         if 'sc' in self.enabled_metrics:
-            sc = spearman_correlation(Y, Target)
+            sc = 1 - np.abs(spearman_correlation(Y, Target))
             self.metrics_data['sc'].append(sc)
             return sc
         return None
