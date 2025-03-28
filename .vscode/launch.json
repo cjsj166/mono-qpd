@@ -124,7 +124,7 @@
                 "--exp_name",
                 "InterpOriginal",
                 "--ckpt_epoch", "135",
-                "--eval_datasets", "DPD_Disp"
+                "--eval_datasets", "Real_QPD"
             ]
         },
 
