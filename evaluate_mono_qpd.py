@@ -191,15 +191,13 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
     val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
         pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)    
 
-    npy_dir = os.path.join(save_path, 'npy')
-    est_dir = os.path.join(save_path, 'est')
-    err_dir = os.path.join(save_path, 'err')
+    ai2_fit_dir = os.path.join(save_path, 'ai2_fit')
+    ai2_dir = os.path.join(save_path, 'ai2')
     gt_dir = os.path.join(save_path, 'gt')
     src_dir = os.path.join(save_path, 'src')
     src_test_c_dir = os.path.join(src_dir, 'test_c', 'source', 'scenes')
-    os.makedirs(npy_dir, exist_ok=True)
-    os.makedirs(est_dir, exist_ok=True)
-    os.makedirs(err_dir, exist_ok=True)
+    os.makedirs(ai2_fit_dir, exist_ok=True)
+    os.makedirs(ai2_dir, exist_ok=True)
     os.makedirs(gt_dir, exist_ok=True)
     os.makedirs(src_dir, exist_ok=True)
     os.makedirs(src_test_c_dir, exist_ok=True)
@@ -227,6 +225,8 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
         valid_gt = data_blob['inv_depth_valid'].cuda()
 
         concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()
+
+
         
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
@@ -256,6 +256,8 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
             bads = eval_est.ai2_bad_pixel_metrics(flow_pr_i, inv_depth_gt_i)
             est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
 
+            val_id = i_batch * batch_size + i
+
             # print(flow_pr_i[0][418:421][317:343])
 
             if save_result:
@@ -270,24 +272,33 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
                 vmargin = 0.3
                 vrng = inv_depth_gt_i.max() - inv_depth_gt_i.min()
                 vmin, vmax = inv_depth_gt_i.min() - vrng * vmargin, inv_depth_gt_i.max() + vrng * vmargin
-                vmin_err, vmax_err = 0, vrng * vmargin
+                err_rng = 0.7
+                vmin_err, vmax_err = 0, vrng * err_rng
 
                 eval_est.add_colorrange(vmin, vmax)
 
-                # Save as npy
-                np.save(os.path.join(npy_dir, pth.replace('.jpg', '.npy')), flow_pr_i)
+                
+                os.makedirs('result/MVA_submission', exist_ok=True)
 
-                npy_gt_dir = os.path.join(save_path, 'npy_gt')
-                os.makedirs(npy_gt_dir, exist_ok=True)
-                np.save(os.path.join(npy_gt_dir, pth.replace('.jpg', '.npy')), inv_depth_gt_i)
+                with open('result/MVA_submission/dpd_disp_affine_fit_range.txt', 'a') as f:
+                    f.write(f'{val_id}: {vmin}, {vmax}\n')
+
+                with open('result/MVA_submission/dpd_disp_ai2_range.txt', 'a') as f:
+                    f.write(f'{val_id}: {vmin_err}, {vmax_err}\n')
+
 
                 # Save in colormap
-                plt.imsave(os.path.join(est_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
-                plt.imsave(os.path.join(err_dir, pth), np.abs(est_ai2_fit.squeeze() - inv_depth_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+                plt.imsave(os.path.join(ai2_fit_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+                plt.imsave(os.path.join(ai2_dir, pth), np.abs(est_ai2_fit.squeeze() - inv_depth_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
                 
                 plt.imsave(os.path.join(gt_dir, pth), inv_depth_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
 
                 plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), center_i.astype(np.uint8))
+
+
+
+
+
                 # plt.imsave(os.path.join(src_dir, 'test_l', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[0].astype(np.uint8))
                 # plt.imsave(os.path.join(src_dir, 'test_r', 'source', 'scenes', pth.replace('B', 'R').replace('.jpg', '.png')), image2[1].astype(np.uint8))
 
@@ -320,28 +331,26 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
     val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
         pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
     
-    # val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
-    #     pin_memory=True, num_workers=1, drop_last=False)
-    
-    log_dir = 'result'
-    est_dir = os.path.join(log_dir, 'dp_est')
-    gt_dir = os.path.join(log_dir, 'gt')
-    os.makedirs(est_dir, exist_ok=True)
-    os.makedirs(gt_dir, exist_ok=True)
-
-    est_dir = os.path.join(save_path, 'est')
-    err_dir = os.path.join(save_path, 'err')
+    disp_dir = os.path.join(save_path, 'disp')
+    epe_dir = os.path.join(save_path, 'epe')
+    epe0_3_dir = os.path.join(save_path, 'epe0_3')
+    epe0_5_dir = os.path.join(save_path, 'epe0_5')
+    ai2_fit_dir = os.path.join(save_path, 'ai2_fit')
+    ai2_dir = os.path.join(save_path, 'ai2')
+    ai2_0_3_dir = os.path.join(save_path, 'ai2_0_3')
+    ai2_0_5_dir = os.path.join(save_path, 'ai2_0_5')
     gt_dir = os.path.join(save_path, 'gt')
     src_dir = os.path.join(save_path, 'src')
-    os.makedirs(est_dir, exist_ok=True)
-    os.makedirs(err_dir, exist_ok=True)
+    os.makedirs(epe_dir, exist_ok=True)
+    os.makedirs(epe0_3_dir, exist_ok=True)
+    os.makedirs(epe0_5_dir, exist_ok=True)
+    os.makedirs(ai2_0_3_dir, exist_ok=True)
+    os.makedirs(ai2_0_5_dir, exist_ok=True)
     os.makedirs(gt_dir, exist_ok=True)
     os.makedirs(src_dir, exist_ok=True)
 
-
     path = os.path.basename(os.path.dirname(path))
 
-    # ai2_bad_0_005px ~ ai2_bad_15px
     eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'si', 'epe_bad_0_005', 'epe_bad_0_01', 'epe_bad_0_05', 'epe_bad_0_1', 'epe_bad_0_5', 'epe_bad_1'])
     
     result = {}
@@ -351,15 +360,10 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
     else:
         val_save_skip = val_save_skip // batch_size
 
-
-    # for val_id in tqdm(range(val_num)):
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
 
         if i_batch % val_save_skip != 0:
             continue
-        # if val_id == 2:
-        #     break
-        # paths, image1, image2, flow_gt, valid_gt = data_blob
 
         image_paths = data_blob['image_list']
         center = data_blob['center'].cuda()
@@ -372,34 +376,22 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
 
-
-        # Align dimensions and file format
         flow_pr = flow_pr.cpu().numpy()
         disp_gt = disp_gt.cpu().numpy()
         center = center.permute(0,2,3,1).cpu().numpy()
         
-        # if flow_pr.shape[0]==2:
-        #     flow_pr = flow_pr[1]-flow_pr[0]
-        disp_gt = disp_gt/2
+        disp_gt = disp_gt / 2
 
         assert flow_pr.shape == disp_gt.shape, (flow_pr.shape, disp_gt.shape)
 
         current_batch_size = flow_pr.shape[0]
         for i in range(current_batch_size):
-            
-            # if batch_size == 1:
-            #     flow_pr_i = flow_pr
-            #     disp_gt_i = disp_gt
-            #     center_i = center
-            # else:
             flow_pr_i = flow_pr[i]
             disp_gt_i = disp_gt[i]
             center_i = center[i]
 
-            # fitting and save
             epe = eval_est.end_point_error(flow_pr_i, disp_gt_i)
             rmse = eval_est.root_mean_squared_error(flow_pr_i, disp_gt_i)
-            # bads = eval_est.ai2_bad_pixel_metrics(flow_pr_i, disp_gt_i)
             bads = eval_est.epe_bad_pixel_metrics(flow_pr_i, disp_gt_i)
             est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr_i, disp_gt_i)
             est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr_i, disp_gt_i)
@@ -415,50 +407,68 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
                 pth_lists = image_paths[0][i].split('/')[-2:]
                 pth = '/'.join(pth_lists)
 
-                # Set range
-                vmargin = 0.1
-                vrng = disp_gt_i.max() - disp_gt_i.min()
-                vmin, vmax = disp_gt_i.min() - vrng * vmargin, disp_gt_i.max() + vrng * vmargin
-                vmin_err, vmax_err = 0, vrng * vmargin
-
-                # vmin, vmax = np.min([est_ai2_fit, disp_gt_i]), np.max([est_ai2_fit, disp_gt_i])
-                # vmin_err, vmax_err = np.min([est_ai2_fit - disp_gt_i, disp_gt_i - est_ai2_fit]), np.max([est_ai2_fit - disp_gt_i, disp_gt_i - est_ai2_fit])            
-                eval_est.add_colorrange(vmin, vmax)
-
-                os.makedirs(os.path.dirname(os.path.join(est_dir, pth)), exist_ok=True)
-                os.makedirs(os.path.dirname(os.path.join(err_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(disp_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(ai2_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(ai2_fit_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(epe_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(epe0_3_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(epe0_5_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(ai2_0_3_dir, pth)), exist_ok=True)
+                os.makedirs(os.path.dirname(os.path.join(ai2_0_5_dir, pth)), exist_ok=True)
                 os.makedirs(os.path.dirname(os.path.join(gt_dir, pth)), exist_ok=True)
                 os.makedirs(os.path.dirname(os.path.join(src_dir, pth)), exist_ok=True)
 
-                # Save in colormap
-                plt.imsave(os.path.join(est_dir, pth), flow_pr_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)        
-                plt.imsave(os.path.join(err_dir, pth), np.abs(flow_pr_i.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
-                
+                vrng = disp_gt_i.max() - disp_gt_i.min()
+
+                vmargin = 0.1
+                vmin, vmax = disp_gt_i.min() - vrng * vmargin, disp_gt_i.max() + vrng * vmargin
+                eval_est.add_colorrange(vmin, vmax)
+                plt.imsave(os.path.join(disp_dir, pth), flow_pr_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+                plt.imsave(os.path.join(ai2_fit_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+
+                os.makedirs('result/MVA_submission', exist_ok=True)
+
+                with open('result/MVA_submission/qpd-test_affine_fit_range.txt', 'a') as f:
+                    f.write(f'{val_id}: {vmin}, {vmax}\n')
+
+                err_rat = 0.7
+                vmin_err, vmax_err = 0, vrng * err_rat
+                plt.imsave(os.path.join(epe_dir, pth), np.abs(flow_pr_i.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+                plt.imsave(os.path.join(ai2_dir, pth), np.abs(est_ai2_fit.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+
+                with open('result/MVA_submission/qpd-test_ai2_range.txt', 'a') as f:
+                    f.write(f'{val_id}: {vmin_err}, {vmax_err}\n')
+
+                err_rat_0_3 = 0.3
+                vmin_err_0_3, vmax_err_0_3 = 0, vrng * err_rat_0_3
+                plt.imsave(os.path.join(epe0_3_dir, pth), np.abs(flow_pr_i.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err_0_3, vmax=vmax_err_0_3)
+                plt.imsave(os.path.join(ai2_0_3_dir, pth), np.abs(est_ai2_fit.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err_0_3, vmax=vmax_err_0_3)
+
+                err_rat_0_5 = 0.5
+                vmin_err_0_5, vmax_err_0_5 = 0, vrng * err_rat_0_5
+                plt.imsave(os.path.join(epe0_5_dir, pth), np.abs(flow_pr_i.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err_0_5, vmax=vmax_err_0_5)
+                plt.imsave(os.path.join(ai2_0_5_dir, pth), np.abs(est_ai2_fit.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err_0_5, vmax=vmax_err_0_5)
+
                 plt.imsave(os.path.join(gt_dir, pth), disp_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
                 plt.imsave(os.path.join(src_dir, pth), center_i.astype(np.uint8))
 
-                # Colorize된 이미지를 result에 저장
                 colormap = cm.jet
 
-                # est_ai2_fit colorized 이미지
-                est_colorized = colormap((est_ai2_fit - vmin) / (vmax - vmin))  # 0~1 범위로 정규화
+                est_colorized = colormap((est_ai2_fit - vmin) / (vmax - vmin))
                 est_colorized = (est_colorized * 255).astype(np.uint8)[0, :, :, :3]
                 est_colorized = np.moveaxis(est_colorized, -1, 0)
                 result[f'{val_id}_est_colormap'] = est_colorized
 
-                # error 이미지 colorized
                 error_image = np.abs(est_ai2_fit - disp_gt_i)
                 error_colorized = colormap((error_image - vmin_err) / (vmax_err - vmin_err))
                 error_colorized = (error_colorized * 255).astype(np.uint8)[0, :, :, :3]
                 error_colorized = np.moveaxis(error_colorized, -1, 0)
                 result[f'{val_id}_err_colormap'] = error_colorized
 
-                # flow_gt_i colorized 이미지
                 gt_colorized = colormap((disp_gt_i - vmin) / (vmax - vmin))
                 gt_colorized = (gt_colorized * 255).astype(np.uint8)[0, :, :, :3]
                 gt_colorized = np.moveaxis(gt_colorized, -1, 0)
                 result[f'{val_id}_gt_colormap'] = gt_colorized
-
 
     eval_est.save_metrics()
     result = {**result, **eval_est.get_mean_metrics()}
@@ -470,7 +480,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--ckpt_epoch', type=int, default=0)
-    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
     
     args = parser.parse_args()
 
@@ -479,7 +489,10 @@ if __name__ == '__main__':
     ckpts = get_ckpts_in_dir(conf.save_path)
 
     for ckpt in ckpts:
-        epoch = int(os.path.basename(ckpt).split('_')[0])
+        try:
+            epoch = int(os.path.basename(ckpt).split('_')[0])
+        except Exception as e:
+            print(f'{e} occured from ckpt: {ckpt}')
 
         if epoch == args.ckpt_epoch:
             restore_ckpt = ckpt
@@ -512,6 +525,12 @@ if __name__ == '__main__':
         save_path = os.path.join(conf.save_path, 'qpd-test', str(restore_ckpt.name).replace('.pth', ''))
         print(save_path)
         result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
+
+    if 'QPD-Test-noise' in args.eval_datasets:
+        save_path = os.path.join(conf.save_path, 'qpd-test-noise', str(restore_ckpt.name).replace('.pth', ''))
+        print(save_path)
+        result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data-noise0.001', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
+
     if 'QPD-Valid' in args.eval_datasets:
         save_path = os.path.join(conf.save_path, 'qpd-valid', str(restore_ckpt.name).replace('.pth', ''))
         print(save_path)

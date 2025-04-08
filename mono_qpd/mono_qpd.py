@@ -84,6 +84,8 @@ class MonoQPD(nn.Module):
             ret_features = ret_features[1:]
         
         ret_features = self.feature_converter(ret_features)
+        # for f in ret_features:
+        #     print(f.shape)
         ret_features = ret_features[::-1] # Reverse the order of the features
 
         if test_mode:

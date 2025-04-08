@@ -20,7 +20,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "Interp",
+                "InterpOriginal_nonaug",
                 
             ]
         },
@@ -114,7 +114,6 @@
         },
 
         {
-
             "name": "Mono-QPD, dataclass eval, InterpOriginal, 135epoch",
             "type": "debugpy",
             "request": "launch",
@@ -127,6 +126,50 @@
                 "--eval_datasets", "Real_QPD"
             ]
         },
+
+        {
+            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, qpd-test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpQPDSetting",
+                "--ckpt_epoch", "260",
+                "--eval_datasets", "QPD-Test"
+            ]
+        },
+
+
+        {
+            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, qpd-test-noise",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpQPDSetting",
+                "--ckpt_epoch", "260",
+                "--eval_datasets", "QPD-Test-noise"
+            ]
+        },
+
+        {
+            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, dpd-disp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpQPDSetting",
+                "--ckpt_epoch", "260",
+                "--eval_datasets", "DPD_Disp"
+            ]
+        },
+
 
         {
 

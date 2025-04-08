@@ -125,6 +125,7 @@ class DPTHead(nn.Module):
                 x = x[0]
             
             x = x.permute(0, 2, 1).reshape((x.shape[0], x.shape[-1], patch_h, patch_w))
+            # print(x.shape)
             
             if output_condition != 'enc_features':
                 x = self.projects[i](x)
