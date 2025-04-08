@@ -8,5 +8,5 @@
 source  ~/.bashrc
 module load cuda/12.1 cudnn/9.0.0
 conda activate mono-qpd
-cd /gs/bs/tga-lab_otm/dlee/mono-qpd
+cd /gs/bs/tga-lab_okmn/dlee/mono-qpd
 record_nvidia_smi gpu_log.log
