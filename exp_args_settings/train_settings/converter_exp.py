@@ -7,7 +7,6 @@ import numpy as np
 @dataclass
 class Interp(TrainConfig):
     num_steps: int = 200000
-    # FIXME: batch_size -> 12
     batch_size: int = 1
     image_size: Tuple[int, int] = (224, 224)
     lr: float = 0.0002
@@ -70,6 +69,60 @@ class InterpOriginal_nonaug(TrainConfig):
 
     restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
     save_path: str = 'result/train/InterpOriginal_nonaug'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+@dataclass
+class AiFDAV2Input(TrainConfig):
+    aif_input: str = "Depth_Anything_V2"
+    num_steps: int = 200000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/AiFDAV2Input'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+@dataclass
+class AiFQPDNetInput(TrainConfig):
+    aif_input: str = "QPDNet"
+    num_steps: int = 200000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/AiFQPDNetInput'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+@dataclass
+class AiFBothInput(TrainConfig):
+    aif_input: str = "Both"
+    num_steps: int = 200000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/AiFBothInput'
     feature_converter: str = 'interp'
     val_datasets: Tuple[str] = ('DPD-Disp',)
 

@@ -23,6 +23,7 @@ import torch.nn as nn
 from mono_qpd.loss import LeastSquareScaleInvariantLoss
 from matplotlib import cm
 import torch.utils.data as data
+import torch.nn.functional as F
 
 from metrics.eval import Eval
 from collections import OrderedDict
@@ -94,10 +95,6 @@ def validate_Real_QPD(model, datatype='dual', iters=32, mixed_prec=False, save_r
         val_dataset = datasets.Real_QPD(datatype=datatype, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params)
     else:
         val_dataset = datasets.Real_QPD(datatype=datatype, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params, root=path)
-
-    # TODO : revert worker number
-    # val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
-    #     pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
     
     val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
         pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
@@ -179,7 +176,6 @@ def validate_Real_QPD(model, datatype='dual', iters=32, mixed_prec=False, save_r
 
 @torch.no_grad()
 def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='', save_path='result/predictions', batch_size=1, preprocess_params={'crop_h':2940, 'crop_w':5145, 'resize_h': 224*4, 'resize_w':224*7}):
-    """ Peform validation using the FlyingThings3D (TEST) split """
     model.eval()
     aug_params = {}
     
@@ -203,7 +199,6 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
     os.makedirs(src_test_c_dir, exist_ok=True)
 
     eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['ai1', 'ai2', 'sc', 'ai2_bad_0_003', 'ai2_bad_0_005', 'ai2_bad_0_01', 'ai2_bad_0_03', 'ai2_bad_0_05'])
-
     result = {}
 
     if val_save_skip < batch_size:
@@ -224,10 +219,24 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
         inv_depth_gt =  data_blob['inv_depth'].cuda()
         valid_gt = data_blob['inv_depth_valid'].cuda()
 
-        concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()
+        # wd = center.shape[-1]
+        # divis_by = 32
+        # pad_wd = (((wd // divis_by) + 1) * divis_by - wd)        
+        # pad = [pad_wd//2, pad_wd - pad_wd//2, 0, 0, 0, 0]
 
+        # center_list = [center, F.pad(center, pad, mode='replicate')]
+        # lrtb_list = F.pad(lrtb_list, pad, mode='replicate')
+        # lrtb_list[0] = F.pad(lrtb_list[0, :, :, :, :], pad, mode='replicate')
+        # lrtb_list = F.pad(lrtb_list, pad, mode='replicate')
+        # center = torch.concat([pad, center, pad], dim=0)
+        # h, w = center.shape[-2:]
+        # new_h, new_w = 112 * 4, 112 * 7
+        # center = F.interpolate(center, size=(new_h, new_w), mode='bilinear', align_corners=False)
+        # lrtb_list = lrtb_list.view(-1, 3, h, w)
+        # lrtb_list = F.interpolate(lrtb_list, size=(new_h, new_w), mode='bilinear', align_corners=False)
+        # lrtb_list = lrtb_list.view(1, 2, 3, new_h, new_w)
 
-        
+        concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()        
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
 
@@ -272,6 +281,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
                 vmargin = 0.3
                 vrng = inv_depth_gt_i.max() - inv_depth_gt_i.min()
                 vmin, vmax = inv_depth_gt_i.min() - vrng * vmargin, inv_depth_gt_i.max() + vrng * vmargin
+                vmin = 0 if vmin < 0 else vmin
                 err_rng = 0.7
                 vmin_err, vmax_err = 0, vrng * err_rng
 
@@ -286,17 +296,11 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
                 with open('result/MVA_submission/dpd_disp_ai2_range.txt', 'a') as f:
                     f.write(f'{val_id}: {vmin_err}, {vmax_err}\n')
 
-
                 # Save in colormap
-                plt.imsave(os.path.join(ai2_fit_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
-                plt.imsave(os.path.join(ai2_dir, pth), np.abs(est_ai2_fit.squeeze() - inv_depth_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
-                
-                plt.imsave(os.path.join(gt_dir, pth), inv_depth_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
-
+                plt.imsave(os.path.join(ai2_fit_dir, pth), est_ai2_fit.squeeze(), cmap='jet_r', vmin=vmin, vmax=vmax)
+                plt.imsave(os.path.join(ai2_dir, pth), np.abs(est_ai2_fit.squeeze() - inv_depth_gt_i.squeeze()), cmap='jet_r', vmin=vmin_err, vmax=vmax_err)
+                plt.imsave(os.path.join(gt_dir, pth), inv_depth_gt_i.squeeze(), cmap='jet_r', vmin=vmin, vmax=vmax)
                 plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), center_i.astype(np.uint8))
-
-
-
 
 
                 # plt.imsave(os.path.join(src_dir, 'test_l', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[0].astype(np.uint8))
@@ -475,7 +479,7 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
 
     return result
 
-
+# TODO: Add logic to deal with AiF images
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
