@@ -1,13 +1,14 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mono_qpd.QPDNet.update import BasicMultiUpdateBlock
-from mono_qpd.QPDNet.extractor import BasicEncoder, MultiBasicEncoder, ResidualBlock
-from mono_qpd.QPDNet.corr import CorrBlock1D
-from mono_qpd.QPDNet.utils.utils import coords_grid, upflow8
-from mono_qpd.QPDNet.FFA import Block, Group, default_conv
-
-
+from mono_qpd.FMDP.update import BasicMultiUpdateBlock
+from mono_qpd.FMDP.extractor import BasicEncoder, MultiBasicEncoder, ResidualBlock
+from mono_qpd.FMDP.corr import CorrBlock1D
+from mono_qpd.FMDP.utils.utils import coords_grid, upflow8
+from mono_qpd.FMDP.FFA import Block, Group, default_conv
+from mono_qpd.Depth_Anything_V2.depth_anything_v2.dpt import DepthAnythingV2
+from mono_qpd.feature_converter import InterpConverter
+import matplotlib.pyplot as plt
 
 try:
     autocast = torch.cuda.amp.autocast
@@ -21,10 +22,66 @@ except:
         def __exit__(self, *args):
             pass
 
-class QPDNet(nn.Module):
+
+# class MonoQPD(nn.Module):
+#     def __init__(self, args):
+#         super().__init__()
+#         # else_args = args['else']
+#         # da_v2_args = args['da_v2']
+
+#         self.da_v2_output_condition = 'enc_features'        
+#         self.feature_converter = InterpConverter()
+#         self.da_v2 = DepthAnythingV2(args.encoder, output_condition=self.da_v2_output_condition)
+#         self.qpdnet = QPDNet(args)
+
+#     def resize_to_14_multiples(self, image):
+#         h, w = image.shape[2], image.shape[3]
+#         new_h = (h // 14) * 14
+#         new_w = (w // 14) * 14
+
+#         resized_image = F.interpolate(image, size=(new_h, new_w), mode='bilinear', align_corners=False)
+#         return resized_image
+    
+#     def normalize_image(self, image):
+#         # Normalization
+#         mean = torch.tensor([0.485, 0.456, 0.406], device=image.device).view(3, 1, 1)
+#         std = torch.tensor([0.229, 0.224, 0.225], device=image.device).view(3, 1, 1)
+#         image = image / image.max()
+#         image = (image - mean) / std
+#         return image
+        
+#     def forward(self, image1, image2, iters=12, flow_init=None, test_mode=False):
+#         h, w = image1.shape[2], image1.shape[3]
+#         assert h % 112 == 0 and w % 112 == 0, "Image dimensions must be multiples of 224"
+
+#         image1_normalized = self.normalize_image(image1)
+#         # enc_features, depth = self.da_v2(image1_normalized) # Original
+#         if self.da_v2_output_condition == 'enc_features':
+#             ret_features = self.da_v2(image1_normalized)
+#             ret_features = ret_features[1:]
+            
+#         elif self.da_v2_output_condition == 'dec_features':
+#             ret_features = self.da_v2(image1_normalized)
+#             ret_features = ret_features[1:]
+        
+#         ret_features = self.feature_converter(ret_features)
+#         ret_features = ret_features[::-1] # Reverse the order of the features
+
+#         if test_mode:
+#             disp, deblur = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None) # [[original_disp, upsampled_disp], [original_deblur, upsampled_deblur]]
+#             return disp, deblur
+#         else:
+#             predictions = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
+#             return predictions # [disp_predictions, deblur_predictions]
+
+
+class FMDP(nn.Module):
     def __init__(self, args):
         super().__init__()
         self.args = args
+
+        self.feature_converter = InterpConverter()
+        self.da_v2 = DepthAnythingV2(args.encoder, output_condition='enc_features')
         
         context_dims = args.hidden_dims
 
@@ -48,6 +105,14 @@ class QPDNet(nn.Module):
             self.fnet = BasicEncoder(output_dim=256, norm_fn='instance', downsample=args.n_downsample)
             if self.args.input_image_num==4:
                 self.fnet2 = BasicEncoder(output_dim=256, norm_fn='instance', downsample=args.n_downsample)
+
+    def resize_to_14_multiples(self, image):
+        h, w = image.shape[2], image.shape[3]
+        new_h = (h // 14) * 14
+        new_w = (w // 14) * 14
+
+        resized_image = F.interpolate(image, size=(new_h, new_w), mode='bilinear', align_corners=False)
+        return resized_image
 
     def freeze_bn(self):
         for m in self.modules():
@@ -75,14 +140,44 @@ class QPDNet(nn.Module):
 
         up_flow = torch.sum(mask * up_flow, dim=2)
         up_flow = up_flow.permute(0, 1, 4, 2, 5, 3)
+
         return up_flow.reshape(N, D, factor*H, factor*W)
 
+    def imagenet_normalize(self, image):
+        # Normalization
+        mean = torch.tensor([0.485, 0.456, 0.406], device=image.device).view(3, 1, 1)
+        std = torch.tensor([0.229, 0.224, 0.225], device=image.device).view(3, 1, 1)
+        image = image / image.max()
+        image = (image - mean) / std
+        return image
 
-    def forward(self, int_features, image1, image2, iters=12, flow_init=None, test_mode=False):
+    def dav2_forward_align(self, image):
+        image = self.imagenet_normalize(image)
+        inter_features = self.da_v2(image)
+        inter_features = inter_features[1:]                    
+        aligned_features = self.feature_converter(inter_features) # Reverse the order of the features
+
+        return aligned_features[::-1]
+
+    def forward(self, image1, image2, iters=12, flow_init=None, test_mode=False):
         """ Estimate optical flow between pair of frames """
 
-        image1 = (2 * (image1 / 255.0) - 1.0).contiguous()
-        image2 = (2 * (image2 / 255.0) - 1.0).contiguous()
+        # image1_numpy = image1.cpu().squeeze().permute(1, 2, 0).numpy()
+        # left_numpy = image2[0].cpu().permute(1, 2, 0).numpy()
+        # plt.imsave('image1.png', image1_numpy.astype('uint8'))
+        # plt.imsave('image2.png', left_numpy.astype('uint8'))
+
+        h, w = image1.shape[2], image1.shape[3]
+        assert h % 112 == 0 and w % 112 == 0, "Image dimensions must be multiples of 224"
+
+        image1_min_max_normalized = (image1 / 255.0).contiguous()
+        image2_min_max_normalized = (image2 / 255.0).contiguous()
+
+        h, w = image1.shape[-2:]
+        deblur = F.interpolate(image1_min_max_normalized, size=(h//4, w//4), mode='bilinear', align_corners=False)
+
+        image1 = (2 * image1_min_max_normalized - 1.0).contiguous()
+        image2 = (2 * image2_min_max_normalized - 1.0).contiguous()
         # run the context network
         with autocast(enabled=self.args.mixed_precision):
             if self.args.shared_backbone:
@@ -104,9 +199,11 @@ class QPDNet(nn.Module):
                     fmap2 = torch.stack(fmap[1:],dim=1)
 
             # net_list = [torch.tanh(x[0]) for x in cnet_list] # Oriiginal net_list(inital hidden states)
-            ori_inp_list = [torch.relu(x[1]) for x in cnet_list] # Original
-            net_list = [x for x in int_features[::-1]]
-            inp_list = [x for x in int_features[::-1]]
+            # ori_inp_list = [torch.relu(x[1]) for x in cnet_list] # Original
+
+            aligned_features = self.dav2_forward_align(image1_min_max_normalized)       
+            net_list = [x for x in aligned_features[::-1]]
+            inp_list = [x for x in aligned_features[::-1]]
 
             # Rather than running the GRU's conv layers on the context features multiple times, we do it once at the beginning
             inp_list = [list(conv(i).split(split_size=conv.out_channels//3, dim=1)) for i,conv in zip(inp_list, self.context_zqr_convs)]
@@ -127,30 +224,47 @@ class QPDNet(nn.Module):
 
         coords0, coords1 = self.initialize_flow(net_list[0])
 
+        
         if flow_init is not None:
             coords1 = coords1 + flow_init
 
         flow_predictions = []
+        deblur_predictions = []
+        
         for itr in range(iters):
+            print(f"Iteration {itr+1}/{iters}")
+
+            # Depth Anything V2 feature for next itertion
+            if itr > 0:
+                aligned_features = self.dav2_forward_align(deblur_up)
+                inp_list = [x for x in aligned_features[::-1]]
+                inp_list = [list(conv(i).split(split_size=conv.out_channels//3, dim=1)) for i,conv in zip(inp_list, self.context_zqr_convs)]
+
             coords1 = coords1.detach()
             corr = corr_fn(coords1, coords0) # index correlation volume
             if self.args.CAPA:
                 corr = self.FFAGroup(corr)
-
-
             flow = coords1 - coords0
+
             with autocast(enabled=self.args.mixed_precision):
                 if self.args.n_gru_layers == 3 and self.args.slow_fast_gru: # Update low-res GRU
                     net_list = self.update_block(net_list, inp_list, iter32=True, iter16=False, iter08=False, update=False)
                 if self.args.n_gru_layers >= 2 and self.args.slow_fast_gru:# Update low-res GRU and mid-res GRU
                     net_list = self.update_block(net_list, inp_list, iter32=self.args.n_gru_layers==3, iter16=True, iter08=False, update=False)
-                net_list, up_mask, delta_flow = self.update_block(net_list, inp_list, corr, flow, iter32=self.args.n_gru_layers==3, iter16=self.args.n_gru_layers>=2)
+                net_list, masks, deltas = self.update_block(net_list, inp_list, corr, flow, iter32=self.args.n_gru_layers==3, iter16=self.args.n_gru_layers>=2)
+            
+            up_mask = masks[0]
+            deblur_mask = masks[1]
+
+            delta_flow = deltas[0]
+            delta_deblur = deltas[1]
 
             # in stereo mode, project flow onto epipolar
             delta_flow[:,1] = 0.0
 
             # F(t+1) = F(t) + \Delta(t)
             coords1 = coords1 + delta_flow
+            deblur = deblur + delta_deblur
 
             # We do not need to upsample or output intermediate results in test_mode
             if test_mode and itr < iters-1:
@@ -163,9 +277,15 @@ class QPDNet(nn.Module):
                 flow_up = self.upsample_flow(coords1 - coords0, up_mask)
             flow_up = flow_up[:,:1]
 
+            # upsample deblurred image using the same convex upsample algorithm
+            deblur_up = self.upsample_flow(deblur, deblur_mask)
+
             flow_predictions.append(flow_up)
+            deblur_predictions.append(deblur_up)
+
+
 
         if test_mode:
-            return coords1 - coords0, flow_up
+            return [[coords1 - coords0, flow_up], [deblur, deblur_up]]
 
-        return flow_predictions
+        return [flow_predictions, deblur_predictions]

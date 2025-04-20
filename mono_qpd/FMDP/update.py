@@ -12,6 +12,16 @@ class FlowHead(nn.Module):
 
     def forward(self, x):
         return self.conv2(self.relu(self.conv1(x)))
+class DeblurHead(nn.Module):
+    def __init__(self, input_dim=128, hidden_dim=256, output_dim=3):
+        super(DeblurHead, self).__init__()
+        self.conv1 = nn.Conv2d(input_dim, hidden_dim, 3, padding=1)
+        self.conv2 = nn.Conv2d(hidden_dim, output_dim, 3, padding=1)
+        self.relu = nn.ReLU(inplace=True)
+
+    def forward(self, x):
+        return self.conv2(self.relu(self.conv1(x)))
+
 
 class ConvGRU(nn.Module):
     def __init__(self, hidden_dim, input_dim, kernel_size=3):
@@ -104,12 +114,20 @@ class BasicMultiUpdateBlock(nn.Module):
         self.gru16 = ConvGRU(hidden_dims[1], hidden_dims[0] * (args.n_gru_layers == 3) + hidden_dims[2])
         self.gru32 = ConvGRU(hidden_dims[0], hidden_dims[1])
         self.flow_head = FlowHead(hidden_dims[2], hidden_dim=256, output_dim=2)
+        self.deblur_head = DeblurHead(hidden_dims[2], hidden_dim=256, output_dim=3)
         factor = 2**self.args.n_downsample
 
         self.mask = nn.Sequential(
             nn.Conv2d(hidden_dims[2], 256, 3, padding=1),
             nn.ReLU(inplace=True),
             nn.Conv2d(256, (factor**2)*9, 1, padding=0))
+        
+        self.deblur_mask = nn.Sequential(
+            nn.Conv2d(hidden_dims[2], 256, 3, padding=1),
+            nn.ReLU(inplace=True),
+            nn.Conv2d(256, (factor**2)*9, 1, padding=0)
+        )
+        
 
     def forward(self, net, inp, corr=None, flow=None, iter08=True, iter16=True, iter32=True, update=True):
 
@@ -131,7 +149,13 @@ class BasicMultiUpdateBlock(nn.Module):
             return net
 
         delta_flow = self.flow_head(net[0])
+        delta_deblur = self.deblur_head(net[0])
+
+        deltas = [delta_flow, delta_deblur]
 
         # scale mask to balence gradients
         mask = .25 * self.mask(net[0])
-        return net, mask, delta_flow
+        deblur_mask = .25 * self.deblur_mask(net[0])
+        masks = [mask, deblur_mask]
+
+        return net, masks, deltas

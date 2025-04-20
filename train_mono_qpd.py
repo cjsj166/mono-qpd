@@ -12,11 +12,11 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 # from QPDNet.qpd_net import QPDNet
-from mono_qpd.mono_qpd import MonoQPD
+from mono_qpd.FMDP import fmdp
 import os
 from mono_qpd.loss import ScaleInvariantLoss, LeastSquareScaleInvariantLoss
 from evaluate_mono_qpd import *
-import mono_qpd.QPDNet.Quad_datasets as datasets
+import mono_qpd.FMDP.Quad_datasets as datasets
 from argparse import Namespace
 from evaluate_mono_qpd import validate_QPD, validate_DPD_Disp
 from datetime import datetime
@@ -90,6 +90,42 @@ def sequence_loss(flow_preds, flow_gt, valid, si_loss_weight=0.0, loss_gamma=0.9
     }
 
     return flow_loss, metrics
+
+def sequence_restoration_loss(deblur_preds, deblur_gt, loss_gamma=0.9):
+    """ Loss function defined over sequence of deblur predictions """
+
+    b,c,h,w = deblur_gt.shape
+    n_predictions = len(deblur_preds)
+    assert n_predictions >= 1
+    rest_loss = 0.0
+
+    # exlude invalid pixels and extremely large diplacements
+    assert not torch.isinf(deblur_gt).any()
+
+    for i in range(n_predictions):
+        assert not torch.isnan(deblur_preds[i]).any() and not torch.isinf(deblur_preds[i]).any(), "Invalid values in flow predictions"
+        # We adjust the loss_gamma so it is consistent for any number of RAFT-Stereo iterations
+        adjusted_loss_gamma = loss_gamma**(15/(n_predictions - 1))
+        i_weight = adjusted_loss_gamma**(n_predictions - i - 1)
+
+        dp = deblur_preds[i]
+
+        l2_loss = (dp - deblur_gt) ** 2
+        l2_loss = l2_loss.mean()
+
+        i_loss = l2_loss
+        rest_loss += i_weight * i_loss
+    
+    dp = deblur_preds[-1] # 3xHxW?
+    deblur_mae = torch.sum((dp - deblur_gt)**2, dim=1).sqrt()
+    deblur_mae = deblur_mae.view(-1)
+
+    metrics = {
+        'deblur_mae': deblur_mae.mean().item(),
+        'deblur_mse': rest_loss.item(),
+    }
+
+    return rest_loss, metrics
 
 
 def fetch_optimizer(args, model, last_epoch=-1):
@@ -211,7 +247,7 @@ def train(args):
                         format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
 
 
-    model = MonoQPD(args)
+    model = FMDP(args)
     print("Parameter Count: %d" % count_parameters(model))
 
     # Codes for debugging NaN
@@ -314,6 +350,7 @@ def train(args):
             optimizer.zero_grad()
 
             center_img = data_blob['center'].cuda()
+            deblur_gt = data_blob['AiF'].cuda()
             lrtblist = data_blob['lrtb_list'].cuda()
             flow = data_blob['disp'].cuda()
             valid = data_blob['disp_valid'].cuda()
@@ -333,28 +370,33 @@ def train(args):
                 raise NotImplementedError
 
             assert model.training
-            flow_predictions = model(image1, image2, iters=args.train_iters)
+            flow_predictions, deblur_predictions = model(image1, image2, iters=args.train_iters)
             assert model.training
-            if args.input_image_num == 42:
-                rot_flow_predictions=[]
-                for i in range(len(flow_predictions)):
-                    rot_flow_predictions.append(torch.rot90(flow_predictions[i], k=-1, dims=[2,3]))   
-                loss, metrics = sequence_loss(rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss)
-            elif args.input_image_num == 24:
-                rot_flow_predictions=[]
-                for i in range(len(flow_predictions)):
-                    rot_flow_predictions.append(torch.rot90(flow_predictions[i], k=1, dims=[2,3]))   
-                loss, metrics = sequence_loss(rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss)
-            else:
-                try:
-                    loss, metrics = sequence_loss(flow_predictions, flow, valid, si_loss_weight=args.si_loss)
-                    
-                except AssertionError as e:
-                    if "Invalid values in flow predictions" in str(e):
-                        print(f"Invalid values in flow predictions, epoch: {epoch}, batch: {i_batch}")
-                        continue
-                    else:
-                        raise e
+
+            # if args.input_image_num == 42:
+            #     rot_flow_predictions=[]
+            #     for i in range(len(flow_predictions)):
+            #         rot_flow_predictions.append(torch.rot90(flow_predictions[i], k=-1, dims=[2,3]))   
+            #     loss, metrics = sequence_loss(rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss)
+            # elif args.input_image_num == 24:
+            #     rot_flow_predictions=[]
+            #     for i in range(len(flow_predictions)):
+            #         rot_flow_predictions.append(torch.rot90(flow_predictions[i], k=1, dims=[2,3]))   
+            #     loss, metrics = sequence_loss(rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss)
+            # else:
+            
+            try:
+                disparity_loss, disparity_metrics = sequence_loss(flow_predictions, flow, valid, si_loss_weight=args.si_loss)
+                deblur_loss, deblur_metrics = sequence_restoration_loss(deblur_predictions, deblur_gt)
+                loss = 0.5 * disparity_loss + 0.5 * deblur_loss
+                metrics = {**disparity_metrics, **deblur_metrics}
+                
+            except AssertionError as e:
+                if "Invalid values in predictions" in str(e):
+                    print(f"Invalid values in predictions, epoch: {epoch}, batch: {i_batch}")
+                    continue
+                else:
+                    raise e
                                     
             logger.writer.add_scalar("live_loss", loss.item(), global_batch_num)
             logger.writer.add_scalar(f'learning_rate', optimizer.param_groups[0]['lr'], global_batch_num)
@@ -395,45 +437,45 @@ def train(args):
                 
                 save_dir = os.path.join(args.save_path, 'qpd-valid', f'{epoch:03d}_epoch')
 
-                results = validate_QPD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=args.val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
+                # FIXME: This is a temporary fix for the validation dataset
+                # results = validate_QPD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=args.val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
                     
-                if qpd_epebest>=results['epe']:
-                    qpd_epebest = results['epe']
-                    qpd_epeepoch = epoch
-                if qpd_rmsebest>=results['rmse']:
-                    qpd_rmsebest = results['rmse']
-                    qpd_rmseepoch = epoch
-                if qpd_ai2best>=results['ai2']:
-                    qpd_ai2best = results['ai2']
-                    qpd_ai2epoch = epoch
+                # if qpd_epebest>=results['epe']:
+                #     qpd_epebest = results['epe']
+                #     qpd_epeepoch = epoch
+                # if qpd_rmsebest>=results['rmse']:
+                #     qpd_rmsebest = results['rmse']
+                #     qpd_rmseepoch = epoch
+                # if qpd_ai2best>=results['ai2']:
+                #     qpd_ai2best = results['ai2']
+                #     qpd_ai2epoch = epoch
                 
                 
-                named_results = {}
-                for k, v in results.items():
-                    named_results[f'val_qpd/{k}'] = v
-                    print(f'val_qpd/{k}: {v}')
+                # named_results = {}
+                # for k, v in results.items():
+                #     named_results[f'val_qpd/{k}'] = v
+                #     print(f'val_qpd/{k}: {v}')
 
-                logger.write_dict(named_results)
+                # logger.write_dict(named_results)
 
-                logging.info(f"Current Best Result qpd epe epoch {qpd_epeepoch}, result: {qpd_epebest}")
-                logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
-                logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
+                # logging.info(f"Current Best Result qpd epe epoch {qpd_epeepoch}, result: {qpd_epebest}")
+                # logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
+                # logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
 
+                # results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=30, datatype=args.datatype, gt_types=['inv_depth'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
 
-                results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=30, datatype=args.datatype, gt_types=['inv_depth'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
-
-                if dpdisp_ai2best>=results['ai2']:
-                    dpdisp_ai2best = results['ai2']
-                    dpdisp_ai2epoch = epoch
+                # if dpdisp_ai2best>=results['ai2']:
+                #     dpdisp_ai2best = results['ai2']
+                #     dpdisp_ai2epoch = epoch
                 
-                logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
+                # logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
                 
-                named_results = {}
-                for k, v in results.items():
-                    named_results[f'val_dpdisp/{k}'] = v
-                    print(f'val_dpdisp/{k}: {v}')
+                # named_results = {}
+                # for k, v in results.items():
+                #     named_results[f'val_dpdisp/{k}'] = v
+                #     print(f'val_dpdisp/{k}: {v}')
                 
-                logger.write_dict(named_results)
+                # logger.write_dict(named_results)
 
                 model.train()
                 # model.module.freeze_bn()

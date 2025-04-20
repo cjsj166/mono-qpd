@@ -1,7 +1,7 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from mono_qpd.QPDNet.qpd_net import QPDNet
+from mono_qpd.FMDP.fmdp import FMDP
 from mono_qpd.Depth_Anything_V2.depth_anything_v2.dpt import DepthAnythingV2
 from mono_qpd.feature_converter import PixelShuffleConverter, ConvConverter, DecConverter, FixedConvConverter, InterpConverter, SkipConvConverter
 
@@ -24,30 +24,8 @@ class MonoQPD(nn.Module):
         # else_args = args['else']
         # da_v2_args = args['da_v2']
 
-        self.da_v2_output_condition = 'enc_features'
-        if args.feature_converter == 'pixelshuffle':
-            self.feature_converter = PixelShuffleConverter()
-            self.da_v2_output_condition = 'enc_features'
-
-        elif args.feature_converter == 'conv':
-            self.feature_converter = ConvConverter()
-            self.da_v2_output_condition = 'enc_features'
-
-        elif args.feature_converter == 'fixed-conv':
-            self.feature_converter = FixedConvConverter()
-            self.da_v2_output_condition = 'enc_features'
-        
-        elif args.feature_converter == 'interp':
-            self.feature_converter = InterpConverter()
-            self.da_v2_output_condition = 'enc_features'
-        
-        elif args.feature_converter == 'skipconv-interp':
-            self.feature_converter = SkipConvConverter()
-            self.da_v2_output_condition = 'enc_features'
-
-        elif args.feature_converter == 'decoder_features':
-            self.feature_converter = DecConverter()
-            self.da_v2_output_condition = 'dec_features'
+        self.da_v2_output_condition = 'enc_features'        
+        self.feature_converter = InterpConverter()
 
         self.da_v2 = DepthAnythingV2(args.encoder, output_condition=self.da_v2_output_condition)
         self.qpdnet = QPDNet(args)
@@ -82,14 +60,12 @@ class MonoQPD(nn.Module):
             ret_features = ret_features[1:]
         
         ret_features = self.feature_converter(ret_features)
-        # for f in ret_features:
-        #     print(f.shape)
         ret_features = ret_features[::-1] # Reverse the order of the features
 
         if test_mode:
-            original_disp, upsampled = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
-            return original_disp, upsampled
+            disp, deblur = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None) # [[original_disp, upsampled_disp], [original_deblur, upsampled_deblur]]
+            return disp, deblur
         else:
-            disp_predictions = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
-            return disp_predictions
+            predictions = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
+            return predictions # [disp_predictions, deblur_predictions]
 

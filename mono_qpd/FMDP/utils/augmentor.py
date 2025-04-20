@@ -431,9 +431,8 @@ class QuadAugmentor:
 
     def dict_to_list(self, items):
         img_list = []
-        img_list = items['AiF'] if 'AiF' in items else [] \
-                    + [items['center']] \
-                    + items['lrtb_list']    
+        img_list = [items['AiF']] if 'AiF' in items.keys() else []
+        img_list = img_list + [items['center']] + items['lrtb_list']    
         return img_list
 
     def list_to_dict(self, img_list, keys):
@@ -448,7 +447,10 @@ class QuadAugmentor:
         # preserve items not needed for augmentor
         items_to_leave = {key:value for key, value in items.items() if key not in ['AiF', 'center', 'lrtb_list', 'disp']}
 
-        # Unpack items
+        # print("items_to_leave", items_to_leave.keys())
+
+        # Unpack items # Unpack and pack items orderly
+        # print("items", items.keys())
         img_list = self.dict_to_list(items)
         if 'disp' in items:
             disp = items['disp']
@@ -459,16 +461,17 @@ class QuadAugmentor:
         if 'disp' in items:
             flow = np.concatenate([disp, np.zeros_like(disp)], axis=-1)
             # flow = np.stack([disp, np.zeros_like(disp)], axis=-1)
-            img_list, flow = self.spatial_transform(img_list, flow)
+            img_list, flow = self.spatial_transform(img_list, flow) # ?? len(img_list) == 768??
             disp = flow[:, :, :1]
 
         # Pack items        
-        items = {}
         items = self.list_to_dict(img_list, items.keys())
+        # print("items", items.keys())
         items['disp'] = disp
 
         # Retrieve items not needed for augmentor
         items.update(items_to_leave) 
+        # print("items", items.keys())
                 
         # img_list = np.ascontiguousarray(img_list[:-1])
         # if 'AiF' in items:

@@ -1,6 +1,6 @@
 import torch
 import torch.nn.functional as F
-from mono_qpd.QPDNet.utils.utils import bilinear_sampler
+from mono_qpd.FMDP.utils.utils import bilinear_sampler
 
 try:
     import corr_sampler

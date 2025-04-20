@@ -12,9 +12,9 @@ from pathlib import Path
 from glob import glob
 import os.path as osp
 
-from mono_qpd.QPDNet.utils import frame_utils
-from mono_qpd.QPDNet.utils.augmentor import QuadAugmentor, SparseQuadAugmentor
-from mono_qpd.QPDNet.utils.transforms import RandomBrightness
+from mono_qpd.FMDP.utils import frame_utils
+from mono_qpd.FMDP.utils.augmentor import QuadAugmentor, SparseQuadAugmentor
+from mono_qpd.FMDP.utils.transforms import RandomBrightness
 
 
 class QuadDataset(data.Dataset):
@@ -165,6 +165,7 @@ class QuadDataset(data.Dataset):
 
         if 'AiF' in self.gt_types:
             items['AiF'] = AiF
+            
         
         # Augmentation for training
         if self.augmentor is not None:
@@ -183,7 +184,7 @@ class QuadDataset(data.Dataset):
         if 'inv_depth' in self.gt_types:
             items['inv_depth'] = torch.from_numpy(items['inv_depth']).permute(2, 0, 1).float()
         if 'AiF' in self.gt_types:
-            items['AiF'] = torch.from_numpy(items['AiF']).permute(2, 0, 1).float()
+            items['AiF'] = torch.from_numpy(items['AiF']).permute(2, 0, 1).float() / 255.0 # 3 x h x w
         
         # Preprocess
         if self.preprocess_params is not None:
@@ -285,12 +286,12 @@ def fetch_dataloader(args):
             new_dataset = QPD(datatype=args.datatype, gt_types=args.qpd_gt_types, aug_params=aug_params, root=args.datasets_path)
         train_dataset = new_dataset if train_dataset is None else train_dataset + new_dataset
 
-    train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
-        pin_memory=True, shuffle=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=True)
-    
-    # Below line is only for debugging
     # train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
-    #     pin_memory=True, shuffle=True, num_workers=0, drop_last=True)
+    #     pin_memory=True, shuffle=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=True)
+    
+    # FIXME: Below line is only for debugging 
+    train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
+        pin_memory=True, shuffle=True, num_workers=0, drop_last=True)
 
     logging.info('Training with %d image pairs' % len(train_dataset))
     return train_loader

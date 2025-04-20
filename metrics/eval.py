@@ -87,6 +87,20 @@ class Eval():
             return ai2, b2
         return None, None
     
+    def deblur_mean_absolute_error(self, Y, Target):
+        if 'deblur_mae' in self.enabled_metrics:
+            deblur_mae = np.mean(np.abs(Y - Target))
+            self.metrics_data['deblur_mae'].append(deblur_mae)
+            return deblur_mae
+        return None
+    
+    def deblur_mean_squared_error(self, Y, Target):
+        if 'deblur_mse' in self.enabled_metrics:
+            deblur_mse = np.mean((Y - Target) ** 2)
+            self.metrics_data['deblur_mse'].append(deblur_mse)
+            return deblur_mse
+        return None
+    
     def scale_invariant(self, Y, Target, mask=None):
         if mask is None:
             mask = np.ones_like(Y)
