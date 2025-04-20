@@ -232,7 +232,7 @@ class FMDP(nn.Module):
         deblur_predictions = []
         
         for itr in range(iters):
-            print(f"Iteration {itr+1}/{iters}")
+            # print(f"Iteration {itr+1}/{iters}")
 
             # Depth Anything V2 feature for next itertion
             if itr > 0:

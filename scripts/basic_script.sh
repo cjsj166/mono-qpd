@@ -1,7 +1,7 @@
 #!/bin/bash
 #$ -cwd
 #$ -N train_interp
-#$ -l gpu_1=1
+#$ -l node_h=1
 #$ -l h_rt=24:00:00
 #$ -V
 . /etc/profile.d/modules.sh

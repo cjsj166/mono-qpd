@@ -286,12 +286,12 @@ def fetch_dataloader(args):
             new_dataset = QPD(datatype=args.datatype, gt_types=args.qpd_gt_types, aug_params=aug_params, root=args.datasets_path)
         train_dataset = new_dataset if train_dataset is None else train_dataset + new_dataset
 
-    # train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
-    #     pin_memory=True, shuffle=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=True)
+    train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
+        pin_memory=True, shuffle=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=True)
     
     # FIXME: Below line is only for debugging 
-    train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
-        pin_memory=True, shuffle=True, num_workers=0, drop_last=True)
+    # train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
+    #     pin_memory=True, shuffle=True, num_workers=0, drop_last=True)
 
     logging.info('Training with %d image pairs' % len(train_dataset))
     return train_loader

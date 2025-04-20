@@ -173,7 +173,7 @@ class JointDeblur1Batch(TrainConfig): #Interp, QPDSetting
     dp_disp_bs: int = 1
     val_save_skip: int = 1
     qpd_gt_types: Tuple[str] = ('disp', 'AiF')
-    # train_iters: int = 4
+    train_iters: int = 4
 
     restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
     save_path: str = 'result/train/JointDeblur1Batch'
