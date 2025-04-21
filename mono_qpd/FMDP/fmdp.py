@@ -266,7 +266,10 @@ class FMDP(nn.Module):
             coords1 = coords1 + delta_flow
             deblur = deblur + delta_deblur
 
-            # We do not need to upsample or output intermediate results in test_mode
+            # upsample deblurred image using the same convex upsample algorithm
+            deblur_up = self.upsample_flow(deblur, deblur_mask)
+
+            # But we do not need to upsample or output intermediate flows in test_mode
             if test_mode and itr < iters-1:
                 continue
 
@@ -277,8 +280,7 @@ class FMDP(nn.Module):
                 flow_up = self.upsample_flow(coords1 - coords0, up_mask)
             flow_up = flow_up[:,:1]
 
-            # upsample deblurred image using the same convex upsample algorithm
-            deblur_up = self.upsample_flow(deblur, deblur_mask)
+
 
             flow_predictions.append(flow_up)
             deblur_predictions.append(deblur_up)

@@ -125,6 +125,20 @@
             ]
         },
 
+        {
+            "name": "MonoQPD, dataclass test, qpd-test, JointDeblur1Batch",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "JointDeblur1Batch",
+                "--ckpt_epoch", "25",
+                "--eval_datasets", "QPD-Test"
+            ]
+        },
+
     
         {
             "name": "Mono-QPD, dataclass eval, InterpOriginal, 135epoch",

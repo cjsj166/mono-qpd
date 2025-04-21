@@ -17,7 +17,7 @@ from matplotlib.colors import BoundaryNorm
 import os.path as osp
 import os
 import cv2
-from mono_qpd.mono_qpd import MonoQPD
+from mono_qpd.FMDP.fmdp import FMDP
 from argparse import Namespace
 import torch.nn as nn
 from mono_qpd.loss import LeastSquareScaleInvariantLoss
@@ -534,7 +534,7 @@ if __name__ == '__main__':
             restore_ckpt = ckpt
             break    
 
-    model = MonoQPD(conf)
+    model = FMDP(conf)
     if restore_ckpt is not None:
         assert str(restore_ckpt).endswith(".pth")
         logging.info("Loading checkpoint...")
