@@ -143,6 +143,82 @@ class DAV2InitQPDSetting(TrainConfig):
     feature_converter: str = 'interp'
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
+@dataclass
+class DeblurInput(TrainConfig):
+    num_steps: int = 200000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 2
+    val_save_skip: int = 1
+    qpd_gt_types: Tuple[str] = ('disp', 'AiF')
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/DeblurInput'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp', )
+
+@dataclass
+class DeblurInputExtraChannelConv(TrainConfig):
+    num_steps: int = 200000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 2
+    val_save_skip: int = 1
+    qpd_gt_types: Tuple[str] = ('disp', 'AiF')
+    extra_channel_conv: bool = True
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/DeblurInputExtraChannelConv'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp', )
+
+
+@dataclass
+class DeblurInputExtraChannelConvTest(TrainConfig):
+    num_steps: int = 200000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 2
+    val_save_skip: int = 1
+    qpd_gt_types: Tuple[str] = ('disp', 'AiF')
+    extra_channel_conv: bool = True
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/DeblurInputExtraChannelConvTest'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp', )
+
+@dataclass
+class DeblurInputTest(TrainConfig):
+    num_steps: int = 200000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 2
+    val_save_skip: int = 1
+    qpd_gt_types: Tuple[str] = ('disp', 'AiF')
+    extra_channel_conv: bool = False
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/DeblurInputTest'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp', )
+
 
 
 @dataclass

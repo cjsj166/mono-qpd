@@ -317,6 +317,7 @@ def train(args):
             lrtblist = data_blob['lrtb_list'].cuda()
             flow = data_blob['disp'].cuda()
             valid = data_blob['disp_valid'].cuda()
+            deblur = data_blob['AiF'].cuda()
             # center_img, lrtblist, flow, valid = [x.cuda() for x in data_blob]
 
             assert not torch.isnan(center_img).any(), "Invalid values in input images"
@@ -324,7 +325,8 @@ def train(args):
 
             b,s,c,h,w = lrtblist.shape
 
-            image1 = center_img.contiguous().view(b,c,h,w)
+            image1 = [center_img.contiguous().view(b,c,h,w)]
+            image1 = image1 + [deblur.contiguous().view(b,c,h,w)]
             if args.datatype == 'quad':
                 image2 = torch.cat([lrtblist[:,0],lrtblist[:,1],lrtblist[:,2],lrtblist[:,3]], dim=0).contiguous()
             elif args.datatype == 'dual':
@@ -419,8 +421,7 @@ def train(args):
                 logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
                 logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
 
-
-                results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=30, datatype=args.datatype, gt_types=['inv_depth'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
+                results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=args.val_save_skip, datatype=args.datatype, gt_types=['inv_depth', 'AiF'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
 
                 if dpdisp_ai2best>=results['ai2']:
                     dpdisp_ai2best = results['ai2']

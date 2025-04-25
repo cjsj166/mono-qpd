@@ -175,7 +175,7 @@ def validate_Real_QPD(model, datatype='dual', iters=32, mixed_prec=False, save_r
     return None
 
 @torch.no_grad()
-def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='', save_path='result/predictions', batch_size=1, preprocess_params={'crop_h':2940, 'crop_w':5145, 'resize_h': 224*4, 'resize_w':224*7}):
+def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth', 'AiF'], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='', save_path='result/predictions', batch_size=1, preprocess_params={'crop_h':2940, 'crop_w':5145, 'resize_h': 224*4, 'resize_w':224*7}):
     model.eval()
     aug_params = {}
     
@@ -183,6 +183,10 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
         val_dataset = datasets.DPD_Disp(datatype=datatype, gt_types=gt_types, aug_params=aug_params, preprocess_params=preprocess_params, image_set=image_set)
     else:
         val_dataset = datasets.DPD_Disp(datatype=datatype, gt_types=gt_types, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params, root=path)
+
+
+    # val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+    #     pin_memory=True, num_workers=0, drop_last=False)    
 
     val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
         pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)    
@@ -218,32 +222,22 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
         lrtb_list = data_blob['lrtb_list'].cuda()
         inv_depth_gt =  data_blob['inv_depth'].cuda()
         valid_gt = data_blob['inv_depth_valid'].cuda()
+        deblur = data_blob['AiF'].cuda()
 
-        # wd = center.shape[-1]
-        # divis_by = 32
-        # pad_wd = (((wd // divis_by) + 1) * divis_by - wd)        
-        # pad = [pad_wd//2, pad_wd - pad_wd//2, 0, 0, 0, 0]
+        plt.imsave('deblur.png', deblur.cpu().numpy())
 
-        # center_list = [center, F.pad(center, pad, mode='replicate')]
-        # lrtb_list = F.pad(lrtb_list, pad, mode='replicate')
-        # lrtb_list[0] = F.pad(lrtb_list[0, :, :, :, :], pad, mode='replicate')
-        # lrtb_list = F.pad(lrtb_list, pad, mode='replicate')
-        # center = torch.concat([pad, center, pad], dim=0)
-        # h, w = center.shape[-2:]
-        # new_h, new_w = 112 * 4, 112 * 7
-        # center = F.interpolate(center, size=(new_h, new_w), mode='bilinear', align_corners=False)
-        # lrtb_list = lrtb_list.view(-1, 3, h, w)
-        # lrtb_list = F.interpolate(lrtb_list, size=(new_h, new_w), mode='bilinear', align_corners=False)
-        # lrtb_list = lrtb_list.view(1, 2, 3, new_h, new_w)
+        image1 = [center, deblur]
 
         concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()        
         with autocast(enabled=mixed_prec):
-            _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
+            _, flow_pr = model(image1, concat_lr, iters=iters, test_mode=True)
 
         # Crop invalid regions
         h, w = flow_pr.shape[-2:]
         flow_pr = flow_pr[..., 32:h-32, 32:w-32]
         inv_depth_gt = inv_depth_gt[..., 32:h-32, 32:w-32]
+        center = center[..., 32:h-32, 32:w-32]
+        deblur = deblur[..., 32:h-32, 32:w-32]
 
         # flow_pr = torch.zeros_like(flow_gt)
 
@@ -322,7 +316,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
 
 
 @torch.no_grad()
-def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='', save_path='result/train', batch_size=1, preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}):
+def validate_QPD(model, datatype='dual', gt_types=['disp', 'AiF'], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='', save_path='result/train', batch_size=1, preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}):
     """ Peform validation using the FlyingThings3D (TEST) split """
     model.eval()
     aug_params = {}
@@ -373,12 +367,14 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
         center = data_blob['center'].cuda()
         lrtb_list = data_blob['lrtb_list'].cuda()
         disp_gt =  data_blob['disp'].cuda()
+        deblur = data_blob['AiF'].cuda()
         valid_gt = data_blob['disp_valid'].cuda()
 
+        image1 = [center, deblur]
         concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()
         
         with autocast(enabled=mixed_prec):
-            _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
+            _, flow_pr = model(image1, concat_lr, iters=iters, test_mode=True)
 
         flow_pr = flow_pr.cpu().numpy()
         disp_gt = disp_gt.cpu().numpy()
