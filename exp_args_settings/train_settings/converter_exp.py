@@ -155,6 +155,7 @@ class DeblurInput(TrainConfig):
     dp_disp_bs: int = 2
     val_save_skip: int = 1
     qpd_gt_types: Tuple[str] = ('disp', 'AiF')
+    extra_channel_conv: bool = False
 
     restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
     save_path: str = 'result/train/DeblurInput'
