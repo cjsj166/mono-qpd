@@ -137,7 +137,7 @@ class FMDP(nn.Module):
 
         up_flow = F.unfold(factor * flow, [3,3], padding=1)
         up_flow = up_flow.view(N, D, 9, 1, 1, H, W)
-
+ 
         up_flow = torch.sum(mask * up_flow, dim=2)
         up_flow = up_flow.permute(0, 1, 4, 2, 5, 3)
 
@@ -175,6 +175,7 @@ class FMDP(nn.Module):
 
         h, w = image1.shape[-2:]
         deblur = F.interpolate(image1_min_max_normalized, size=(h//4, w//4), mode='bilinear', align_corners=False)
+        # deblur = image1_min_max_normalized
 
         image1 = (2 * image1_min_max_normalized - 1.0).contiguous()
         image2 = (2 * image2_min_max_normalized - 1.0).contiguous()
@@ -198,11 +199,11 @@ class FMDP(nn.Module):
                     fmap1 = fmap[0]
                     fmap2 = torch.stack(fmap[1:],dim=1)
 
-            # net_list = [torch.tanh(x[0]) for x in cnet_list] # Oriiginal net_list(inital hidden states)
             # ori_inp_list = [torch.relu(x[1]) for x in cnet_list] # Original
 
             aligned_features = self.dav2_forward_align(image1_min_max_normalized)       
             net_list = [x for x in aligned_features[::-1]]
+            # net_list = [torch.tanh(x[0]) for x in cnet_list] # Oriiginal net_list(inital hidden states)
             inp_list = [x for x in aligned_features[::-1]]
 
             # Rather than running the GRU's conv layers on the context features multiple times, we do it once at the beginning

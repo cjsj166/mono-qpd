@@ -20,7 +20,7 @@
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "InterpOriginal_nonaug",
+                "DAV2InitQPDSetting",
                 
             ]
         },
@@ -134,7 +134,7 @@
             "args": [
                 "--exp_name",
                 "JointDeblur1Batch",
-                "--ckpt_epoch", "25",
+                "--ckpt_epoch", "5",
                 "--eval_datasets", "QPD-Test"
             ]
         },
@@ -170,14 +170,14 @@
 
 
         {
-            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, qpd-test-noise",
+            "name": "Mono-QPD, dataclass eval, DAV2InitQPDSetting, 260epoch, qpd-test-noise",
             "type": "debugpy",
             "request": "launch",
             "program": "evaluate_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "InterpQPDSetting",
+                "DAV2InitQPDSetting",
                 "--ckpt_epoch", "260",
                 "--eval_datasets", "QPD-Test-noise"
             ]

@@ -388,6 +388,7 @@ def train(args):
             try:
                 disparity_loss, disparity_metrics = sequence_loss(flow_predictions, flow, valid, si_loss_weight=args.si_loss)
                 deblur_loss, deblur_metrics = sequence_restoration_loss(deblur_predictions, deblur_gt)
+                deblur_loss_baseline = sequence_restoration_loss(deblur_predictions, center_img)
                 loss = 0.5 * disparity_loss + 0.5 * deblur_loss
                 metrics = {**disparity_metrics, **deblur_metrics}
                 
@@ -399,6 +400,9 @@ def train(args):
                     raise e
                                     
             logger.writer.add_scalar("live_loss", loss.item(), global_batch_num)
+            logger.writer.add_scalar("disparity_loss", disparity_loss.item(), global_batch_num)
+            logger.writer.add_scalar("deblur_loss", deblur_loss.item(), global_batch_num)
+            logger.writer.add_scalar("deblur_loss_baseline", deblur_loss_baseline.item(), global_batch_num)
             logger.writer.add_scalar(f'learning_rate', optimizer.param_groups[0]['lr'], global_batch_num)
             global_batch_num += 1
 
