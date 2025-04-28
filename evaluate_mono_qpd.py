@@ -292,7 +292,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth', 'AiF'], ite
 
                 # Save in colormap
                 plt.imsave(os.path.join(ai2_fit_dir, pth), est_ai2_fit.squeeze(), cmap='jet_r', vmin=vmin, vmax=vmax)
-                plt.imsave(os.path.join(ai2_dir, pth), np.abs(est_ai2_fit.squeeze() - inv_depth_gt_i.squeeze()), cmap='jet_r', vmin=vmin_err, vmax=vmax_err)
+                plt.imsave(os.path.join(ai2_dir, pth), np.abs(est_ai2_fit.squeeze() - inv_depth_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
                 plt.imsave(os.path.join(gt_dir, pth), inv_depth_gt_i.squeeze(), cmap='jet_r', vmin=vmin, vmax=vmax)
                 plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), center_i.astype(np.uint8))
 
