@@ -11,6 +11,7 @@ import os
 from exp_args_settings.utils import get_ckpts_in_dir
 from exp_args_settings.train_settings import get_train_config
 from pathlib import Path
+from mono_qpd.FMDP.fmdp import FMDP
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
@@ -34,7 +35,7 @@ if __name__ == '__main__':
         if  ckpt % 5 != 0:
             continue
 
-        model = MonoQPD(conf)
+        model = FMDP(conf)
         if restore_ckpt is not None:
             assert restore_ckpt.name.endswith(".pth")
             logging.info("Loading checkpoint...")
