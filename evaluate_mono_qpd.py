@@ -272,6 +272,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
                 vmargin = 0.3
                 vrng = inv_depth_gt_i.max() - inv_depth_gt_i.min()
                 vmin, vmax = inv_depth_gt_i.min() - vrng * vmargin, inv_depth_gt_i.max() + vrng * vmargin
+                vmin = 0 if vmin < 0 else vmin
                 err_rng = 0.7
                 vmin_err, vmax_err = 0, vrng * err_rng
 
