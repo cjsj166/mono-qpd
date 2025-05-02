@@ -235,6 +235,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
         h, w = flow_pr.shape[-2:]
         flow_pr = flow_pr[..., 32:h-32, 32:w-32]
         inv_depth_gt = inv_depth_gt[..., 32:h-32, 32:w-32]
+        center = center[..., 32:h-32, 32:w-32]
 
         # flow_pr = torch.zeros_like(flow_gt)
 
