@@ -244,6 +244,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
         h, w = flow_pr.shape[-2:]
         flow_pr = flow_pr[..., 32:h-32, 32:w-32]
         inv_depth_gt = inv_depth_gt[..., 32:h-32, 32:w-32]
+        center = center[..., 32:h-32, 32:w-32]
 
         # flow_pr = torch.zeros_like(flow_gt)
 
@@ -298,8 +299,10 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
 
                 # Save in colormap
                 plt.imsave(os.path.join(ai2_fit_dir, pth), est_ai2_fit.squeeze(), cmap='jet_r', vmin=vmin, vmax=vmax)
-                plt.imsave(os.path.join(ai2_dir, pth), np.abs(est_ai2_fit.squeeze() - inv_depth_gt_i.squeeze()), cmap='jet_r', vmin=vmin_err, vmax=vmax_err)
+                plt.imsave(os.path.join(ai2_dir, pth), np.abs(est_ai2_fit.squeeze() - inv_depth_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+                
                 plt.imsave(os.path.join(gt_dir, pth), inv_depth_gt_i.squeeze(), cmap='jet_r', vmin=vmin, vmax=vmax)
+
                 plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), center_i.astype(np.uint8))
 
 
