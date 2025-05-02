@@ -24,30 +24,8 @@ class MonoQPD(nn.Module):
         # else_args = args['else']
         # da_v2_args = args['da_v2']
 
+        self.feature_converter = InterpConverter()
         self.da_v2_output_condition = 'enc_features'
-        if args.feature_converter == 'pixelshuffle':
-            self.feature_converter = PixelShuffleConverter()
-            self.da_v2_output_condition = 'enc_features'
-
-        elif args.feature_converter == 'conv':
-            self.feature_converter = ConvConverter()
-            self.da_v2_output_condition = 'enc_features'
-
-        elif args.feature_converter == 'fixed-conv':
-            self.feature_converter = FixedConvConverter()
-            self.da_v2_output_condition = 'enc_features'
-        
-        elif args.feature_converter == 'interp':
-            self.feature_converter = InterpConverter()
-            self.da_v2_output_condition = 'enc_features'
-        
-        elif args.feature_converter == 'skipconv-interp':
-            self.feature_converter = SkipConvConverter()
-            self.da_v2_output_condition = 'enc_features'
-
-        elif args.feature_converter == 'decoder_features':
-            self.feature_converter = DecConverter()
-            self.da_v2_output_condition = 'dec_features'
 
         self.da_v2 = DepthAnythingV2(args.encoder, output_condition=self.da_v2_output_condition)
         self.qpdnet = QPDNet(args)
