@@ -157,15 +157,12 @@ def validate_Real_QPD(model, datatype='dual', iters=32, mixed_prec=False, save_r
 
             os.makedirs(os.path.join(est_dir, os.path.dirname(pth)), exist_ok=True)
             os.makedirs(os.path.join(vminvmax_dir, os.path.dirname(pth)), exist_ok=True)
-            # flow_prn = flow_pr.cpu().numpy().squeeze()
 
             os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
             os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
             os.makedirs(os.path.join(src_dir, os.path.dirname(pth)), exist_ok=True)
 
             plt.imsave(os.path.join(src_dir, pth), center_i.astype(np.uint8))
-            # plt.imsave(os.path.join(src_dir, pth), image2[0].astype(np.uint8))
-            # plt.imsave(os.path.join(src_dir, pth), image2[1].astype(np.uint8))
 
             # print(flow_pr_i.min(), flow_pr_i.max())
             vmin, vmax = -4, 1.5
@@ -321,6 +318,89 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
 
     eval_est.save_metrics()
     result = {**result, **eval_est.get_mean_metrics()}
+    return result
+
+@torch.no_grad()
+def validate_DPD_Blur(model, datatype='dual', gt_types=[''], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='', save_path='result/predictions', batch_size=1, preprocess_params={'crop_h':1120, 'crop_w':1680, 'resize_h': 1120, 'resize_w':1680}):
+    model.eval()
+    aug_params = {}
+    
+    if path == '':
+        val_dataset = datasets.DPD_Blur(datatype=datatype, gt_types=gt_types, aug_params=aug_params, preprocess_params=preprocess_params, image_set=image_set)
+    else:
+        val_dataset = datasets.DPD_Blur(datatype=datatype, gt_types=gt_types, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params, root=path)
+
+    # FIXME: This is only for debugging
+    val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+        pin_memory=True, num_workers=0, drop_last=False)    
+
+    # val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+    #     pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)    
+
+    gt_dir = os.path.join(save_path, 'gt')
+    src_dir = os.path.join(save_path, 'src')
+    src_test_c_dir = os.path.join(src_dir, 'test_c', 'source', 'scenes')
+    disp_dir = os.path.join(save_path, 'disp')
+    os.makedirs(gt_dir, exist_ok=True)
+    os.makedirs(src_dir, exist_ok=True)
+    os.makedirs(src_test_c_dir, exist_ok=True)
+    os.makedirs(disp_dir, exist_ok=True)
+
+    # eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['psnr', 'ssim'])
+    result = {}
+
+    if val_save_skip < batch_size:
+        val_save_skip = 1
+    else:
+        val_save_skip = val_save_skip // batch_size
+
+    for i_batch, data_blob in enumerate(tqdm(val_loader)):
+
+        if i_batch % val_save_skip != 0:
+            continue
+
+        image_paths = data_blob['image_list']
+        center = data_blob['center'].cuda()
+        lrtb_list = data_blob['lrtb_list'].cuda()
+
+        concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()        
+        with autocast(enabled=mixed_prec):
+            _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
+
+        # Align dimensions and file format
+        flow_pr = flow_pr.cpu().numpy()
+        center = center.permute(0,2,3,1).cpu().numpy()
+
+        current_batch_size = flow_pr.shape[0]
+        for i in range(current_batch_size):
+            flow_pr_i = flow_pr[i]
+            center_i = center[i]
+            val_id = i_batch * batch_size + i
+
+            if save_result:
+                if not os.path.exists('result/predictions/'+path+'/'):
+                    os.makedirs('result/predictions/'+path+'/')
+                
+                # psnr = eval_est.peak_signal_to_noise_ratio()
+                
+                pth_lists = image_paths[0][i].split('/')[-3:]
+                pth = '/'.join(pth_lists)
+                pth = os.path.basename(pth)
+
+                # Set range for colormap
+                vmin, vmax = np.percentile(flow_pr_i, 0.0), np.percentile(flow_pr_i, 100.0)
+                print(vmin, vmax)
+                # print(flow_pr_i.min(), flow_pr_i.max())
+
+                # eval_est.add_colorrange(vmin, vmax)
+
+                # Save in colormap
+                plt.imsave(os.path.join(disp_dir, pth), flow_pr_i.squeeze(), cmap='jet_r', vmin=vmin, vmax=vmax)
+                plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), center_i.astype(np.uint8))
+
+
+    # eval_est.save_metrics()
+    # result = {**result, **eval_est.get_mean_metrics()}
     return result
 
 
@@ -487,7 +567,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--ckpt_epoch', type=int, default=0)
-    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'DPD_Blur', 'Real_QPD', 'QPD-Test-noise'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
     
     args = parser.parse_args()
 
@@ -546,6 +626,10 @@ if __name__ == '__main__':
         save_path = os.path.join(conf.save_path, 'dp-disp', str(restore_ckpt.name).replace('.pth', ''))
         print(save_path)
         result = validate_DPD_Disp(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
+    if 'DPD_Blur' in args.eval_datasets:
+        save_path = os.path.join(conf.save_path, 'dpd-blur', str(restore_ckpt.name).replace('.pth', ''))
+        print(save_path)
+        result = validate_DPD_Blur(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/DPDD_dataset', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
     if 'Real_QPD' in args.eval_datasets:
         save_path = os.path.join(conf.save_path, 'real-qpd-test', str(restore_ckpt.name).replace('.pth', ''))
         print(save_path)

@@ -431,8 +431,7 @@ class QuadAugmentor:
 
     def dict_to_list(self, items):
         img_list = []
-        img_list = items['AiF'] if 'AiF' in items else [] \
-                    + [items['center']] \
+        img_list = [items['center']] \
                     + items['lrtb_list']    
         return img_list
 

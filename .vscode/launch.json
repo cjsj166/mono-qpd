@@ -170,6 +170,21 @@
             ]
         },
 
+        {
+            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, dpd-blur",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpQPDSetting",
+                "--ckpt_epoch", "260",
+                "--eval_datasets", "DPD_Blur"
+            ]
+        },
+
+
 
         {
 

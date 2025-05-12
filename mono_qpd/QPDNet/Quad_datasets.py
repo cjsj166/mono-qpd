@@ -248,6 +248,22 @@ class Real_QPD(QuadDataset):
             elif datatype == 'quad':
                 self.image_list += [ [imgc, imgl, imgr, imgt, imgb] ]
 
+class DPD_Blur(QuadDataset):
+    def __init__(self, datatype='dual', gt_types=['AiF'], aug_params=None, root='', image_set='train', resize_ratio = None, preprocess_params=None):
+        super(DPD_Blur, self).__init__(aug_params=aug_params, datatype='dual', gt_types=gt_types, sparse=False, lrtb='', image_set = image_set, preprocess_params=preprocess_params)
+        
+        self.resize_ratio = resize_ratio
+
+        assert os.path.exists(root)
+        imagel_list = sorted(glob(os.path.join(root, image_set+'_l','source', '*.png')))
+        imager_list = sorted(glob(os.path.join(root, image_set+'_r','source', '*.png')))
+        imagec_list = sorted(glob(os.path.join(root, image_set+'_c','source', '*.png')))
+        
+        for idx, (imgc, imgl, imgr) in enumerate(zip(imagec_list, imagel_list, imager_list)):
+            if datatype == 'dual':
+                self.image_list += [ [imgc, imgl, imgr] ]
+            elif datatype == 'quad':
+                raise NotImplementedError
 
 class DPD_Disp(QuadDataset):
     def __init__(self, datatype='dual', gt_types=['inv_depth'], aug_params=None, root='', image_set='train', resize_ratio = None, preprocess_params=None):
@@ -288,7 +304,7 @@ def fetch_dataloader(args):
     train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
         pin_memory=True, shuffle=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=True)
     
-    # Below line is only for debugging
+    # : Below line is only for debugging
     # train_loader = data.DataLoader(train_dataset, batch_size=args.batch_size, 
     #     pin_memory=True, shuffle=True, num_workers=0, drop_last=True)
 
