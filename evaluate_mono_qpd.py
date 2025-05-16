@@ -595,8 +595,8 @@ def make_QPD_patch(model, datatype='dual', gt_types=['disp', 'AiF'], iters=32, m
         concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()
         
         with autocast(enabled=mixed_prec):
-            # _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
-            _, (flow_pr, corr) = model(center, concat_lr, iters=iters, test_mode=True)
+            _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
+            # _, (flow_pr, corr) = model(center, concat_lr, iters=iters, test_mode=True)
 
         flow_pr = flow_pr.cpu().numpy()
         disp_gt = disp_gt.cpu().numpy()

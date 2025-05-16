@@ -36,9 +36,9 @@ class QPDNet(nn.Module):
         ######CAPA initial
         if self.args.CAPA:
             if self.args.input_image_num==4:
-                self.FFAGroup = Group(conv=default_conv, dim=36*4, kernel_size=3, blocks=3).cuda()
-            else:
-                self.FFAGroup = Group(conv=default_conv, dim=36*2, kernel_size=3, blocks=3).cuda()
+                self.FFAGroup = Group(conv=default_conv, dim=(9*args.corr_levels)*4, kernel_size=3, blocks=3).cuda()
+            else: 
+                self.FFAGroup = Group(conv=default_conv, dim=(9*args.corr_levels)*2, kernel_size=3, blocks=3).cuda()
 
         if args.shared_backbone:
             self.conv2 = nn.Sequential(
@@ -169,6 +169,6 @@ class QPDNet(nn.Module):
             flow_predictions.append(flow_up)
 
         if test_mode:
-            return coords1 - coords0, [flow_up, corr_result]
+            return coords1 - coords0, flow_up
 
         return flow_predictions

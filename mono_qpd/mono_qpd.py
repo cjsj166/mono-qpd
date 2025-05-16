@@ -24,7 +24,7 @@ class MonoQPD(nn.Module):
         # else_args = args['else']
         # da_v2_args = args['da_v2']
 
-        self.feature_converter = InterpConverter()
+        self.feature_converter = InterpConverter(n_downsamples=args.n_downsample)
         self.da_v2_output_condition = 'enc_features'
 
         self.da_v2 = DepthAnythingV2(args.encoder, output_condition=self.da_v2_output_condition)

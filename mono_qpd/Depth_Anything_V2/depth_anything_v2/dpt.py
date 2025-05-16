@@ -167,7 +167,7 @@ class DepthAnythingV2(nn.Module):
         out_channels=[256, 512, 1024, 1024], 
         use_bn=False, 
         use_clstoken=False,
-        output_condition='conv'
+        output_condition='conv',
     ):
         super(DepthAnythingV2, self).__init__()
         

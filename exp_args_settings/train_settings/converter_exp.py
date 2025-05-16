@@ -221,9 +221,9 @@ class InterpPyramidModified(TrainConfig):
     batch_size: int = 4
     image_size: Tuple[int, int] = (448, 448)
     lr: int = 0.0002
-    qpd_valid_bs: int = 4
-    qpd_test_bs: int = 4
-    real_qpd_bs: int = 4
+    qpd_valid_bs: int = 1
+    qpd_test_bs: int = 1
+    real_qpd_bs: int = 1
     dp_disp_bs: int = 1
     val_save_skip: int = 1
 

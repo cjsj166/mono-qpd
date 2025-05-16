@@ -170,12 +170,15 @@ class FixedConvConverter(nn.Module):
 
 
 class InterpConverter(nn.Module):
-    def __init__(self):
+    def __init__(self, n_downsamples=2):
         super(InterpConverter, self).__init__()
-
-        self.channel_conv1 = nn.Conv2d(1024, 128, 1, stride=(1,1)) # For downsizing channels
-        self.channel_conv2 = nn.Conv2d(1024, 128, 1, stride=(1,1))
-        self.channel_conv3 = nn.Conv2d(1024, 128, 1, stride=(1,1))
+        self.n_downsamples = n_downsamples
+        # out_channel = 128 * 2**(n_downsamples - 2)
+        # out_channel = 32 * 2**n_downsamples
+        out_channel = 128
+        self.channel_conv1 = nn.Conv2d(1024, out_channel, 1, stride=(1,1)) # For downsizing channels
+        self.channel_conv2 = nn.Conv2d(1024, out_channel, 1, stride=(1,1))
+        self.channel_conv3 = nn.Conv2d(1024, out_channel, 1, stride=(1,1))
         
         self.relu1 = nn.ReLU()
         self.relu2 = nn.ReLU()
@@ -185,10 +188,17 @@ class InterpConverter(nn.Module):
         x1, x2, x3 = x
         
         h_patch, w_patch = x1.shape[2], x1.shape[3]
+
+        denom1 = 2**(self.n_downsamples - 1)
+        denom2 = 2**(self.n_downsamples)
+        denom3 = 2**(self.n_downsamples + 1)
+        size1 = (int(h_patch*7/denom1), int(w_patch*7/denom1))
+        size2 = (int(h_patch*7/denom2), int(w_patch*7/denom2))
+        size3 = (int(h_patch*7/denom3), int(w_patch*7/denom3))
         
-        x1 = nn.functional.interpolate(x1, size=(h_patch*7//2, w_patch*7//2), mode='bilinear', align_corners=False)
-        x2 = nn.functional.interpolate(x2, size=(h_patch*7//4, w_patch*7//4), mode='bilinear', align_corners=False)
-        x3 = nn.functional.interpolate(x3, size=(h_patch*7//8, w_patch*7//8), mode='bilinear', align_corners=False)
+        x1 = nn.functional.interpolate(x1, size=size1, mode='bilinear', align_corners=False)
+        x2 = nn.functional.interpolate(x2, size=size2, mode='bilinear', align_corners=False)
+        x3 = nn.functional.interpolate(x3, size=size3, mode='bilinear', align_corners=False)
 
         x1 = self.channel_conv1(x1)
         x2 = self.channel_conv2(x2)
