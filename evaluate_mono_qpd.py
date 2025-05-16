@@ -572,7 +572,11 @@ def make_QPD_patch(model, datatype='dual', gt_types=['disp', 'AiF'], iters=32, m
         val_dataset = datasets.QPD(datatype=datatype, gt_types=gt_types, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params)
     else:
         val_dataset = datasets.QPD(datatype=datatype, gt_types=gt_types, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params, root=path)
-
+    
+    # :comment
+    # val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+    #     pin_memory=True, num_workers=0, drop_last=False)
+    
     val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
         pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
     
@@ -754,10 +758,16 @@ if __name__ == '__main__':
         print(save_path)
         
         # Make 448x448 patch with no augmentation with train set
-        make_QPD_patch(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="train", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params={'crop_h':768, 'crop_w':1024, 'resize_h': 768, 'resize_w':1024}, aug_params={'crop_size': (448,448)})
+        preprocess_params=None # preprocess_params={'crop_h':768, 'crop_w':1024, 'resize_h': 768, 'resize_w':1024}
+        aug_params={"crop_size":(448,448) ,"min_scale":0, "max_scale":0, "yjitter":False, 
+        "do_flip":False, "brightness":0, "contrast":0, "hue":0, "saturation_range":[1,1], "gamma":[1,1,1,1]}
+        make_QPD_patch(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="train", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params=preprocess_params, aug_params=aug_params)
         # Crop center 672x896 patch for validation set
-        make_QPD_patch(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896})
+        preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}
+        make_QPD_patch(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params=preprocess_params)
         # Crop center 672x896 patch for test set also
-        make_QPD_patch(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896})
+        preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}
+        make_QPD_patch(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params=preprocess_params)
+        result = None
 
     print(result)

@@ -113,6 +113,19 @@
             ]
         },
 
+
+        {
+            "name": "MonoQPD, dataclass train, qpd-train, InterpPyramidModified",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpPyramidModified",
+            ]
+        },
+
         {
             "name": "Mono-QPD, dataclass eval, InterpOriginal, 135epoch",
             "type": "debugpy",
