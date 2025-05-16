@@ -128,6 +128,20 @@
         },
 
         {
+            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, make-qpd-patch",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpQPDSetting",
+                "--ckpt_epoch", "260",
+                "--eval_datasets", "Make_QPD_Patch"
+            ]
+        },
+
+        {
             "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, qpd-test",
             "type": "debugpy",
             "request": "launch",

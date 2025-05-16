@@ -1,3 +1,4 @@
+from copy import deepcopy
 import torch
 import torch.nn.functional as F
 from mono_qpd.QPDNet.utils.utils import bilinear_sampler
@@ -35,8 +36,11 @@ class CorrBlock1D:
         self.radius = radius
         self.corr_pyramid = []
         self.input_image_num = input_image_num
+
+        self.raw_corr = []
         # all pairs correlation
         corr = CorrBlock1D.corr(fmap1, fmap2, input_image_num)
+        self.raw_corr = [c.detach().clone() for c in corr]
 
         for j in range(len(corr)):
             batch, h, w, _, L = corr[j].shape

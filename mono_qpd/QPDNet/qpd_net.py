@@ -83,6 +83,7 @@ class QPDNet(nn.Module):
 
         image1 = (2 * (image1 / 255.0) - 1.0).contiguous()
         image2 = (2 * (image2 / 255.0) - 1.0).contiguous()
+        corr_result = []
         # run the context network
         with autocast(enabled=self.args.mixed_precision):
             if self.args.shared_backbone:
@@ -125,6 +126,8 @@ class QPDNet(nn.Module):
         #     corr_block = AlternateCorrBlock
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
+        corr_result = corr_fn.raw_corr
+
         coords0, coords1 = self.initialize_flow(net_list[0])
 
         if flow_init is not None:
@@ -166,6 +169,6 @@ class QPDNet(nn.Module):
             flow_predictions.append(flow_up)
 
         if test_mode:
-            return coords1 - coords0, flow_up
+            return coords1 - coords0, [flow_up, corr_result]
 
         return flow_predictions

@@ -2,6 +2,7 @@ from __future__ import print_function, division
 import sys
 sys.path.append('core')
 
+from copy import deepcopy
 import argparse
 import time
 import logging
@@ -562,12 +563,126 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
 
     return result
 
+@torch.no_grad()
+def make_QPD_patch(model, datatype='dual', gt_types=['disp', 'AiF'], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='', save_path='result/train', batch_size=1, preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}, aug_params={}):
+    # left, right, center, AiF, GT disparity, estimated disparity, correlation volume
+    model.eval()
+
+    if path == '':
+        val_dataset = datasets.QPD(datatype=datatype, gt_types=gt_types, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params)
+    else:
+        val_dataset = datasets.QPD(datatype=datatype, gt_types=gt_types, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params, root=path)
+
+    val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+        pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
+    
+    path = os.path.basename(os.path.dirname(path))
+    for i_batch, data_blob in enumerate(tqdm(val_loader)):
+        if i_batch % val_save_skip != 0:
+            continue
+
+        image_paths = data_blob['image_list']
+        center = data_blob['center'].cuda()
+        lrtb_list = data_blob['lrtb_list'].cuda()
+        disp_gt =  data_blob['disp'].cuda()
+        valid_gt = data_blob['disp_valid'].cuda()
+        aif = data_blob['AiF'].cuda()
+
+        concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()
+        
+        with autocast(enabled=mixed_prec):
+            # _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
+            _, (flow_pr, corr) = model(center, concat_lr, iters=iters, test_mode=True)
+
+        flow_pr = flow_pr.cpu().numpy()
+        disp_gt = disp_gt.cpu().numpy()
+        center = center.permute(0,2,3,1).cpu().numpy()
+        aif = aif.permute(0,2,3,1).cpu().numpy()
+        left = lrtb_list[:,0].permute(0,2,3,1).cpu().numpy()
+        right = lrtb_list[:,1].permute(0,2,3,1).cpu().numpy()
+        corr_cl = corr[0].cpu().numpy()
+        corr_cr = corr[1].cpu().numpy()
+        
+        disp_gt = disp_gt / 2
+
+        assert flow_pr.shape == disp_gt.shape, (flow_pr.shape, disp_gt.shape)
+
+        current_batch_size = flow_pr.shape[0]
+        for i in range(current_batch_size):
+            flow_pr_i = flow_pr[i]
+            disp_gt_i = disp_gt[i]
+            center_i = center[i]
+            left_i = left[i]
+            right_i = right[i]
+            aif_i = aif[i]
+            corr_cl_i = corr_cl[i]
+            corr_cr_i = corr_cr[i]
+
+            val_id = i_batch * batch_size + i
+
+            if save_result:
+                if not os.path.exists('result/predictions/'+path+'/'):
+                    os.makedirs('result/predictions/'+path+'/')
+            
+                # pth_lists = image_paths[0][i].split('/')[-2:]
+                pth_lists = image_paths[0][i].split('/')[-4:]
+                center_pth = '/'.join(pth_lists)
+
+                AiF_pth_lists = deepcopy(pth_lists)
+                AiF_pth_lists[1] = 'target'
+                AiF_pth = '/'.join(AiF_pth_lists)
+
+                gt_disp_pth_lists = deepcopy(pth_lists)
+                gt_disp_pth_lists[1] = 'target_disp'
+                gt_disp_pth_lists[3] = gt_disp_pth_lists[3].replace('png', 'npy')
+                gt_disp_pth = '/'.join(gt_disp_pth_lists)
+
+                est_disp_pth_lists = deepcopy(pth_lists)
+                est_disp_pth_lists[1] = 'FMDP_disp'
+                est_disp_pth_lists[3] = est_disp_pth_lists[3].replace('png', 'npy')
+                est_disp_pth = '/'.join(est_disp_pth_lists)
+
+                corr_cl_pth_lists = deepcopy(pth_lists)
+                corr_cl_pth_lists[1] = 'corr_cl'
+                corr_cl_pth_lists[3] = corr_cl_pth_lists[3].replace('png', 'npy')
+                corr_cl_pth = '/'.join(corr_cl_pth_lists)
+
+                corr_cr_pth_lists = deepcopy(pth_lists)
+                corr_cr_pth_lists[1] = 'corr_cr'
+                corr_cr_pth_lists[3] = corr_cr_pth_lists[3].replace('png', 'npy')
+                corr_cr_pth = '/'.join(corr_cr_pth_lists)
+
+                pth_lists = image_paths[1][i].split('/')[-4:]
+                left_pth = '/'.join(pth_lists)
+
+                pth_lists = image_paths[2][i].split('/')[-4:]
+                right_pth = '/'.join(pth_lists)
+
+                paths = [center_pth, AiF_pth, gt_disp_pth, est_disp_pth, corr_cl_pth, corr_cr_pth, left_pth, right_pth]
+                for i in range(len(paths)):
+                    paths[i] = os.path.join(save_path, paths[i])
+                    os.makedirs(os.path.dirname(paths[i]), exist_ok=True)
+                
+                center_pth, AiF_pth, gt_disp_pth, est_disp_pth, corr_cl_pth, corr_cr_pth, left_pth, right_pth = paths
+
+                plt.imsave(center_pth, center_i.astype(np.uint8))
+                plt.imsave(left_pth, left_i.astype(np.uint8))
+                plt.imsave(right_pth, right_i.astype(np.uint8))
+                plt.imsave(AiF_pth, aif_i.astype(np.uint8))
+
+                np.save(gt_disp_pth, disp_gt_i.squeeze())
+                np.save(est_disp_pth, flow_pr_i.squeeze())
+                np.save(corr_cl_pth, corr_cl_i)
+                np.save(corr_cr_pth, corr_cr_i)
+
+
+
 # TODO: Add logic to deal with AiF images
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--ckpt_epoch', type=int, default=0)
-    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'DPD_Blur', 'Real_QPD', 'QPD-Test-noise'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'DPD_Blur', 'Real_QPD', 'QPD-Test-noise', 'Make_QPD_Patch'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
     
     args = parser.parse_args()
 
@@ -634,5 +749,15 @@ if __name__ == '__main__':
         save_path = os.path.join(conf.save_path, 'real-qpd-test', str(restore_ckpt.name).replace('.pth', ''))
         print(save_path)
         result = validate_Real_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=conf.real_qpd_bs if conf.real_qpd_bs else 1)
+    if 'Make_QPD_Patch' in args.eval_datasets:
+        save_path = os.path.join(conf.save_path, 'make-qpd-patch', str(restore_ckpt.name).replace('.pth', ''))
+        print(save_path)
+        
+        # Make 448x448 patch with no augmentation with train set
+        make_QPD_patch(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="train", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params={'crop_h':768, 'crop_w':1024, 'resize_h': 768, 'resize_w':1024}, aug_params={'crop_size': (448,448)})
+        # Crop center 672x896 patch for validation set
+        make_QPD_patch(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896})
+        # Crop center 672x896 patch for test set also
+        make_QPD_patch(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896})
 
     print(result)
