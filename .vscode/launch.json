@@ -125,6 +125,57 @@
                 "InterpPyramidModified",
             ]
         },
+        
+        {
+            "name": "MonoQPD, dataclass train, qpd-train, InterpCorr1",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpCorr1",
+            ]
+        },
+
+        {
+            "name": "MonoQPD, dataclass train, qpd-train, InterpCorr2",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpCorr2",
+            ]
+        },
+
+
+        {
+            "name": "MonoQPD, dataclass train, qpd-train, InterpCorr3",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpCorr3",
+            ]
+        },
+
+        
+        
+        {
+            "name": "MonoQPD, dataclass train, qpd-train, InterpCorr1Down1",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpCorr1Down1",
+            ]
+        },
 
         {
             "name": "Mono-QPD, dataclass eval, InterpOriginal, 135epoch",

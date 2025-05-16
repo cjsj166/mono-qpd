@@ -397,7 +397,8 @@ def train(args):
 
                 peak_memory_MB = torch.cuda.max_memory_allocated() / (1024 ** 2)
                 print(f"최대 VRAM 사용량: {peak_memory_MB:.2f} MB")
-
+                print(f"fnet param num: {count_parameters(model.module.qpdnet.fnet)}")
+                
                 results = validate_QPD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=args.val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
                     
                 if qpd_epebest>=results['epe']:

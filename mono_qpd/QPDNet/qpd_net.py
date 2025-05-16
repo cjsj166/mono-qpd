@@ -140,7 +140,6 @@ class QPDNet(nn.Module):
             if self.args.CAPA:
                 corr = self.FFAGroup(corr)
 
-
             flow = coords1 - coords0
             with autocast(enabled=self.args.mixed_precision):
                 if self.args.n_gru_layers == 3 and self.args.slow_fast_gru: # Update low-res GRU

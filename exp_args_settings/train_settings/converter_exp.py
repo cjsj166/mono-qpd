@@ -218,8 +218,8 @@ class InterpPyramidModified(TrainConfig):
     n_downsample: int = 0
 
     num_steps: int = 200000
-    batch_size: int = 4
-    image_size: Tuple[int, int] = (448, 448)
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (224, 224)
     lr: int = 0.0002
     qpd_valid_bs: int = 1
     qpd_test_bs: int = 1
@@ -229,6 +229,79 @@ class InterpPyramidModified(TrainConfig):
 
     restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
     save_path: str = 'result/train/InterpPyramidModified'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+@dataclass
+class InterpCorr1(TrainConfig):
+    corr_levels: int = 1
+    num_steps: int = 200000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (224, 224)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/InterpCorr1'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+@dataclass
+class InterpCorr2(TrainConfig):
+    corr_levels: int = 2
+    num_steps: int = 200000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (224, 224)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/InterpCorr2'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+@dataclass
+class InterpCorr3(TrainConfig):
+    corr_levels: int = 3
+    num_steps: int = 200000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (224, 224)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/InterpCorr3'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+@dataclass
+class InterpCorr1Down1(TrainConfig):
+    n_downsample: int = 1
+    corr_levels: int = 1
+    num_steps: int = 200000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (224, 224)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    save_path: str = 'result/train/InterpCorr1'
     feature_converter: str = 'interp'
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
