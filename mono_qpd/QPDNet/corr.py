@@ -40,23 +40,23 @@ class CorrBlock1D:
         self.raw_corr = []
         # all pairs correlation
         corr = CorrBlock1D.corr(fmap1, fmap2, input_image_num)
-        self.raw_corr = [c.detach().clone() for c in corr]
+        # self.raw_corr = [c.detach().clone() for c in corr]
         
-        W1 = fmap1.shape[-1]
-        W2 = fmap2.shape[-1]
-        max_disp = 20
-        # disparity index: |x1 - x2| > max_disp → mask out
-        device = fmap1.device
-        x1 = torch.arange(W1, device=device).view(1, 1, W1, 1, 1)  # [1,1,W1,1,1]
-        x2 = torch.arange(W2, device=device).view(1, 1, 1, 1, W2)  # [1,1,1,1,W2]
+        # W1 = fmap1.shape[-1]
+        # W2 = fmap2.shape[-1]
+        # max_disp = 20
+        # # disparity index: |x1 - x2| > max_disp → mask out
+        # device = fmap1.device
+        # x1 = torch.arange(W1, device=device).view(1, 1, W1, 1, 1)  # [1,1,W1,1,1]
+        # x2 = torch.arange(W2, device=device).view(1, 1, 1, 1, W2)  # [1,1,1,1,W2]
 
-        disp = torch.abs(x1 - x2)  # [1,1,W1,1,W2]
-        valid_mask = (disp <= max_disp).float()  # float mask
+        # disp = torch.abs(x1 - x2)  # [1,1,W1,1,W2]
+        # valid_mask = (disp <= max_disp).float()  # float mask
 
-        # detach invalid parts
+        # # detach invalid parts
 
-        for i in range(2):
-            corr[i] = corr[i] * valid_mask + corr[i].detach() * (1 - valid_mask)
+        # for i in range(2):
+        #     corr[i] = corr[i] * valid_mask + corr[i].detach() * (1 - valid_mask)
             
         for j in range(len(corr)):
             batch, h, w, _, L = corr[j].shape
