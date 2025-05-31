@@ -24,10 +24,33 @@ class MonoQPD(nn.Module):
         # else_args = args['else']
         # da_v2_args = args['da_v2']
 
-        self.feature_converter = InterpConverter(n_downsamples=args.n_downsample)
         self.da_v2_output_condition = 'enc_features'
+        if args.feature_converter == 'pixelshuffle':
+            self.feature_converter = PixelShuffleConverter()
+            self.da_v2_output_condition = 'enc_features'
+
+        elif args.feature_converter == 'conv':
+            self.feature_converter = ConvConverter()
+            self.da_v2_output_condition = 'enc_features'
+
+        elif args.feature_converter == 'fixed-conv':
+            self.feature_converter = FixedConvConverter()
+            self.da_v2_output_condition = 'enc_features'
+        
+        elif args.feature_converter == 'interp':
+            self.feature_converter = InterpConverter()
+            self.da_v2_output_condition = 'enc_features'
+        
+        elif args.feature_converter == 'skipconv-interp':
+            self.feature_converter = SkipConvConverter()
+            self.da_v2_output_condition = 'enc_features'
+
+        elif args.feature_converter == 'decoder_features':
+            self.feature_converter = DecConverter()
+            self.da_v2_output_condition = 'dec_features'
 
         self.da_v2 = DepthAnythingV2(args.encoder, output_condition=self.da_v2_output_condition)
+
         self.qpdnet = QPDNet(args)
     def resize_to_14_multiples(self, image):
         h, w = image.shape[2], image.shape[3]
@@ -47,7 +70,8 @@ class MonoQPD(nn.Module):
         
     def forward(self, image1, image2, iters=12, flow_init=None, test_mode=False):
         h, w = image1.shape[2], image1.shape[3]
-        assert h % 112 == 0 and w % 112 == 0, "Image dimensions must be multiples of 224"
+        assert h % 224 == 0 and w % 224 == 0, "Image dimensions must be multiples of 224"
+        # image1_resized = self.resize_to_14_multiples(image1)
 
         image1_normalized = self.normalize_image(image1)
         # enc_features, depth = self.da_v2(image1_normalized) # Original

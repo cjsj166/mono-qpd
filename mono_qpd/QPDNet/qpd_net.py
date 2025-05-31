@@ -36,9 +36,9 @@ class QPDNet(nn.Module):
         ######CAPA initial
         if self.args.CAPA:
             if self.args.input_image_num==4:
-                self.FFAGroup = Group(conv=default_conv, dim=(9*args.corr_levels)*4, kernel_size=3, blocks=3).cuda()
-            else: 
-                self.FFAGroup = Group(conv=default_conv, dim=(9*args.corr_levels)*2, kernel_size=3, blocks=3).cuda()
+                self.FFAGroup = Group(conv=default_conv, dim=36*4, kernel_size=3, blocks=3).cuda()
+            else:
+                self.FFAGroup = Group(conv=default_conv, dim=36*2, kernel_size=3, blocks=3).cuda()
 
         if args.shared_backbone:
             self.conv2 = nn.Sequential(
@@ -83,7 +83,6 @@ class QPDNet(nn.Module):
 
         image1 = (2 * (image1 / 255.0) - 1.0).contiguous()
         image2 = (2 * (image2 / 255.0) - 1.0).contiguous()
-        corr_result = []
         # run the context network
         with autocast(enabled=self.args.mixed_precision):
             if self.args.shared_backbone:
@@ -104,9 +103,8 @@ class QPDNet(nn.Module):
                     fmap1 = fmap[0]
                     fmap2 = torch.stack(fmap[1:],dim=1)
 
-            # net_list = [torch.tanh(x[0]) for x in cnet_list] # Oriiginal net_list(inital hidden states)
+            net_list = [torch.tanh(x[0]) for x in cnet_list]
             ori_inp_list = [torch.relu(x[1]) for x in cnet_list] # Original
-            net_list = [x for x in int_features[::-1]]
             inp_list = [x for x in int_features[::-1]]
 
             # Rather than running the GRU's conv layers on the context features multiple times, we do it once at the beginning
@@ -126,8 +124,6 @@ class QPDNet(nn.Module):
         #     corr_block = AlternateCorrBlock
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
-        corr_result = corr_fn.raw_corr
-
         coords0, coords1 = self.initialize_flow(net_list[0])
 
         if flow_init is not None:
@@ -139,6 +135,7 @@ class QPDNet(nn.Module):
             corr = corr_fn(coords1, coords0) # index correlation volume
             if self.args.CAPA:
                 corr = self.FFAGroup(corr)
+
 
             flow = coords1 - coords0
             with autocast(enabled=self.args.mixed_precision):

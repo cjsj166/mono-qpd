@@ -113,70 +113,6 @@
             ]
         },
 
-
-        {
-            "name": "MonoQPD, dataclass train, qpd-train, InterpPyramidModified",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "InterpPyramidModified",
-            ]
-        },
-        
-        {
-            "name": "MonoQPD, dataclass train, qpd-train, InterpCorr1",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "InterpCorr1",
-            ]
-        },
-
-        {
-            "name": "MonoQPD, dataclass train, qpd-train, InterpCorr2",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "InterpCorr2",
-            ]
-        },
-
-
-        {
-            "name": "MonoQPD, dataclass train, qpd-train, InterpCorr3",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "InterpCorr3",
-            ]
-        },
-
-        
-        
-        {
-            "name": "MonoQPD, dataclass train, qpd-train, InterpCorr1Down1",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "InterpCorr1Down1",
-            ]
-        },
-
         {
             "name": "Mono-QPD, dataclass eval, InterpOriginal, 135epoch",
             "type": "debugpy",
@@ -190,9 +126,9 @@
                 "--eval_datasets", "Real_QPD"
             ]
         },
-
+        
         {
-            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, make-qpd-patch",
+            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, make-qpd",
             "type": "debugpy",
             "request": "launch",
             "program": "evaluate_mono_qpd.py",
@@ -201,7 +137,21 @@
                 "--exp_name",
                 "InterpQPDSetting",
                 "--ckpt_epoch", "260",
-                "--eval_datasets", "Make_QPD_Patch"
+                "--eval_datasets", "Make_QPD"
+            ]
+        },
+
+        {
+            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, make-dddp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpQPDSetting",
+                "--ckpt_epoch", "260",
+                "--eval_datasets", "Make_DDDP"
             ]
         },
 
@@ -247,21 +197,6 @@
                 "--eval_datasets", "DPD_Disp"
             ]
         },
-
-        {
-            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, dpd-blur",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "evaluate_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "InterpQPDSetting",
-                "--ckpt_epoch", "260",
-                "--eval_datasets", "DPD_Blur"
-            ]
-        },
-
 
 
         {
