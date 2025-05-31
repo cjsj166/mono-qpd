@@ -43,6 +43,7 @@ class QuadDataset(data.Dataset):
         self.init_seed = False
         self.disparity_list = []
         self.image_list = []
+        self.aif_list = []
         self.lrtb = lrtb
         self.image_set = image_set
     
@@ -149,7 +150,7 @@ class QuadDataset(data.Dataset):
             inv_depth_valid = (inv_depth > 0) # h x w x 1 
      
         if 'AiF' in self.gt_types:
-            AiF = frame_utils.read_gen(self.image_list[index][i])
+            AiF = frame_utils.read_gen(self.aif_list[index])
             AiF = np.array(AiF).astype(np.uint8)[..., :3]
         
         # Pack the items into dictionary
@@ -211,24 +212,46 @@ class QPD(QuadDataset):
     def __init__(self, datatype='dual', gt_types=['disp'], aug_params=None, root='', image_set='train', preprocess_params=None):
         super(QPD, self).__init__(aug_params=aug_params, datatype='dual', gt_types=gt_types, sparse=False, lrtb='', image_set = image_set, preprocess_params=preprocess_params)
         assert os.path.exists(root)
+        
         imagel_list = sorted(glob(os.path.join(root, image_set+'_l','source', 'seq_*/*.png')))
         imager_list = sorted(glob(os.path.join(root, image_set+'_r','source', 'seq_*/*.png')))
-
-        
         imaget_list = sorted(glob(os.path.join(root, image_set+'_t','source', 'seq_*/*.png')))
         imageb_list = sorted(glob(os.path.join(root, image_set+'_b','source', 'seq_*/*.png')))
         imagec_list = sorted(glob(os.path.join(root, image_set+'_c','source', 'seq_*/*.png')))
+        aif_list = sorted(glob(os.path.join(root, image_set+'_c','target', 'seq_*/*.png')))
         disp_list = sorted(glob(os.path.join(root, image_set+'_c','target_disp', 'seq_*/*.npy')))
 
-        for idx, (imgc, imgl, imgr, imgt, imgb, disp) in enumerate(zip(imagec_list, imagel_list, imager_list, imaget_list, imageb_list, disp_list)):
+        for idx, (imgc, imgl, imgr, imgt, imgb, disp, aif) in enumerate(zip(imagec_list, imagel_list, imager_list, imaget_list, imageb_list, disp_list, aif_list)):
             if datatype == 'dual':
                 self.image_list += [ [imgc, imgl, imgr] ]
             elif datatype == 'quad':
                 self.image_list += [ [imgc, imgl, imgr, imgt, imgb] ]
-            self.disparity_list += [ disp ]
+            if 'disp' in gt_types:
+                self.disparity_list += [ disp ]
+            if 'AiF' in gt_types:
+                self.aif_list += [ aif ]
+            
 
-        self.image_list = self.image_list
-        self.disparity_list = self.disparity_list
+class DDDP(QuadDataset):
+    def __init__(self, datatype='dual', gt_types=['AiF'], aug_params=None, root='', image_set='train', preprocess_params=None):
+        super(DDDP, self).__init__(aug_params=aug_params, datatype='dual', gt_types=gt_types, sparse=False, lrtb='', image_set = image_set, preprocess_params=preprocess_params)
+        assert os.path.exists(root)
+        
+        imagel_list = sorted(glob(os.path.join(root, image_set+'_l','source', '*.png')))
+        imager_list = sorted(glob(os.path.join(root, image_set+'_r','source', '*.png')))
+        imagec_list = sorted(glob(os.path.join(root, image_set+'_c','source', '*.png')))
+        aif_list = sorted(glob(os.path.join(root, image_set+'_c','target', '*.png')))
+
+        for idx, (imgc, imgl, imgr, aif) in enumerate(zip(imagec_list, imagel_list, imager_list, aif_list)):
+            if datatype == 'dual':
+                self.image_list += [ [imgc, imgl, imgr] ]
+            elif datatype == 'quad':
+                self.image_list += [ [imgc, imgl, imgr, imgt, imgb] ]
+
+            if 'AiF' in gt_types:
+                self.aif_list += [ aif ]
+
+
 
 class Real_QPD(QuadDataset):
     def __init__(self, datatype='dual', aug_params=None, root='', image_set='train', preprocess_params=None):

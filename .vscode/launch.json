@@ -126,6 +126,34 @@
                 "--eval_datasets", "Real_QPD"
             ]
         },
+        
+        {
+            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, make-qpd",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpQPDSetting",
+                "--ckpt_epoch", "260",
+                "--eval_datasets", "Make_QPD"
+            ]
+        },
+
+        {
+            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, make-dddp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "InterpQPDSetting",
+                "--ckpt_epoch", "260",
+                "--eval_datasets", "Make_DDDP"
+            ]
+        },
 
         {
             "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, qpd-test",
