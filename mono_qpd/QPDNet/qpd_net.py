@@ -103,9 +103,8 @@ class QPDNet(nn.Module):
                     fmap1 = fmap[0]
                     fmap2 = torch.stack(fmap[1:],dim=1)
 
-            # net_list = [torch.tanh(x[0]) for x in cnet_list] # Oriiginal net_list(inital hidden states)
+            net_list = [torch.tanh(x[0]) for x in cnet_list]
             ori_inp_list = [torch.relu(x[1]) for x in cnet_list] # Original
-            net_list = [x for x in int_features[::-1]]
             inp_list = [x for x in int_features[::-1]]
 
             # Rather than running the GRU's conv layers on the context features multiple times, we do it once at the beginning

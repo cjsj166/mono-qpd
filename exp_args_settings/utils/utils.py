@@ -28,6 +28,8 @@ def get_latest_ckpt(path):
 def get_ckpts_in_dir(dir_path):
     dir_path = Path(dir_path)
     ckpts = dir_path.rglob('**/*.pth')
+    pat = os.path.join(dir_path, '*', 'checkpoints', '*.pth')
+    ckpts = [Path(ckpt) for ckpt in glob(pat)]
 
     valid_ckpts = [ckpt for ckpt in ckpts if extract_epoch(ckpt)]
 
