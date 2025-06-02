@@ -24,33 +24,8 @@ class MonoQPD(nn.Module):
         # else_args = args['else']
         # da_v2_args = args['da_v2']
 
-        self.da_v2_output_condition = 'enc_features'
-        if args.feature_converter == 'pixelshuffle':
-            self.feature_converter = PixelShuffleConverter()
-            self.da_v2_output_condition = 'enc_features'
-
-        elif args.feature_converter == 'conv':
-            self.feature_converter = ConvConverter()
-            self.da_v2_output_condition = 'enc_features'
-
-        elif args.feature_converter == 'fixed-conv':
-            self.feature_converter = FixedConvConverter()
-            self.da_v2_output_condition = 'enc_features'
-        
-        elif args.feature_converter == 'interp':
-            self.feature_converter = InterpConverter()
-            self.da_v2_output_condition = 'enc_features'
-        
-        elif args.feature_converter == 'skipconv-interp':
-            self.feature_converter = SkipConvConverter()
-            self.da_v2_output_condition = 'enc_features'
-
-        elif args.feature_converter == 'decoder_features':
-            self.feature_converter = DecConverter()
-            self.da_v2_output_condition = 'dec_features'
-
-        self.da_v2 = DepthAnythingV2(args.encoder, output_condition=self.da_v2_output_condition)
-
+        self.feature_converter = InterpConverter(args.extra_channel_conv)
+        self.da_v2 = DepthAnythingV2(args.encoder, output_condition='enc_features')
         self.qpdnet = QPDNet(args)
     def resize_to_14_multiples(self, image):
         h, w = image.shape[2], image.shape[3]
@@ -69,29 +44,29 @@ class MonoQPD(nn.Module):
         return image
         
     def forward(self, image1, image2, iters=12, flow_init=None, test_mode=False):
-        h, w = image1.shape[2], image1.shape[3]
-        assert h % 224 == 0 and w % 224 == 0, "Image dimensions must be multiples of 224"
-        # image1_resized = self.resize_to_14_multiples(image1)
-
-        image1_normalized = self.normalize_image(image1)
-        # enc_features, depth = self.da_v2(image1_normalized) # Original
-        if self.da_v2_output_condition == 'enc_features':
-            ret_features = self.da_v2(image1_normalized)
-            ret_features = ret_features[1:]
-            
-        elif self.da_v2_output_condition == 'dec_features':
-            ret_features = self.da_v2(image1_normalized)
-            ret_features = ret_features[1:]
+        center, deblur = image1
         
+        h, w = center.shape[2], center.shape[3]
+        assert h % 112 == 0 and w % 112 == 0, "Image dimensions must be multiples of 224"
+
+        center_normalized = self.normalize_image(center)
+        center_ret_features = self.da_v2(center_normalized)
+        center_ret_features = center_ret_features[1:]
+
+        deblur_normalized = self.normalize_image(deblur)
+        deblur_ret_features = self.da_v2(deblur_normalized)
+        deblur_ret_features = deblur_ret_features[1:]
+
+        ret_features = [torch.concat((c_f, d_f), dim=1) for c_f, d_f in zip(center_ret_features, deblur_ret_features)]
         ret_features = self.feature_converter(ret_features)
         # for f in ret_features:
         #     print(f.shape)
         ret_features = ret_features[::-1] # Reverse the order of the features
 
         if test_mode:
-            original_disp, upsampled = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
+            original_disp, upsampled = self.qpdnet(ret_features, center, image2, iters=iters, test_mode=test_mode, flow_init=None)
             return original_disp, upsampled
         else:
-            disp_predictions = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
+            disp_predictions = self.qpdnet(ret_features, center, image2, iters=iters, test_mode=test_mode, flow_init=None)
             return disp_predictions
 

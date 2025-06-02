@@ -431,9 +431,12 @@ class QuadAugmentor:
 
     def dict_to_list(self, items):
         img_list = []
-        img_list = items['AiF'] if 'AiF' in items else [] \
-                    + [items['center']] \
-                    + items['lrtb_list']    
+        img_list = [items['AiF']] if 'AiF' in items.keys() else []
+        img_list = img_list + [items['center']] + items['lrtb_list']
+
+        # img_list = items['AiF'] if 'AiF' in items else [] \
+        #             + [items['center']] \
+        #             + items['lrtb_list']    
         return img_list
 
     def list_to_dict(self, img_list, keys):
@@ -463,7 +466,6 @@ class QuadAugmentor:
             disp = flow[:, :, :1]
 
         # Pack items        
-        items = {}
         items = self.list_to_dict(img_list, items.keys())
         items['disp'] = disp
 

@@ -100,18 +100,29 @@
         },
 
         {
-            "name": "MonoQPD, dataclass train, qpd-train, interp",
+            "name": "MonoQPD, dataclass train, qpd-train, DeblurInputExtraChannelConvTest",
             "type": "debugpy",
             "request": "launch",
             "program": "train_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "Interp",
-                // "--restore_ckpt",
-                // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
+                "DeblurInputExtraChannelConvTest",
             ]
         },
+
+        {
+            "name": "MonoQPD, dataclass train, qpd-train, DeblurInputTest",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "DeblurInputTest",
+            ]
+        },
+
 
         {
             "name": "Mono-QPD, dataclass eval, InterpOriginal, 135epoch",
@@ -124,34 +135,6 @@
                 "InterpOriginal",
                 "--ckpt_epoch", "135",
                 "--eval_datasets", "Real_QPD"
-            ]
-        },
-        
-        {
-            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, make-qpd",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "evaluate_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "InterpQPDSetting",
-                "--ckpt_epoch", "260",
-                "--eval_datasets", "Make_QPD"
-            ]
-        },
-
-        {
-            "name": "Mono-QPD, dataclass eval, InterpQPDSetting, 260epoch, make-dddp",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "evaluate_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "InterpQPDSetting",
-                "--ckpt_epoch", "260",
-                "--eval_datasets", "Make_DDDP"
             ]
         },
 

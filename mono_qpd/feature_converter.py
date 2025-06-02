@@ -170,12 +170,40 @@ class FixedConvConverter(nn.Module):
 
 
 class InterpConverter(nn.Module):
-    def __init__(self):
+    def __init__(self, extra_channel_conv=False):
         super(InterpConverter, self).__init__()
 
-        self.channel_conv1 = nn.Conv2d(1024, 128, 1, stride=(1,1)) # For downsizing channels
-        self.channel_conv2 = nn.Conv2d(1024, 128, 1, stride=(1,1))
-        self.channel_conv3 = nn.Conv2d(1024, 128, 1, stride=(1,1))
+        if extra_channel_conv:
+            self.channel_conv1 = nn.Sequential(
+                nn.Conv2d(2048, 512, kernel_size=1, bias=False),
+                nn.BatchNorm2d(512),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(512, 128, kernel_size=1, bias=False),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True)
+            )
+
+            self.channel_conv2 = nn.Sequential(
+                nn.Conv2d(2048, 512, kernel_size=1, bias=False),
+                nn.BatchNorm2d(512),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(512, 128, kernel_size=1, bias=False),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True)
+            )
+
+            self.channel_conv3 = nn.Sequential(
+                nn.Conv2d(2048, 512, kernel_size=1, bias=False),
+                nn.BatchNorm2d(512),
+                nn.ReLU(inplace=True),
+                nn.Conv2d(512, 128, kernel_size=1, bias=False),
+                nn.BatchNorm2d(128),
+                nn.ReLU(inplace=True)
+            )
+        else:
+            self.channel_conv1 = nn.Conv2d(2048, 128, 1, stride=(1,1)) # For downsizing channels
+            self.channel_conv2 = nn.Conv2d(2048, 128, 1, stride=(1,1))
+            self.channel_conv3 = nn.Conv2d(2048, 128, 1, stride=(1,1))
         
         self.relu1 = nn.ReLU()
         self.relu2 = nn.ReLU()

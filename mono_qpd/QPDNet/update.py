@@ -117,7 +117,7 @@ class BasicMultiUpdateBlock(nn.Module):
             net[2] = self.gru32(net[2], *(inp[2]), pool2x(net[1]))
         if iter16:
             if self.args.n_gru_layers > 2:
-                net[1] = self.gru16(net[1], *(inp[1]), pool2x(net[0]), interp(net[2], net[1]))
+                net[1] = self.gru16(net[1], *(inp[1]), pool2x(net[0]), interp(net[2], net[1])) # (h, cz, cr, cq, *x_list) # net[1], 
             else:
                 net[1] = self.gru16(net[1], *(inp[1]), pool2x(net[0]))
         if iter08:

@@ -317,6 +317,7 @@ def train(args):
             lrtblist = data_blob['lrtb_list'].cuda()
             flow = data_blob['disp'].cuda()
             valid = data_blob['disp_valid'].cuda()
+            deblur = data_blob['AiF'].cuda()
             # center_img, lrtblist, flow, valid = [x.cuda() for x in data_blob]
 
             assert not torch.isnan(center_img).any(), "Invalid values in input images"
@@ -324,7 +325,8 @@ def train(args):
 
             b,s,c,h,w = lrtblist.shape
 
-            image1 = center_img.contiguous().view(b,c,h,w)
+            image1 = [center_img.contiguous().view(b,c,h,w)]
+            image1 = image1 + [deblur.contiguous().view(b,c,h,w)]
             if args.datatype == 'quad':
                 image2 = torch.cat([lrtblist[:,0],lrtblist[:,1],lrtblist[:,2],lrtblist[:,3]], dim=0).contiguous()
             elif args.datatype == 'dual':
@@ -395,50 +397,44 @@ def train(args):
                 
                 save_dir = os.path.join(args.save_path, 'qpd-valid', f'{epoch:03d}_epoch')
 
-                # FIXME: This is a temporary fix for the bug in the validation code
-                # commented temporalily ----------------------------------------------------------------------------------
-
-
-                # results = validate_QPD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=args.val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
+                results = validate_QPD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=args.val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
                     
-                # if qpd_epebest>=results['epe']:
-                #     qpd_epebest = results['epe']
-                #     qpd_epeepoch = epoch
-                # if qpd_rmsebest>=results['rmse']:
-                #     qpd_rmsebest = results['rmse']
-                #     qpd_rmseepoch = epoch
-                # if qpd_ai2best>=results['ai2']:
-                #     qpd_ai2best = results['ai2']
-                #     qpd_ai2epoch = epoch
+                if qpd_epebest>=results['epe']:
+                    qpd_epebest = results['epe']
+                    qpd_epeepoch = epoch
+                if qpd_rmsebest>=results['rmse']:
+                    qpd_rmsebest = results['rmse']
+                    qpd_rmseepoch = epoch
+                if qpd_ai2best>=results['ai2']:
+                    qpd_ai2best = results['ai2']
+                    qpd_ai2epoch = epoch
                 
                 
-                # named_results = {}
-                # for k, v in results.items():
-                #     named_results[f'val_qpd/{k}'] = v
-                #     print(f'val_qpd/{k}: {v}')
+                named_results = {}
+                for k, v in results.items():
+                    named_results[f'val_qpd/{k}'] = v
+                    print(f'val_qpd/{k}: {v}')
 
-                # logger.write_dict(named_results)
+                logger.write_dict(named_results)
 
-                # logging.info(f"Current Best Result qpd epe epoch {qpd_epeepoch}, result: {qpd_epebest}")
-                # logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
-                # logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
+                logging.info(f"Current Best Result qpd epe epoch {qpd_epeepoch}, result: {qpd_epebest}")
+                logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
+                logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
 
-                # commented temporalily ----------------------------------------------------------------------------------
+                results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=args.val_save_skip, datatype=args.datatype, gt_types=['inv_depth', 'AiF'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
 
-                # results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=30, datatype=args.datatype, gt_types=['inv_depth'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
-
-                # if dpdisp_ai2best>=results['ai2']:
-                #     dpdisp_ai2best = results['ai2']
-                #     dpdisp_ai2epoch = epoch
+                if dpdisp_ai2best>=results['ai2']:
+                    dpdisp_ai2best = results['ai2']
+                    dpdisp_ai2epoch = epoch
                 
-                # logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
+                logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
                 
-                # named_results = {}
-                # for k, v in results.items():
-                #     named_results[f'val_dpdisp/{k}'] = v
-                #     print(f'val_dpdisp/{k}: {v}')
+                named_results = {}
+                for k, v in results.items():
+                    named_results[f'val_dpdisp/{k}'] = v
+                    print(f'val_dpdisp/{k}: {v}')
                 
-                # logger.write_dict(named_results)
+                logger.write_dict(named_results)
 
                 model.train()
                 # model.module.freeze_bn()
@@ -452,7 +448,6 @@ def train(args):
             print()
             logging.info(f"Saving file {model_save_path}")
             torch.save(model.module.state_dict(), model_save_path)
-
 
     print("FINISHED TRAINING")
     logger.close()
