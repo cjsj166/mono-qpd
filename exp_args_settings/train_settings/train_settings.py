@@ -64,6 +64,7 @@ class TrainConfig:
     save_path: str = None
     qpd_valid_bs: int = 1
     val_save_skip: int = 50
+    debug_mode=False
 
     # evaluation settings
     qpd_valid_bs: int = 1
