@@ -100,14 +100,28 @@
         },
 
         {
-            "name": "MonoQPD, dataclass train, qpd-train, interp",
+            "name": "MonoQPD, dataclass train, qpd-train, InterpQPDSetting",
             "type": "debugpy",
             "request": "launch",
             "program": "train_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "Interp",
+                "InterpQPDSetting",
+                // "--restore_ckpt",
+                // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
+            ]
+        },
+
+        {
+            "name": "MonoQPD, dataclass train, qpd-train, LocalGRU2",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalGRU2",
                 // "--restore_ckpt",
                 // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
             ]
