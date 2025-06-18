@@ -123,6 +123,7 @@ class LocalGRU2(TrainConfig):
     val_save_skip: int = 1
     train_iters: int = 2
     valid_iters: int = 2
+    debug_mode: bool = True
 
     restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
     save_path: str = 'result/train/InterpQPDSetting'

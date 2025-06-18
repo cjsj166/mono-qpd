@@ -311,6 +311,10 @@ def train(args):
 
     while should_keep_training:
         for i_batch, data_blob in enumerate(tqdm(train_loader)):
+            if args.debug_mode:
+                if i_batch > 3:
+                    break
+
             optimizer.zero_grad()
 
             center_img = data_blob['center'].cuda()
@@ -398,26 +402,31 @@ def train(args):
                 # FIXME: This is a temporary fix for the bug in the validation code
                 # commented temporalily ----------------------------------------------------------------------------------
 
+                val_save_skip = 380 // 10
+                if args.debug_mode:
+                    val_save_skip = 370
+                    # val_save_skip = 380 // 10
 
-                # results = validate_QPD(model.module, iters=args.valid_iters, save_result=False, val_save_skip=args.val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
+                results = validate_QPD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
                     
-                # if qpd_epebest>=results['epe']:
-                #     qpd_epebest = results['epe']
-                #     qpd_epeepoch = epoch
-                # if qpd_rmsebest>=results['rmse']:
-                #     qpd_rmsebest = results['rmse']
-                #     qpd_rmseepoch = epoch
-                # if qpd_ai2best>=results['ai2']:
-                #     qpd_ai2best = results['ai2']
-                #     qpd_ai2epoch = epoch
+                if qpd_epebest>=results['epe']:
+                    qpd_epebest = results['epe']
+                    qpd_epeepoch = epoch
+                if qpd_rmsebest>=results['rmse']:
+                    qpd_rmsebest = results['rmse']
+                    qpd_rmseepoch = epoch
+                if qpd_ai2best>=results['ai2']:
+                    qpd_ai2best = results['ai2']
+                    qpd_ai2epoch = epoch
                 
                 
-                # named_results = {}
-                # for k, v in results.items():
-                #     named_results[f'val_qpd/{k}'] = v
-                #     print(f'val_qpd/{k}: {v}')
+                named_results = {}
+                for k, v in results.items():
+                    named_results[f'val_qpd/{k}'] = v
+                    if 'img' not in k:
+                        print(f'val_qpd/{k}: {v}')
 
-                # logger.write_dict(named_results)
+                logger.write_dict(named_results)
 
                 # logging.info(f"Current Best Result qpd epe epoch {qpd_epeepoch}, result: {qpd_epebest}")
                 # logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
@@ -425,20 +434,26 @@ def train(args):
 
                 # commented temporalily ----------------------------------------------------------------------------------
 
-                # results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=30, datatype=args.datatype, gt_types=['inv_depth'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
+                val_save_skip = 100 // 10
+                if args.debug_mode:
+                    val_save_skip = 90
+                    # val_save_skip = 100 // 10
 
-                # if dpdisp_ai2best>=results['ai2']:
-                #     dpdisp_ai2best = results['ai2']
-                #     dpdisp_ai2epoch = epoch
+                results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, datatype=args.datatype, gt_types=['inv_depth'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
+
+                if dpdisp_ai2best>=results['ai2']:
+                    dpdisp_ai2best = results['ai2']
+                    dpdisp_ai2epoch = epoch
                 
-                # logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
+                logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
                 
-                # named_results = {}
-                # for k, v in results.items():
-                #     named_results[f'val_dpdisp/{k}'] = v
-                #     print(f'val_dpdisp/{k}: {v}')
+                named_results = {}
+                for k, v in results.items():
+                    named_results[f'val_dpdisp/{k}'] = v
+                    if 'img' not in k:
+                        print(f'val_dpdisp/{k}: {v}')
                 
-                # logger.write_dict(named_results)
+                logger.write_dict(named_results)
 
                 model.train()
                 # model.module.freeze_bn()

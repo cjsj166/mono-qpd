@@ -279,7 +279,6 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
                 vmin_err, vmax_err = 0, vrng * err_rng
 
                 eval_est.add_colorrange(vmin, vmax)
-
                 
                 os.makedirs('result/MVA_submission', exist_ok=True)
 
@@ -298,9 +297,18 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
 
                 plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), center_i.astype(np.uint8))
 
-
-
-
+                img_est_ai2_fit = Image.open(os.path.join(ai2_fit_dir, pth)).convert("RGB")
+                img_est_ai2_fit = np.array(img_est_ai2_fit)
+                img_est_ai2_fit = np.moveaxis(img_est_ai2_fit, -1, 0)
+                result[f'img/{val_id}/est_ai2_fit'] = img_est_ai2_fit
+                img_gt = Image.open(os.path.join(gt_dir, pth)).convert("RGB")
+                img_gt = np.array(img_gt)
+                img_gt = np.moveaxis(img_gt, -1, 0)
+                result[f'img/{val_id}/gt'] = img_gt
+                img_src = Image.open(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png'))).convert("RGB")
+                img_src = np.array(img_src)
+                img_src = np.moveaxis(img_src, -1, 0)
+                result[f'img/{val_id}/src'] = img_src
 
                 # plt.imsave(os.path.join(src_dir, 'test_l', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[0].astype(np.uint8))
                 # plt.imsave(os.path.join(src_dir, 'test_r', 'source', 'scenes', pth.replace('B', 'R').replace('.jpg', '.png')), image2[1].astype(np.uint8))
@@ -401,6 +409,10 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
             si, alpha = eval_est.scale_invariant(flow_pr_i, disp_gt_i)
             est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
 
+            # result[f'img/{val_id}/est_ai2_fit'] = est_ai2_fit
+            # result[f'img/{val_id}/est'] = flow_pr_i
+            # result[f'img/{val_id}/gt'] = disp_gt_i
+
             val_id = i_batch * batch_size + i
 
             if save_result:
@@ -455,23 +467,36 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
                 plt.imsave(os.path.join(gt_dir, pth), disp_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
                 plt.imsave(os.path.join(src_dir, pth), center_i.astype(np.uint8))
 
+                img_est = Image.open(os.path.join(ai2_fit_dir, pth)).convert("RGB")
+                img_est = np.array(img_est)
+                img_est = np.moveaxis(img_est, -1, 0)
+                result[f'img/{val_id}/est'] = img_est
+                img_gt = Image.open(os.path.join(gt_dir, pth)).convert("RGB")
+                img_gt = np.array(img_gt)
+                img_gt = np.moveaxis(img_gt, -1, 0)
+                result[f'img/{val_id}/gt'] = np.array(img_gt)
+                img_src = Image.open(os.path.join(src_dir, pth)).convert("RGB")
+                img_src = np.array(img_src)
+                img_src = np.moveaxis(img_src, -1, 0)
+                result[f'img/{val_id}/src'] = np.array(img_src)
+
                 colormap = cm.jet
 
-                est_colorized = colormap((est_ai2_fit - vmin) / (vmax - vmin))
-                est_colorized = (est_colorized * 255).astype(np.uint8)[0, :, :, :3]
-                est_colorized = np.moveaxis(est_colorized, -1, 0)
-                result[f'{val_id}_est_colormap'] = est_colorized
+                # est_colorized = colormap((est_ai2_fit - vmin) / (vmax - vmin))
+                # est_colorized = (est_colorized * 255).astype(np.uint8)[0, :, :, :3]
+                # est_colorized = np.moveaxis(est_colorized, -1, 0)
+                # result[f'{val_id}_est_colormap'] = est_colorized
 
-                error_image = np.abs(est_ai2_fit - disp_gt_i)
-                error_colorized = colormap((error_image - vmin_err) / (vmax_err - vmin_err))
-                error_colorized = (error_colorized * 255).astype(np.uint8)[0, :, :, :3]
-                error_colorized = np.moveaxis(error_colorized, -1, 0)
-                result[f'{val_id}_err_colormap'] = error_colorized
+                # error_image = np.abs(est_ai2_fit - disp_gt_i)
+                # error_colorized = colormap((error_image - vmin_err) / (vmax_err - vmin_err))
+                # error_colorized = (error_colorized * 255).astype(np.uint8)[0, :, :, :3]
+                # error_colorized = np.moveaxis(error_colorized, -1, 0)
+                # result[f'{val_id}_err_colormap'] = error_colorized
 
-                gt_colorized = colormap((disp_gt_i - vmin) / (vmax - vmin))
-                gt_colorized = (gt_colorized * 255).astype(np.uint8)[0, :, :, :3]
-                gt_colorized = np.moveaxis(gt_colorized, -1, 0)
-                result[f'{val_id}_gt_colormap'] = gt_colorized
+                # gt_colorized = colormap((disp_gt_i - vmin) / (vmax - vmin))
+                # gt_colorized = (gt_colorized * 255).astype(np.uint8)[0, :, :, :3]
+                # gt_colorized = np.moveaxis(gt_colorized, -1, 0)
+                # result[f'{val_id}_gt_colormap'] = gt_colorized
 
     eval_est.save_metrics()
     result = {**result, **eval_est.get_mean_metrics()}
