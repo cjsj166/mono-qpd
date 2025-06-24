@@ -41,11 +41,12 @@ class QPDNet(nn.Module):
 
 
         ######CAPA initial
-        # if self.args.CAPA:
-        #     if self.args.input_image_num==4:
-        #         self.FFAGroup = Group(conv=default_conv, dim=36*4, kernel_size=3, blocks=3).cuda()
-        #     else:
-        #         self.FFAGroup = Group(conv=default_conv, dim=36*2, kernel_size=3, blocks=3).cuda()
+        if self.args.CAPA:
+            if self.args.input_image_num==4:
+                self.FFAGroup = Group(conv=default_conv, dim=36*4, kernel_size=3, blocks=3).cuda()
+            else:
+                # self.FFAGroup = Group(conv=default_conv, dim=36*2, kernel_size=3, blocks=3).cuda()
+                self.FFAGroup = Group(conv=default_conv, dim=36*3, kernel_size=3, blocks=3).cuda()
 
         if args.shared_backbone:
             self.conv2 = nn.Sequential(
@@ -118,16 +119,6 @@ class QPDNet(nn.Module):
         cr_x = (coords0+disp).reshape(batch*h1*w1, 1, 1, 1)
         cl_x = (coords0-disp).reshape(batch*h1*w1, 1, 1, 1)
 
-        # channel_broadcaster = torch.zeros((c, 1, 1)).cuda().float()
-        # cr_x = cr_x + channel_broadcaster
-        # cl_x = cl_x + channel_broadcaster
-
-        # cr_x = cr_x.reshape(batch*h1, 1, w1*c, 1)
-        # cl_x = cl_x.reshape(batch*h1, 1, w1*c, 1)
-
-        # cr_x = cr_x.reshape(batch*h1, c*w1, 1, 1)
-        # cl_x = cl_x.reshape(batch*h1, c*w1, 1, 1)
-
         feats = []
         for i, fmap in enumerate(fmap2_list):
             b, t, c, h, w = fmap.shape
@@ -140,11 +131,6 @@ class QPDNet(nn.Module):
 
             # aligning fmap shape
             fmap = fmap.permute(0, 3, 2, 1, 4).unsqueeze(2)  # [b, t, c, h, w] -> [b, h, 1, c, t, w]
-            # fmap = fmap.reshape(b*h, 1, c, t, w)
-            # broadcaster = torch.zeros((w1, c, t, w)).cuda().float()
-            # fmap = fmap + broadcaster
-            # fmap = fmap.reshape(b*h*c*w1, 1, t, w)
-            # fmap = fmap.reshape(b*h*w1, c, 1, t, w)
             fmap = fmap.reshape(b*h, c, 1, t, w)
 
             # bilinear sampling with grid_sample function
@@ -152,27 +138,15 @@ class QPDNet(nn.Module):
             coords_lvl = torch.cat([cr_x0,y0], dim=-1)
             cr_feat = self.bilinear_sampler(right_fmap, coords_lvl) # b*h, c, 1, w1*(2*r+1)
             cr_feat = cr_feat.reshape(b*h, c, w1, 2*r+1)
-            # cr_feat = cr_feat.permute(0, 1, 3, 2, 4) 
-            # cr_feat = cr_feat.reshape(b, h, w1, c*(2*r+1))
-            # cr_feat = cr_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
-            # cr_feat = cr_feat.reshape(batch, h, w1, c*(2*r+1))
-            # cr_feat = cr_feat.permute(0, 3, 1, 2) # b, h, c*(2*r+1), w
 
             left_fmap = fmap[:, :, 0, :1, :].contiguous()
             coords_lvl = torch.cat([cl_x0,y0], dim=-1)
             cl_feat = self.bilinear_sampler(left_fmap, coords_lvl)
             cl_feat = cl_feat.reshape(b*h, c, w1, 2*r+1)
             cl_feat = cl_feat.flip(dims=[3])
-            # cl_feat = cl_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
-            # cl_feat = cl_feat.reshape(batch, h, w1, c*(2*r+1))
-            # cl_feat = cl_feat.permute(0, 3, 1, 2) # b, c*(2*r+1), h, w
-
-            # feats.append(cr_feat)
-            # feats.append(cl_feat)
 
             dot = torch.sum(cl_feat * cr_feat, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
             dot = dot.reshape(b, h, w1, 2*r+1) # b, h, w1, 2*r+1
-            # dot = dot.permute(0, 3, 1, 2)
 
             feats.append(dot)
 
@@ -216,17 +190,11 @@ class QPDNet(nn.Module):
             inp_list = [list(conv(i).split(split_size=conv.out_channels//3, dim=1)) for i,conv in zip(inp_list, self.context_zqr_convs)]
 
         if self.args.corr_implementation == "reg": # Default
-            # corr_block = CorrBlock1D
+            corr_block = CorrBlock1D
             fmap1, fmap2 = fmap1.float(), fmap2.float()
         else:
             quit()
-        # elif self.args.corr_implementation == "alt": # More memory efficient than reg
-        #     corr_block = PytorchAlternateCorrBlock1D
-        #     fmap1, fmap2 = fmap1.float(), fmap2.float()
-        # elif self.args.corr_implementation == "reg_cuda": # Faster version of reg
-        #     corr_block = CorrBlockFast1D
-        # elif self.args.corr_implementation == "alt_cuda": # Faster version of alt
-        #     corr_block = AlternateCorrBlock
+
         b, t, c, h, w = fmap2.shape
         reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
         # reduce_fmap2 = self.fmap2_reduce_dim(reduce_fmap2)
@@ -240,7 +208,7 @@ class QPDNet(nn.Module):
         reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, new_c, h, w//4)
         reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, new_c, h, w//8)
 
-        # corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
+        corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
         coords0, coords1 = self.initialize_flow(net_list[0])
 
@@ -250,10 +218,11 @@ class QPDNet(nn.Module):
         flow_predictions = []
         for itr in range(iters):
             coords1 = coords1.detach()
-            # corr = corr_fn(coords1, coords0) # index correlation volume
-            corr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
-            # if self.args.CAPA:
-            #     corr = self.FFAGroup(corr)
+            corr = corr_fn(coords1, coords0) # index correlation volume
+            lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
+            corr = torch.cat([corr, lrcorr], dim=1)
+            if self.args.CAPA:
+                corr = self.FFAGroup(corr)
 
             flow = coords1 - coords0
             with autocast(enabled=self.args.mixed_precision):

@@ -56,18 +56,18 @@ class Group(nn.Module):
         modules.append(conv(dim, dim, kernel_size))
         self.gp = nn.Sequential(*modules)
         
-        self.pre_net = nn.Sequential(
-            conv(12*dim, 6*dim, 1),
-            nn.ReLU(inplace=True),
-            conv(6*dim, 3*dim, 1),
-            nn.ReLU(inplace=True),
-            conv(3*dim, dim, 1),
-            nn.ReLU(inplace=True)
-        )
+        # self.pre_net = nn.Sequential(
+        #     conv(12*dim, 6*dim, 1),
+        #     nn.ReLU(inplace=True),
+        #     conv(6*dim, 3*dim, 1),
+        #     nn.ReLU(inplace=True),
+        #     conv(3*dim, dim, 1),
+        #     nn.ReLU(inplace=True)
+        # )
 
 
-    def forward(self, input):
-        x = self.pre_net(input)
+    def forward(self, x):
+        # x = self.pre_net(input)
         res = self.gp(x)
         res += x
         return res

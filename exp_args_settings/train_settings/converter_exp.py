@@ -194,6 +194,39 @@ class LocalNoVolumeLRProduct(TrainConfig):
     feature_converter: str = 'interp'
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
+@dataclass
+class LRProduct(TrainConfig):
+    num_steps: int = 200000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+@dataclass
+class LocalLRProduct(TrainConfig):
+    num_steps: int = 200000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 1
+    qpd_test_bs: int = 1
+    real_qpd_bs: int = 1
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+    debug_mode: bool = True
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
 
 @dataclass
 class InterpQPDSetting50K(TrainConfig):
