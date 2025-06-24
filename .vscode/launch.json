@@ -127,6 +127,21 @@
             ]
         },
 
+        
+        {
+            "name": "MonoQPD, dataclass train, qpd-train, LocalNoVolume",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalNoVolume",
+                // "--restore_ckpt",
+                // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
+            ]
+        },
+
         {
             "name": "Mono-QPD, dataclass eval, InterpOriginal, 135epoch",
             "type": "debugpy",

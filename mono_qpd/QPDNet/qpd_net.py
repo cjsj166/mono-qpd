@@ -158,46 +158,50 @@ class QPDNet(nn.Module):
         dx = dx.view(2*r+1, 1).to(coords1.device)
 
         # creating grid
-        cr_x = (coords0+disp).reshape(batch*h1, 1, w1, 1)
-        cl_x = (coords0-disp).reshape(batch*h1, 1, w1, 1)
+        cr_x = (coords0+disp).reshape(batch*h1*w1, 1, 1, 1)
+        cl_x = (coords0-disp).reshape(batch*h1*w1, 1, 1, 1)
 
-        channel_broadcaster = torch.zeros((c, w1, 1)).cuda().float()
-        cr_x = cr_x + channel_broadcaster
-        cl_x = cl_x + channel_broadcaster
+        # channel_broadcaster = torch.zeros((c, 1, 1)).cuda().float()
+        # cr_x = cr_x + channel_broadcaster
+        # cl_x = cl_x + channel_broadcaster
 
-        cr_x = cr_x.reshape(batch*h1*c*w1, 1, 1, 1)
-        cl_x = cl_x.reshape(batch*h1*c*w1, 1, 1, 1)
+        # cr_x = cr_x.reshape(batch*h1*c*w1, 1, 1, 1)
+        # cl_x = cl_x.reshape(batch*h1*c*w1, 1, 1, 1)
+
+        # cr_x = cr_x.reshape(batch*h1, c*w1, 1, 1)
+        # cl_x = cl_x.reshape(batch*h1, c*w1, 1, 1)
 
         feats = []
         for i, fmap in enumerate(fmap2_list):
-            b, t, c, h, w = fmap.shape       
+            b, t, c, h, w = fmap.shape
 
             cr_x0 = dx + cr_x / 2**i
             cl_x0 = dx + cl_x / 2**i
             y0 = torch.zeros_like(cr_x0)
 
             # aligning fmap shape
-            fmap = fmap.permute(0, 3, 2, 1, 4)  # [b, t, c, h, w] -> [b, h, c, t, w]
-            fmap = fmap.reshape(b*h*c, 1, t, w)
-            broadcaster = torch.zeros((w1, t, w)).cuda().float()
+            fmap = fmap.permute(0, 3, 2, 1, 4).unsqueeze(2)  # [b, t, c, h, w] -> [b, h, 1, c, t, w]
+            # fmap = fmap.reshape(b*h, 1, c, t, w)
+            broadcaster = torch.zeros((w1, c, t, w)).cuda().float()
             fmap = fmap + broadcaster
-            fmap = fmap.reshape(b*h*c*w1, 1, t, w)
+            # fmap = fmap.reshape(b*h*c*w1, 1, t, w)
+            fmap = fmap.reshape(b*h*w1, c, 1, t, w)
 
             # bilinear sampling with grid_sample function
-            right_fmap = fmap[:, :, 1:, :]
+            right_fmap = fmap[:, :, 0, 1:, :].contiguous() # b*h*w1, c, 1, w
             coords_lvl = torch.cat([cr_x0,y0], dim=-1)
             cr_feat = self.bilinear_sampler(right_fmap, coords_lvl)
-            cr_feat = cr_feat.reshape(b, h, c, w1, 2*r+1) 
-            cr_feat = cr_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
+            # cr_feat = cr_feat.reshape(b, h, w1, c, 2*r+1) 
+            # cr_feat = cr_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
             cr_feat = cr_feat.reshape(batch, h, w1, c*(2*r+1))
             cr_feat = cr_feat.permute(0, 3, 1, 2) # b, h, c*(2*r+1), w
 
-            left_fmap = fmap[:, :, :1, :]
+            left_fmap = fmap[:, :, 0, :1, :].contiguous()
             coords_lvl = torch.cat([cl_x0,y0], dim=-1)
             cl_feat = self.bilinear_sampler(left_fmap, coords_lvl)
-            cl_feat = cl_feat.reshape(b, h, c, w1, 2*r+1)
+            cl_feat = cl_feat.reshape(b, h, w1, c, 2*r+1)
             cl_feat = cl_feat.flip(dims=[4])
-            cl_feat = cl_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
+            # cl_feat = cl_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
             cl_feat = cl_feat.reshape(batch, h, w1, c*(2*r+1))
             cl_feat = cl_feat.permute(0, 3, 1, 2) # b, h, c*(2*r+1), w
 

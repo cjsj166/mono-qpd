@@ -311,9 +311,9 @@ def train(args):
 
     while should_keep_training:
         for i_batch, data_blob in enumerate(tqdm(train_loader)):
-            if args.debug_mode:
-                if i_batch > 3:
-                    break
+            # if args.debug_mode:
+            #     if i_batch > 3:
+            #         break
 
             optimizer.zero_grad()
 
