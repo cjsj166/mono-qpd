@@ -33,6 +33,13 @@ class QPDNet(nn.Module):
 
         self.context_zqr_convs = nn.ModuleList([nn.Conv2d(context_dims[i], args.hidden_dims[i]*3, 3, padding=3//2) for i in range(self.args.n_gru_layers)])
         
+        # fmap2 lookup
+        self.fmap2_reduce_dim = nn.Sequential(
+            nn.Conv2d(256, 16, 1, padding=0),
+            nn.ReLU(inplace=False),
+        )
+
+
         ######CAPA initial
         if self.args.CAPA:
             if self.args.input_image_num==4:
@@ -48,6 +55,7 @@ class QPDNet(nn.Module):
             self.fnet = BasicEncoder(output_dim=256, norm_fn='instance', downsample=args.n_downsample)
             if self.args.input_image_num==4:
                 self.fnet2 = BasicEncoder(output_dim=256, norm_fn='instance', downsample=args.n_downsample)
+        
 
     def freeze_bn(self):
         for m in self.modules():
@@ -77,6 +85,130 @@ class QPDNet(nn.Module):
         up_flow = up_flow.permute(0, 1, 4, 2, 5, 3)
         return up_flow.reshape(N, D, factor*H, factor*W)
 
+    # Just for reference
+    # def __call__(self, coords,coords0):
+    #     r = self.radius
+    #     out_pyramid = []
+
+    #     ##### j=0:Left, j=1:Right, j=2:Top, j=3:Bottom ########
+    #     coords = coords[:, :1].permute(0, 2, 3, 1)
+    #     coords0_tb = coords0[:, 1:].permute(0, 2, 3, 1)
+    #     coords0 = coords0[:, :1].permute(0, 2, 3, 1)
+    #     disp = coords-coords0
+
+    #     batch, h1, w1, _ = coords.shape
+
+    #     for j in range(int(len(self.corr_pyramid)/self.num_levels)):
+    #         for i in range(self.num_levels):
+    #             corr = self.corr_pyramid[j*self.num_levels+i]
+    #             dx = torch.linspace(-r, r, 2*r+1)
+    #             dx = dx.view(2*r+1, 1).to(coords.device)
+    #             if j ==0 : 
+    #                 x0 = dx + (coords0-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
+    #             elif j==1:
+    #                 x0 = dx + coords.reshape(batch*h1*w1, 1, 1, 1) / 2**i
+    #             elif j==2: 
+    #                 x0 = dx + (coords0_tb-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
+    #             else:
+    #                 x0 = dx + (coords0_tb+disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
+    #             y0 = torch.zeros_like(x0)
+
+    #             coords_lvl = torch.cat([x0,y0], dim=-1)
+    #             corr = bilinear_sampler(corr, coords_lvl)
+    #             corr = corr.view(batch, h1, w1, -1)
+
+    #             ########### Flip Left and Top ################
+    #             if j==0 or j==2: 
+    #                 corr = torch.flip(corr, dims=[3])
+    #             #################################
+
+    #             out_pyramid.append(corr.permute(0, 3, 1, 2))
+
+    #     out = torch.cat(out_pyramid, dim=1)
+
+    #     return out.contiguous().float()
+
+    def bilinear_sampler(self, img, coords, mode='bilinear', mask=False):
+        H, W = img.shape[-2:]
+        xgrid, ygrid = coords.split([1,1], dim=-1)
+        xgrid = 2*xgrid/(W-1) - 1
+        if H > 1:
+            ygrid = 2*ygrid/(H-1) - 1
+
+        grid = torch.cat([xgrid, ygrid], dim=-1)
+        img = F.grid_sample(img, grid, align_corners=True)
+
+        if mask:
+            mask = (xgrid > -1) & (ygrid > -1) & (xgrid < 1) & (ygrid < 1)
+            return img, mask.float()
+
+        return img
+
+    def fmap2_lookup(self, coords1, coords0, fmap2_list):
+        batch, _, h1, w1 = coords1.shape
+        _, _, c, _, _ = fmap2_list[0].shape
+
+        coords0 = coords0[:, :1].permute(0, 2, 3, 1)
+        coords1 = coords1[:, :1].permute(0, 2, 3, 1)
+
+        disp = coords1 - coords0
+        r = self.args.corr_radius
+        
+        dx = torch.linspace(-r, r, 2*r+1)
+        dx = dx.view(2*r+1, 1).to(coords1.device)
+
+        # creating grid
+        cr_x = (coords0+disp).reshape(batch*h1, 1, w1, 1)
+        cl_x = (coords0-disp).reshape(batch*h1, 1, w1, 1)
+
+        channel_broadcaster = torch.zeros((c, w1, 1)).cuda().float()
+        cr_x = cr_x + channel_broadcaster
+        cl_x = cl_x + channel_broadcaster
+
+        cr_x = cr_x.reshape(batch*h1*c*w1, 1, 1, 1)
+        cl_x = cl_x.reshape(batch*h1*c*w1, 1, 1, 1)
+
+        feats = []
+        for i, fmap in enumerate(fmap2_list):
+            b, t, c, h, w = fmap.shape       
+
+            cr_x0 = dx + cr_x / 2**i
+            cl_x0 = dx + cl_x / 2**i
+            y0 = torch.zeros_like(cr_x0)
+
+            # aligning fmap shape
+            fmap = fmap.permute(0, 3, 2, 1, 4)  # [b, t, c, h, w] -> [b, h, c, t, w]
+            fmap = fmap.reshape(b*h*c, 1, t, w)
+            broadcaster = torch.zeros((w1, t, w)).cuda().float()
+            fmap = fmap + broadcaster
+            fmap = fmap.reshape(b*h*c*w1, 1, t, w)
+
+            # bilinear sampling with grid_sample function
+            right_fmap = fmap[:, :, 1:, :]
+            coords_lvl = torch.cat([cr_x0,y0], dim=-1)
+            cr_feat = self.bilinear_sampler(right_fmap, coords_lvl)
+            cr_feat = cr_feat.reshape(b, h, c, w1, 2*r+1) 
+            cr_feat = cr_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
+            cr_feat = cr_feat.reshape(batch, h, w1, c*(2*r+1))
+            cr_feat = cr_feat.permute(0, 3, 1, 2) # b, h, c*(2*r+1), w
+
+            left_fmap = fmap[:, :, :1, :]
+            coords_lvl = torch.cat([cl_x0,y0], dim=-1)
+            cl_feat = self.bilinear_sampler(left_fmap, coords_lvl)
+            cl_feat = cl_feat.reshape(b, h, c, w1, 2*r+1)
+            cl_feat = cl_feat.flip(dims=[4])
+            cl_feat = cl_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
+            cl_feat = cl_feat.reshape(batch, h, w1, c*(2*r+1))
+            cl_feat = cl_feat.permute(0, 3, 1, 2) # b, h, c*(2*r+1), w
+
+            feats.append(cr_feat)
+            feats.append(cl_feat)
+
+        out = torch.cat(feats, dim=1)
+        return out.contiguous().float()
+
+
+            
 
     def forward(self, int_features, image1, image2, iters=12, flow_init=None, test_mode=False):
         """ Estimate optical flow between pair of frames """
@@ -122,6 +254,19 @@ class QPDNet(nn.Module):
         #     corr_block = CorrBlockFast1D
         # elif self.args.corr_implementation == "alt_cuda": # Faster version of alt
         #     corr_block = AlternateCorrBlock
+        b, t, c, h, w = fmap2.shape
+        reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
+        reduce_fmap2 = self.fmap2_reduce_dim(reduce_fmap2)
+        reduce_fmap2_2 = F.interpolate(reduce_fmap2, size=(h, w//2), mode='bilinear', align_corners=False)
+        reduce_fmap2_4 = F.interpolate(reduce_fmap2, size=(h, w//4), mode='bilinear', align_corners=False)
+        reduce_fmap2_8 = F.interpolate(reduce_fmap2, size=(h, w//8), mode='bilinear', align_corners=False)
+
+        _, new_c, _, _ = reduce_fmap2.shape
+        reduce_fmap2 = reduce_fmap2.reshape(b, t, new_c, h, w)
+        reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, new_c, h, w//2)
+        reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, new_c, h, w//4)
+        reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, new_c, h, w//8)
+
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
         coords0, coords1 = self.initialize_flow(net_list[0])
@@ -132,10 +277,10 @@ class QPDNet(nn.Module):
         flow_predictions = []
         for itr in range(iters):
             coords1 = coords1.detach()
-            corr = corr_fn(coords1, coords0) # index correlation volume
+            # corr = corr_fn(coords1, coords0) # index correlation volume
+            corr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4])
             if self.args.CAPA:
                 corr = self.FFAGroup(corr)
-
 
             flow = coords1 - coords0
             with autocast(enabled=self.args.mixed_precision):
