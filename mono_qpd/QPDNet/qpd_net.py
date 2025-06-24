@@ -85,49 +85,6 @@ class QPDNet(nn.Module):
         up_flow = up_flow.permute(0, 1, 4, 2, 5, 3)
         return up_flow.reshape(N, D, factor*H, factor*W)
 
-    # Just for reference
-    # def __call__(self, coords,coords0):
-    #     r = self.radius
-    #     out_pyramid = []
-
-    #     ##### j=0:Left, j=1:Right, j=2:Top, j=3:Bottom ########
-    #     coords = coords[:, :1].permute(0, 2, 3, 1)
-    #     coords0_tb = coords0[:, 1:].permute(0, 2, 3, 1)
-    #     coords0 = coords0[:, :1].permute(0, 2, 3, 1)
-    #     disp = coords-coords0
-
-    #     batch, h1, w1, _ = coords.shape
-
-    #     for j in range(int(len(self.corr_pyramid)/self.num_levels)):
-    #         for i in range(self.num_levels):
-    #             corr = self.corr_pyramid[j*self.num_levels+i]
-    #             dx = torch.linspace(-r, r, 2*r+1)
-    #             dx = dx.view(2*r+1, 1).to(coords.device)
-    #             if j ==0 : 
-    #                 x0 = dx + (coords0-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
-    #             elif j==1:
-    #                 x0 = dx + coords.reshape(batch*h1*w1, 1, 1, 1) / 2**i
-    #             elif j==2: 
-    #                 x0 = dx + (coords0_tb-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
-    #             else:
-    #                 x0 = dx + (coords0_tb+disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
-    #             y0 = torch.zeros_like(x0)
-
-    #             coords_lvl = torch.cat([x0,y0], dim=-1)
-    #             corr = bilinear_sampler(corr, coords_lvl)
-    #             corr = corr.view(batch, h1, w1, -1)
-
-    #             ########### Flip Left and Top ################
-    #             if j==0 or j==2: 
-    #                 corr = torch.flip(corr, dims=[3])
-    #             #################################
-
-    #             out_pyramid.append(corr.permute(0, 3, 1, 2))
-
-    #     out = torch.cat(out_pyramid, dim=1)
-
-    #     return out.contiguous().float()
-
     def bilinear_sampler(self, img, coords, mode='bilinear', mask=False):
         H, W = img.shape[-2:]
         xgrid, ygrid = coords.split([1,1], dim=-1)
@@ -191,10 +148,10 @@ class QPDNet(nn.Module):
             right_fmap = fmap[:, :, 0, 1:, :].contiguous() # b*h*w1, c, 1, w
             coords_lvl = torch.cat([cr_x0,y0], dim=-1)
             cr_feat = self.bilinear_sampler(right_fmap, coords_lvl)
-            # cr_feat = cr_feat.reshape(b, h, w1, c, 2*r+1) 
+            cr_feat = cr_feat.reshape(b, h, w1, c, 2*r+1) 
             # cr_feat = cr_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
-            cr_feat = cr_feat.reshape(batch, h, w1, c*(2*r+1))
-            cr_feat = cr_feat.permute(0, 3, 1, 2) # b, h, c*(2*r+1), w
+            # cr_feat = cr_feat.reshape(batch, h, w1, c*(2*r+1))
+            # cr_feat = cr_feat.permute(0, 3, 1, 2) # b, h, c*(2*r+1), w
 
             left_fmap = fmap[:, :, 0, :1, :].contiguous()
             coords_lvl = torch.cat([cl_x0,y0], dim=-1)
@@ -202,11 +159,16 @@ class QPDNet(nn.Module):
             cl_feat = cl_feat.reshape(b, h, w1, c, 2*r+1)
             cl_feat = cl_feat.flip(dims=[4])
             # cl_feat = cl_feat.permute(0, 1, 3, 2, 4) # b, h, w, c, 2*r+1
-            cl_feat = cl_feat.reshape(batch, h, w1, c*(2*r+1))
-            cl_feat = cl_feat.permute(0, 3, 1, 2) # b, h, c*(2*r+1), w
+            # cl_feat = cl_feat.reshape(batch, h, w1, c*(2*r+1))
+            # cl_feat = cl_feat.permute(0, 3, 1, 2) # b, c*(2*r+1), h, w
 
-            feats.append(cr_feat)
-            feats.append(cl_feat)
+            # feats.append(cr_feat)
+            # feats.append(cl_feat)
+
+            dot = torch.sum(cl_feat * cr_feat, dim=3)
+            dot = dot.permute(0, 3, 1, 2)
+
+            feats.append(dot)
 
         out = torch.cat(feats, dim=1)
         return out.contiguous().float()
@@ -260,7 +222,7 @@ class QPDNet(nn.Module):
         #     corr_block = AlternateCorrBlock
         b, t, c, h, w = fmap2.shape
         reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
-        reduce_fmap2 = self.fmap2_reduce_dim(reduce_fmap2)
+        # reduce_fmap2 = self.fmap2_reduce_dim(reduce_fmap2)
         reduce_fmap2_2 = F.interpolate(reduce_fmap2, size=(h, w//2), mode='bilinear', align_corners=False)
         reduce_fmap2_4 = F.interpolate(reduce_fmap2, size=(h, w//4), mode='bilinear', align_corners=False)
         reduce_fmap2_8 = F.interpolate(reduce_fmap2, size=(h, w//8), mode='bilinear', align_corners=False)
@@ -282,9 +244,9 @@ class QPDNet(nn.Module):
         for itr in range(iters):
             coords1 = coords1.detach()
             # corr = corr_fn(coords1, coords0) # index correlation volume
-            corr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4])
-            if self.args.CAPA:
-                corr = self.FFAGroup(corr)
+            corr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
+            # if self.args.CAPA:
+            #     corr = self.FFAGroup(corr)
 
             flow = coords1 - coords0
             with autocast(enabled=self.args.mixed_precision):
