@@ -114,6 +114,20 @@
         },
 
         {
+            "name": "MonoQPD, dataclass train, qpd-train, LocalInterpQPDSetting",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalInterpQPDSetting",
+
+            ]
+        },
+
+
+        {
             "name": "Mono-QPD, dataclass eval, InterpOriginal, 135epoch",
             "type": "debugpy",
             "request": "launch",
