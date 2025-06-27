@@ -6,6 +6,7 @@ from mono_qpd.QPDNet.extractor import BasicEncoder, MultiBasicEncoder, ResidualB
 from mono_qpd.QPDNet.corr import CorrBlock1D
 from mono_qpd.QPDNet.utils.utils import coords_grid, upflow8
 from mono_qpd.QPDNet.FFA import Block, Group, default_conv
+from torch.profiler import profile, record_function, ProfilerActivity
 
 
 
@@ -102,12 +103,12 @@ class QPDNet(nn.Module):
 
         return img
 
-    def fmap2_lookup(self, coords1, coords0, fmap2_list):
-        batch, _, h1, w1 = coords1.shape
-        _, _, c, _, _ = fmap2_list[0].shape
+    def fmaps_lookup(self, coords1, coords0, fmaps_list):
+        batch, _, h1, w1 = coords1.shape # batch, xy, h1, w1
+        _, _, c, _, _ = fmaps_list[0].shape
 
-        coords0 = coords0[:, :1].permute(0, 2, 3, 1)
-        coords1 = coords1[:, :1].permute(0, 2, 3, 1)
+        coords0 = coords0[:, :1].reshape(batch, h1, w1, 1)
+        coords1 = coords1[:, :1].reshape(batch, h1, w1, 1)
 
         disp = coords1 - coords0
         r = self.args.corr_radius
@@ -116,38 +117,77 @@ class QPDNet(nn.Module):
         dx = dx.view(2*r+1, 1).to(coords1.device)
 
         # creating grid
-        cr_x = (coords0+disp).reshape(batch*h1*w1, 1, 1, 1)
-        cl_x = (coords0-disp).reshape(batch*h1*w1, 1, 1, 1)
+        r_x = (coords0+disp).reshape(batch*h1*w1, 1, 1, 1)
+        l_x = (coords0-disp).reshape(batch*h1*w1, 1, 1, 1)
+        c_x = coords0.reshape(batch*h1*w1, 1, 1, 1)
 
         feats = []
-        for i, fmap in enumerate(fmap2_list):
+        for i, fmap in enumerate(fmaps_list): # fmap: [b, t, c, h, w]
             b, t, c, h, w = fmap.shape
 
-            cr_x0 = dx + cr_x / 2**i
-            cl_x0 = dx + cl_x / 2**i
-            cr_x0 = cr_x0.reshape(batch * h1, 1, w1*(2*r+1), 1) # b*h, 1, w1*(2*r+1), 1
-            cl_x0 = cl_x0.reshape(batch * h1, 1, w1*(2*r+1), 1)
-            y0 = torch.zeros_like(cr_x0)
+            r_x0 = dx + r_x / 2**i
+            l_x0 = dx + l_x / 2**i
+            c_x0 = dx + c_x / 2**i
+            r_x0 = r_x0.reshape(batch * h1, 1, w1*(2*r+1), 1) # b*h, 1, w1*(2*r+1), 1
+            l_x0 = l_x0.reshape(batch * h1, 1, w1*(2*r+1), 1)
+            c_x0 = c_x0.reshape(batch * h1, 1, w1*(2*r+1), 1)
+            y0 = torch.zeros_like(r_x0)
+            
+            # concat along batch size and grid sample only once
+            c_coords_lvl = torch.cat([c_x0, y0], dim=-1)
+            r_coords_lvl = torch.cat([r_x0,y0], dim=-1)
+            l_coords_lvl = torch.cat([l_x0,y0], dim=-1)
+
+            # all_coords_lvl = torch.cat([c_coords_lvl, r_coords_lvl, l_coords_lvl], dim=0) # b*h*3, 2, w1*(2*r+1), 2
+            # all_fmap = fmap.permute(0, 3, 1, 2, 4).reshape(b*h*t, c, 1, w) # b
+            # all_feat = self.bilinear_sampler(all_fmap, all_coords_lvl) # b*h*3, c, 1, w1*(2*r+1)
+            # all_feat = all_feat.reshape(b*h, 3, c, w1, 2*r+1) # b*h, 3, c, w1, 2*r+1
+            # c_feat = all_feat[:, 0, :, :, :] # b*h, c, w1, 2*r+1
+            # c_feat_flip = c_feat.flip(dims=[3]) # b*h, c, w1, 2*r+1
+            # r_feat = all_feat[:, 1, :, :, :]
+            # l_feat = all_feat[:, 2, :, :, :]
+            # l_feat_flip = l_feat.flip(dims=[3]) # b*h, c, w1, 2*r+1
+
+            # feat1 = torch.cat([c_feat, r_feat, l_feat_flip], dim=1) # b*h, 3*c, w1, 2*r+1
+            # feat2 = torch.cat([r_feat, l_feat_flip, c_feat_flip], dim=1) # b*h, 3*c, w1, 2*r+1
+            # dot = feat1 * feat2 # b*h, 3*c, w1, 2*r+1
+            # dot = dot.reshape(b, h1, w1, 3, c, 2*r+1).contiguous() # b, h1, w1, 3, c, 2*r+1
+            # dot = torch.sum(dot, dim=4, keepdim=False) / c # b, h1, w1, 3, 1, 2*r+1
+            # dot = dot.reshape(b, h1, w1, 3 * (2*r+1))
+            # feats.append(dot)
 
             # aligning fmap shape
             fmap = fmap.permute(0, 3, 2, 1, 4).unsqueeze(2)  # [b, t, c, h, w] -> [b, h, 1, c, t, w]
             fmap = fmap.reshape(b*h, c, 1, t, w)
 
             # bilinear sampling with grid_sample function
-            right_fmap = fmap[:, :, 0, 1:, :].contiguous() # b*h, c, 1, w
-            coords_lvl = torch.cat([cr_x0,y0], dim=-1)
-            cr_feat = self.bilinear_sampler(right_fmap, coords_lvl) # b*h, c, 1, w1*(2*r+1)
-            cr_feat = cr_feat.reshape(b*h, c, w1, 2*r+1)
+            center_fmap = fmap[:, :, 0, 0:1, :].contiguous() # b*h, c, 1, w
+            coords_lvl = torch.cat([c_x0, y0], dim=-1)
+            c_feat = self.bilinear_sampler(center_fmap, coords_lvl) # b*h, c, 1, w1*(2*r+1)
+            c_feat = c_feat.reshape(b*h, c, w1, 2*r+1) # b*h, c, w1, 2*r+1
+            c_feat_flip = c_feat.flip(dims=[3]) # b*h, c, w1, 2*r+1
 
-            left_fmap = fmap[:, :, 0, :1, :].contiguous()
-            coords_lvl = torch.cat([cl_x0,y0], dim=-1)
-            cl_feat = self.bilinear_sampler(left_fmap, coords_lvl)
-            cl_feat = cl_feat.reshape(b*h, c, w1, 2*r+1)
-            cl_feat = cl_feat.flip(dims=[3])
+            right_fmap = fmap[:, :, 0, 1:2, :].contiguous() # b*h, c, 1, w
+            coords_lvl = torch.cat([r_x0,y0], dim=-1)
+            r_feat = self.bilinear_sampler(right_fmap, coords_lvl) # b*h, c, 1, w1*(2*r+1)
+            r_feat = r_feat.reshape(b*h, c, w1, 2*r+1)
 
-            dot = torch.sum(cl_feat * cr_feat, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
-            dot = dot.reshape(b, h, w1, 2*r+1) # b, h, w1, 2*r+1
+            left_fmap = fmap[:, :, 0, 2:3, :].contiguous()
+            coords_lvl = torch.cat([l_x0,y0], dim=-1)
+            l_feat = self.bilinear_sampler(left_fmap, coords_lvl)
+            l_feat = l_feat.reshape(b*h, c, w1, 2*r+1)
+            l_feat_flip = l_feat.flip(dims=[3])
 
+            # dot = torch.sum(c_feat * r_feat, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
+            # dot = dot.reshape(b, h1, w1, 2*r+1).contiguous()
+            # feats.append(dot)
+
+            # dot = torch.sum(c_feat_flip * l_feat_flip, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
+            # dot = dot.reshape(b, h1, w1, 2*r+1).contiguous()
+            # feats.append(dot)
+
+            dot = torch.sum(l_feat_flip * r_feat, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
+            dot = dot.reshape(b, h, w1, 2*r+1).contiguous() # b, h, w1, 2*r+1
             feats.append(dot)
 
         out = torch.cat(feats, dim=3)
@@ -195,18 +235,19 @@ class QPDNet(nn.Module):
         else:
             quit()
 
-        b, t, c, h, w = fmap2.shape
-        reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
-        # reduce_fmap2 = self.fmap2_reduce_dim(reduce_fmap2)
-        reduce_fmap2_2 = F.interpolate(reduce_fmap2, size=(h, w//2), mode='bilinear', align_corners=False)
-        reduce_fmap2_4 = F.interpolate(reduce_fmap2, size=(h, w//4), mode='bilinear', align_corners=False)
-        reduce_fmap2_8 = F.interpolate(reduce_fmap2, size=(h, w//8), mode='bilinear', align_corners=False)
+        fmaps = torch.cat([fmap1.unsqueeze(1), fmap2], dim=1) # [b, t, c, h, w] t=3
 
-        _, new_c, _, _ = reduce_fmap2.shape
-        reduce_fmap2 = reduce_fmap2.reshape(b, t, new_c, h, w)
-        reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, new_c, h, w//2)
-        reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, new_c, h, w//4)
-        reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, new_c, h, w//8)
+        b, t, c, h, w = fmaps.shape
+        reduce_fmaps = fmaps.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
+        reduce_fmaps_2 = F.interpolate(reduce_fmaps, size=(h, w//2), mode='bilinear', align_corners=False)
+        reduce_fmaps_4 = F.interpolate(reduce_fmaps, size=(h, w//4), mode='bilinear', align_corners=False)
+        reduce_fmaps_8 = F.interpolate(reduce_fmaps, size=(h, w//8), mode='bilinear', align_corners=False)
+
+        _, new_c, _, _ = reduce_fmaps.shape
+        reduce_fmaps = reduce_fmaps.reshape(b, t, new_c, h, w)
+        reduce_fmaps_2 = reduce_fmaps_2.reshape(b, t, new_c, h, w//2)
+        reduce_fmaps_4 = reduce_fmaps_4.reshape(b, t, new_c, h, w//4)
+        reduce_fmaps_8 = reduce_fmaps_8.reshape(b, t, new_c, h, w//8)
 
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
@@ -216,11 +257,21 @@ class QPDNet(nn.Module):
             coords1 = coords1 + flow_init
 
         flow_predictions = []
+
+        # with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
         for itr in range(iters):
             coords1 = coords1.detach()
+
+            # torch.cuda.synchronize()
+            
+            # with record_function("volume_lookup"):
             corr = corr_fn(coords1, coords0) # index correlation volume
-            lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
-            corr = torch.cat([corr, lrcorr], dim=1)
+            #     # torch.cuda.synchronize()
+            # with record_function("fmaps_lookup"):
+            lrcorr = self.fmaps_lookup(coords1, coords0, [reduce_fmaps, reduce_fmaps_2, reduce_fmaps_4, reduce_fmaps_8])
+                # torch.cuda.synchronize()
+
+            corr = torch.cat([corr, lrcorr], dim=1) # [b, c*(2*r+1), h, w] # 2*r+1 = 9
             if self.args.CAPA:
                 corr = self.FFAGroup(corr)
 
@@ -248,9 +299,15 @@ class QPDNet(nn.Module):
             else:
                 flow_up = self.upsample_flow(coords1 - coords0, up_mask)
             flow_up = flow_up[:,:1]
-
             flow_predictions.append(flow_up)
 
+        # key_avgs = prof.key_averages()
+        # selected = [e for e in key_avgs if e.key in ("fmaps_lookup", "volume_lookup")]
+        # for e in key_avgs:
+        #     if e.key not in ("fmaps_lookup", "volume_lookup"):
+        #         continue
+        #     print(f"{e.key}: {e.cpu_time_total:.2f} ms")
+        
         if test_mode:
             return coords1 - coords0, flow_up
 

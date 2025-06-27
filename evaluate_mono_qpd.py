@@ -30,6 +30,7 @@ from collections import OrderedDict
 
 from exp_args_settings.utils import get_ckpts_in_dir
 from exp_args_settings.train_settings import get_train_config
+from torch.profiler import profile, record_function, ProfilerActivity
 
 def fix_key(state_dict):
     new_state_dict = OrderedDict()
