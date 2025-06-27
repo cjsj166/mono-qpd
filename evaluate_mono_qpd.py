@@ -140,7 +140,6 @@ def validate_Real_QPD(model, datatype='dual', iters=32, mixed_prec=False, save_r
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
 
-
         # flow_pr = torch.zeros_like(flow_gt)
 
         # Align dimensions and file format

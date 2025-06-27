@@ -337,8 +337,11 @@ def train(args):
                 raise NotImplementedError
 
             assert model.training
-            flow_predictions = model(image1, image2, iters=args.train_iters)
+            with profile(activities=[ProfilerActivity.CPU, ProfilerActivity.CUDA], record_shapes=True) as prof:
+                with record_function("model_inference"):
+                    flow_predictions = model(image1, image2, iters=args.train_iters)
             assert model.training
+            print(prof.key_averages().table(sort_by="cuda_time_total", row_limit=1))
             if args.input_image_num == 42:
                 rot_flow_predictions=[]
                 for i in range(len(flow_predictions)):
