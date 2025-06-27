@@ -133,10 +133,10 @@ class QPDNet(nn.Module):
             c_x0 = c_x0.reshape(batch * h1, 1, w1*(2*r+1), 1)
             y0 = torch.zeros_like(r_x0)
             
-            # concat along batch size and grid sample only once
-            c_coords_lvl = torch.cat([c_x0, y0], dim=-1)
-            r_coords_lvl = torch.cat([r_x0,y0], dim=-1)
-            l_coords_lvl = torch.cat([l_x0,y0], dim=-1)
+            # # concat along batch size and grid sample only once
+            # c_coords_lvl = torch.cat([c_x0, y0], dim=-1)
+            # r_coords_lvl = torch.cat([r_x0,y0], dim=-1)
+            # l_coords_lvl = torch.cat([l_x0,y0], dim=-1)
 
             # all_coords_lvl = torch.cat([c_coords_lvl, r_coords_lvl, l_coords_lvl], dim=0) # b*h*3, 2, w1*(2*r+1), 2
             # all_fmap = fmap.permute(0, 3, 1, 2, 4).reshape(b*h*t, c, 1, w) # b
@@ -178,15 +178,15 @@ class QPDNet(nn.Module):
             l_feat = l_feat.reshape(b*h, c, w1, 2*r+1)
             l_feat_flip = l_feat.flip(dims=[3])
 
-            # dot = torch.sum(c_feat * r_feat, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
-            # dot = dot.reshape(b, h1, w1, 2*r+1).contiguous()
-            # feats.append(dot)
+            dot = torch.sum(c_feat * r_feat, dim=1, keepdim=True) / c # b*h, 1, w1, 2*r+1
+            dot = dot.reshape(b, h1, w1, 2*r+1).contiguous()
+            feats.append(dot)
 
-            # dot = torch.sum(c_feat_flip * l_feat_flip, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
-            # dot = dot.reshape(b, h1, w1, 2*r+1).contiguous()
-            # feats.append(dot)
+            dot = torch.sum(c_feat_flip * l_feat_flip, dim=1, keepdim=True) / c # b*h, 1, w1, 2*r+1
+            dot = dot.reshape(b, h1, w1, 2*r+1).contiguousk()
+            feats.append(dot)
 
-            dot = torch.sum(l_feat_flip * r_feat, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
+            dot = torch.sum(l_feat_flip * r_feat, dim=1, keepdim=True) / c # b*h, 1, w1, 2*r+1
             dot = dot.reshape(b, h, w1, 2*r+1).contiguous() # b, h, w1, 2*r+1
             feats.append(dot)
 
@@ -249,7 +249,7 @@ class QPDNet(nn.Module):
         reduce_fmaps_4 = reduce_fmaps_4.reshape(b, t, new_c, h, w//4)
         reduce_fmaps_8 = reduce_fmaps_8.reshape(b, t, new_c, h, w//8)
 
-        corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
+        # corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
         coords0, coords1 = self.initialize_flow(net_list[0])
 
@@ -265,13 +265,14 @@ class QPDNet(nn.Module):
             # torch.cuda.synchronize()
             
             # with record_function("volume_lookup"):
-            corr = corr_fn(coords1, coords0) # index correlation volume
+            # corr = corr_fn(coords1, coords0) # index correlation volume
             #     # torch.cuda.synchronize()
             # with record_function("fmaps_lookup"):
             lrcorr = self.fmaps_lookup(coords1, coords0, [reduce_fmaps, reduce_fmaps_2, reduce_fmaps_4, reduce_fmaps_8])
                 # torch.cuda.synchronize()
 
-            corr = torch.cat([corr, lrcorr], dim=1) # [b, c*(2*r+1), h, w] # 2*r+1 = 9
+            # corr = torch.cat([corr, lrcorr], dim=1) # [b, c*(2*r+1), h, w] # 2*r+1 = 9
+            corr = lrcorr
             if self.args.CAPA:
                 corr = self.FFAGroup(corr)
 
