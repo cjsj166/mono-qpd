@@ -183,7 +183,7 @@ class QPDNet(nn.Module):
             feats.append(dot)
 
             dot = torch.sum(c_feat_flip * l_feat_flip, dim=1, keepdim=True) / c # b*h, 1, w1, 2*r+1
-            dot = dot.reshape(b, h1, w1, 2*r+1).contiguousk()
+            dot = dot.reshape(b, h1, w1, 2*r+1).contiguous()
             feats.append(dot)
 
             dot = torch.sum(l_feat_flip * r_feat, dim=1, keepdim=True) / c # b*h, 1, w1, 2*r+1
