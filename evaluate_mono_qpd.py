@@ -28,6 +28,7 @@ from copy import deepcopy
 from metrics.eval import Eval
 from collections import OrderedDict
 
+from ptflops import get_model_complexity_info
 from exp_args_settings.utils import get_ckpts_in_dir
 from exp_args_settings.train_settings import get_train_config
 
@@ -121,7 +122,7 @@ def validate_Real_QPD(model, datatype='dual', iters=32, mixed_prec=False, save_r
     else:
         val_save_skip = val_save_skip // batch_size
 
-    # for val_id in tqdm(range(val_num)):
+    # for val_id in tqdm(range(val_num):
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
 
         if i_batch % val_save_skip != 0:
@@ -213,7 +214,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
         val_save_skip = val_save_skip // batch_size
 
 
-    # for val_id in tqdm(range(val_num)):
+    # for val_id in tqdm(range(val_num):
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
 
         if i_batch % val_save_skip != 0:
@@ -747,6 +748,50 @@ def make_DDDP(model, datatype='dual', gt_types=['AiF'], iters=32, mixed_prec=Fal
 
 
 
+def measure_flops_simple(model):
+    """Simple alternative using torch.profiler only."""
+    device = next(model.parameters()).device
+    
+    # Create dummy inputs matching your model's expected format
+    dummy_center = torch.randn(1, 3, 672, 896).to(device)
+    dummy_concat_lr = torch.randn(2, 3, 672, 896).to(device)
+    
+    model.eval()
+    
+    # Method 1: Using torch.profiler
+    with torch.profiler.profile(
+        activities=[torch.profiler.ProfilerActivity.CPU, torch.profiler.ProfilerActivity.CUDA],
+        record_shapes=True,
+        with_flops=True
+    ) as prof:
+        with torch.no_grad():
+            _ = model(dummy_center, dummy_concat_lr, iters=8, test_mode=True)
+    
+    # Extract metrics
+    events = prof.key_averages()
+    total_flops = sum([event.flops for event in events if event.flops > 0])
+    params_val = sum(p.numel() for p in model.parameters())
+    
+    if total_flops > 0:
+        gflops = total_flops / 1e9
+        gmacs = gflops / 2
+        params = params_val / 1e6
+        
+        print(f"\nModel Complexity (torch.profiler):")
+        print(f"  - MACs: {gmacs:.2f} G")
+        print(f"  - FLOPs: {gflops:.2f} G") 
+        print(f"  - Parameters: {params:.2f} M\n")
+        
+        # Also print detailed breakdown
+        print("Top operations by FLOP count:")
+        flop_events = [e for e in events if e.flops > 0]
+        flop_events.sort(key=lambda x: x.flops, reverse=True)
+        for event in flop_events[:10]:  # Top 10
+            print(f"  {event.key}: {event.flops/1e9:.2f} GFLOPs")
+    else:
+        print("Could not extract FLOP count from profiler")
+        print(f"Parameters: {params_val/1e6:.2f}M")
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
@@ -788,6 +833,8 @@ if __name__ == '__main__':
 
     model.cuda()
     model.eval()
+
+    measure_flops_simple(model)
 
     print(f"The model has {format(count_parameters(model)/1e6, '.2f')}M learnable parameters.")
     use_mixed_precision = conf.corr_implementation.endswith("_cuda")
