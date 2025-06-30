@@ -249,7 +249,7 @@ class QPDNet(nn.Module):
         reduce_fmaps_4 = reduce_fmaps_4.reshape(b, t, new_c, h, w//4)
         reduce_fmaps_8 = reduce_fmaps_8.reshape(b, t, new_c, h, w//8)
 
-        # corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
+        corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
         coords0, coords1 = self.initialize_flow(net_list[0])
 

@@ -66,7 +66,7 @@ class BasicMotionEncoder(nn.Module):
         super(BasicMotionEncoder, self).__init__()
         self.args = args
         # cor_planes = args.corr_levels * (2*args.corr_radius + 1) * args.input_image_num
-        cor_planes = args.corr_levels * (2*args.corr_radius + 1) * 3
+        cor_planes = args.corr_levels * (2*args.corr_radius + 1) * 5
 
         self.convc1 = nn.Conv2d(cor_planes, 64, 1, padding=0)
         self.convc2 = nn.Conv2d(64, 64, 3, padding=1)
