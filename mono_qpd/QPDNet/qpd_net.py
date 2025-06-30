@@ -47,7 +47,7 @@ class QPDNet(nn.Module):
                 self.FFAGroup = Group(conv=default_conv, dim=36*4, kernel_size=3, blocks=3).cuda()
             else:
                 # self.FFAGroup = Group(conv=default_conv, dim=36*2, kernel_size=3, blocks=3).cuda()
-                self.FFAGroup = Group(conv=default_conv, dim=36*3, kernel_size=3, blocks=3).cuda()
+                self.FFAGroup = Group(conv=default_conv, dim=36*5, kernel_size=3, blocks=3).cuda()
 
         if args.shared_backbone:
             self.conv2 = nn.Sequential(
@@ -265,14 +265,14 @@ class QPDNet(nn.Module):
             # torch.cuda.synchronize()
             
             # with record_function("volume_lookup"):
-            # corr = corr_fn(coords1, coords0) # index correlation volume
+            volume_corr = corr_fn(coords1, coords0) # index correlation volume
             #     # torch.cuda.synchronize()
             # with record_function("fmaps_lookup"):
-            lrcorr = self.fmaps_lookup(coords1, coords0, [reduce_fmaps, reduce_fmaps_2, reduce_fmaps_4, reduce_fmaps_8])
+            feature_corr = self.fmaps_lookup(coords1, coords0, [reduce_fmaps, reduce_fmaps_2, reduce_fmaps_4, reduce_fmaps_8])
                 # torch.cuda.synchronize()
 
-            # corr = torch.cat([corr, lrcorr], dim=1) # [b, c*(2*r+1), h, w] # 2*r+1 = 9
-            corr = lrcorr
+            corr = torch.cat([volume_corr, feature_corr], dim=1) # [b, c*(2*r+1), h, w] # 2*r+1 = 9
+            # corr = lrcorr
             if self.args.CAPA:
                 corr = self.FFAGroup(corr)
 
