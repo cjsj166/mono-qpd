@@ -197,16 +197,14 @@ class QPDNet(nn.Module):
 
         b, t, c, h, w = fmap2.shape
         reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
-        # reduce_fmap2 = self.fmap2_reduce_dim(reduce_fmap2)
-        reduce_fmap2_2 = F.interpolate(reduce_fmap2, size=(h, w//2), mode='bilinear', align_corners=False)
-        reduce_fmap2_4 = F.interpolate(reduce_fmap2, size=(h, w//4), mode='bilinear', align_corners=False)
-        reduce_fmap2_8 = F.interpolate(reduce_fmap2, size=(h, w//8), mode='bilinear', align_corners=False)
+        reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=2, stride=2)
+        reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=2, stride=2)
+        reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=2, stride=2)
 
-        _, new_c, _, _ = reduce_fmap2.shape
-        reduce_fmap2 = reduce_fmap2.reshape(b, t, new_c, h, w)
-        reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, new_c, h, w//2)
-        reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, new_c, h, w//4)
-        reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, new_c, h, w//8)
+        reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
+        reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h//2, w//2)
+        reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h//4, w//4)
+        reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h//8, w//8)
 
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
