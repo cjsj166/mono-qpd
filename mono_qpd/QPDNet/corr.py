@@ -34,6 +34,7 @@ class CorrBlock1D:
         self.num_levels = num_levels
         self.radius = radius
         self.corr_pyramid = []
+        self.lrcorr_pyramid = []
         self.input_image_num = input_image_num
         # all pairs correlation
         corr = CorrBlock1D.corr(fmap1, fmap2, input_image_num)
@@ -45,6 +46,21 @@ class CorrBlock1D:
             for i in range(self.num_levels-1):
                 corr_temp = F.avg_pool2d(corr_temp, [1,2], stride=[1,2])
                 self.corr_pyramid.append(corr_temp)
+
+        b, t, c, h, w = fmap2.shape
+        lrcorr = CorrBlock1D.lrcorr(fmap2)
+        lrcorr = lrcorr.reshape(b*h, 1, w, w).contiguous() # [b*h, w, 1, w]
+        self.lrcorr_pyramid.append(lrcorr) # save volume without reshaping as we need to sample diagonal coordinates
+        for i in range(self.num_levels-1):
+            b, t, c, h, w = fmap2.shape
+            fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
+            fmap2 = F.avg_pool2d(fmap2, [1, 2], stride=[1, 2])
+            _, _, h, w = fmap2.shape
+            fmap2 = fmap2.reshape(b, t, c, h, w).contiguous()
+
+            lrcorr = CorrBlock1D.lrcorr(fmap2)
+            lrcorr = lrcorr.reshape(b*h, 1, w, w).contiguous() # [b*h, w, 1, w]
+            self.lrcorr_pyramid.append(lrcorr)
 
     def __call__(self, coords,coords0):
         r = self.radius
@@ -60,7 +76,7 @@ class CorrBlock1D:
 
         for j in range(int(len(self.corr_pyramid)/self.num_levels)):
             for i in range(self.num_levels):
-                corr = self.corr_pyramid[j*self.num_levels+i]
+                corr = self.corr_pyramid[j*self.num_levels+i] # [12544, 1, 1, 112 // 2**i]
                 dx = torch.linspace(-r, r, 2*r+1)
                 dx = dx.view(2*r+1, 1).to(coords.device)
                 if j ==0 : 
@@ -70,10 +86,10 @@ class CorrBlock1D:
                 elif j==2: 
                     x0 = dx + (coords0_tb-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
                 else:
-                    x0 = dx + (coords0_tb+disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
+                    x0 = dx + (coords0_tb+disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i # [12544, 1, 9, 1]
                 y0 = torch.zeros_like(x0)
 
-                coords_lvl = torch.cat([x0,y0], dim=-1)
+                coords_lvl = torch.cat([x0,y0], dim=-1) # batch, channel, # of points, 2(x, y)
                 corr = bilinear_sampler(corr, coords_lvl)
                 corr = corr.view(batch, h1, w1, -1)
 
@@ -84,10 +100,86 @@ class CorrBlock1D:
 
                 out_pyramid.append(corr.permute(0, 3, 1, 2))
 
-        out = torch.cat(out_pyramid, dim=1)
+        for i in range(self.num_levels):
+            lrcorr = self.lrcorr_pyramid[i]
+            dx = torch.linspace(-r, r, 2*r+1)
+            dx = dx.view(2*r+1, 1).to(coords.device)
+            lx = dx + (coords0-disp).reshape(batch*h1, w1, 1, 1) / 2**i
+            rx = dx + (coords0+disp).reshape(batch*h1, w1, 1, 1) / 2**i
+            lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
+            rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
+            corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
+            corr = corr.reshape(batch, h1, w1, -1)  # [b, h, w, 9]
 
+            out_pyramid.append(corr.permute(0, 3, 1, 2))
+
+        out = torch.cat(out_pyramid, dim=1)
         return out.contiguous().float()
         
+    def diagonal_quadratic_interpolation(self, lrcorr, lx, rx):
+        """
+        lrcorr: (B*H, 1, W, W)
+        
+        """
+        BH, _, W, W = lrcorr.shape
+
+        lxf = torch.floor(lx).long()
+        lxc = torch.ceil(lx).long()
+        rxf = torch.floor(rx).long()
+        rxc = torch.ceil(rx).long()
+
+        sub = (rxc - rx)
+
+        w0 = (1 - sub) ** 2
+        wm = 2 * sub * (1 - sub)
+        w2 = sub ** 2
+
+        # def gather(ix, iy):
+        #     indices = iy * W + ix # 112, 1, (112 * 112 * 9)
+        #     flat = lrcorr.view(B, 1, -1) # 112, 1, 112, 112 -> 112, 1, 12544
+        #     return torch.gather(flat, 2, indices)
+
+        def gather(ix, iy):
+            valid_mask = (ix >= 0) & (ix < W) & (iy >= 0) & (iy < W)  # shape: (B*H, N)
+            indices = iy * W + ix  # shape: (B*H, N)
+            indices = indices.clone()
+            indices[~valid_mask] = 0  # out-of-bound index는 0으로 대체
+
+            flat = lrcorr.view(BH, 1, -1)  # shape: (B*H, 1, W*W)
+            gathered = torch.gather(flat, 2, indices)  # shape: (B*H, 1, W*W*9)
+            gathered[~valid_mask] = 0  # invalid sample position is 0
+
+            return gathered
+
+        I11 = gather(lxf, rxc)  # top-left
+        I01 = gather(lxf, rxf)  # bottom-left
+        I10 = gather(lxc, rxc)  # top-right
+        I00 = gather(lxc, rxf)  # bottom-right
+
+        mix = 0.5 * (I01 + I10)
+
+        out = (
+            w0 * I11 +
+            wm * mix +
+            w2 * I00
+        )
+
+        # out = out.reshape(BH, 1, W, 9)  # shape: (B*H, 1, W, W)
+        return out  # shape: (B, C, N)
+
+    @staticmethod
+    def lrcorr(fmap2):
+        B, T, D, H, W = fmap2.shape
+        # B, D, H, W1 = fmap1.shape
+        # _, _, _, W2 = fmap2.shape
+        # left = left.view(B, D, H, W)
+        # right = right.view(B, D, H, W)
+        left = fmap2[:, 0]
+        right = fmap2[:, 1]
+        corr = torch.einsum('aijk,aijh->ajkh', left, right)
+        corr = corr.reshape(B, H, W, 1, W).contiguous()
+        return corr / torch.sqrt(torch.tensor(D).float())
+
 
     @staticmethod
     def corr(fmap1, fmap2, input_image_num):
