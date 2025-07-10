@@ -196,15 +196,15 @@ class QPDNet(nn.Module):
             quit()
 
         b, t, c, h, w = fmap2.shape
-        # reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
-        # reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2))
-        # reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
-        # reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
+        reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
+        reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2))
+        reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
+        reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
 
-        # reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
-        # reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
-        # reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
-        # reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
+        reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
+        reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
+        reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
+        reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
         coords0, coords1 = self.initialize_flow(net_list[0])
@@ -216,7 +216,10 @@ class QPDNet(nn.Module):
         for itr in range(iters):
             coords1 = coords1.detach()
             corr = corr_fn(coords1, coords0) # index correlation volume
-            # lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
+            volume_lrcorr = corr[:, -36:]
+            lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
+            # diff_rel = (lrcorr - volume_lrcorr) / lrcorr
+            # print("diff mean:", diff_rel.mean(),"diff std:", diff_rel.std())
             # corr = torch.cat([corr, lrcorr], dim=1)
             if self.args.CAPA:
                 corr = self.FFAGroup(corr)
