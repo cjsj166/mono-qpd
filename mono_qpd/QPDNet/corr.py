@@ -104,8 +104,8 @@ class CorrBlock1D:
             lrcorr = self.lrcorr_pyramid[i]
             dx = torch.linspace(-r, r, 2*r+1)
             dx = dx.view(2*r+1, 1).to(coords.device)
-            lx = -dx + (coords0-disp).reshape(batch*h1, w1, 1, 1) / 2**i
-            rx = dx + (coords0+disp).reshape(batch*h1, w1, 1, 1) / 2**i
+            lx = dx + (coords0-disp).reshape(batch*h1, w1, 1, 1) / 2**i
+            rx = -dx + (coords0+disp).reshape(batch*h1, w1, 1, 1) / 2**i
             lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
             rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
             # corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
