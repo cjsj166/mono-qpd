@@ -104,14 +104,18 @@ class CorrBlock1D:
             lrcorr = self.lrcorr_pyramid[i]
             dx = torch.linspace(-r, r, 2*r+1)
             dx = dx.view(2*r+1, 1).to(coords.device)
-            lx = dx + (coords0-disp).reshape(batch*h1, w1, 1, 1) / 2**i
+            lx = -dx + (coords0-disp).reshape(batch*h1, w1, 1, 1) / 2**i
             rx = dx + (coords0+disp).reshape(batch*h1, w1, 1, 1) / 2**i
             lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
             rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
-            corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
-            corr = corr.reshape(batch, h1, w1, -1)  # [b, h, w, 9]
+            # corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
+            # corr = corr.reshape(batch, h1, w1, -1)  # [b, h, w, 9]
+            
+            coords_lvl = torch.stack([lx,rx], dim=-1) # batch, channel, # of points, 2(x, y)
+            grid_sample_corr = bilinear_sampler(lrcorr, coords_lvl)
+            grid_sample_corr = grid_sample_corr.view(batch, h1, w1, -1)
 
-            out_pyramid.append(corr.permute(0, 3, 1, 2))
+            out_pyramid.append(grid_sample_corr.permute(0, 3, 1, 2))
 
         out = torch.cat(out_pyramid, dim=1)
         return out.contiguous().float()
@@ -129,6 +133,18 @@ class CorrBlock1D:
         rxc = torch.ceil(rx).long()
 
         sub = (rxc - rx)
+
+        I11_sub = (1-sub) ** 2
+        I00_sub = sub ** 2
+        I10_sub = sub * (1-sub)
+        I01_sub = I10_sub
+
+        total = I11_sub + I10_sub + I00_sub + I01_sub
+        I11_sub /= total
+        I10_sub /= total
+        I00_sub /= total
+        I01_sub /= total
+
 
         # w0 = (1 - sub) ** 2
         # wm = 2 * sub * (1 - sub)
@@ -152,8 +168,8 @@ class CorrBlock1D:
             return gathered
 
         I11 = gather(lxf, rxc)  # top-left
-        # I01 = gather(lxf, rxf)  # bottom-left
-        # I10 = gather(lxc, rxc)  # top-right
+        I01 = gather(lxf, rxf)  # bottom-left
+        I10 = gather(lxc, rxc)  # top-right
         I00 = gather(lxc, rxf)  # bottom-right
 
         # mix = 0.5 * (I01 + I10)
@@ -164,10 +180,17 @@ class CorrBlock1D:
         #     w2 * I00
         # )
 
+        # out = (
+        #     (1 - sub) * I11 +
+        #     sub * I00
+        # )
+
         out = (
-            (1 - sub) * I11 +
-            sub * I00
+            I11_sub * I11 +
+            I10_sub * (I10 + I01) +
+            I00_sub * I00
         )
+
         return out  # shape: (B, C, N)
 
     @staticmethod
