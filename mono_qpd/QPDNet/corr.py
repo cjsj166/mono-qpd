@@ -130,9 +130,9 @@ class CorrBlock1D:
 
         sub = (rxc - rx)
 
-        w0 = (1 - sub) ** 2
-        wm = 2 * sub * (1 - sub)
-        w2 = sub ** 2
+        # w0 = (1 - sub) ** 2
+        # wm = 2 * sub * (1 - sub)
+        # w2 = sub ** 2
 
         # def gather(ix, iy):
         #     indices = iy * W + ix # 112, 1, (112 * 112 * 9)
@@ -152,19 +152,22 @@ class CorrBlock1D:
             return gathered
 
         I11 = gather(lxf, rxc)  # top-left
-        I01 = gather(lxf, rxf)  # bottom-left
-        I10 = gather(lxc, rxc)  # top-right
+        # I01 = gather(lxf, rxf)  # bottom-left
+        # I10 = gather(lxc, rxc)  # top-right
         I00 = gather(lxc, rxf)  # bottom-right
 
-        mix = 0.5 * (I01 + I10)
+        # mix = 0.5 * (I01 + I10)
+
+        # out = (
+        #     w0 * I11 +
+        #     wm * mix +
+        #     w2 * I00
+        # )
 
         out = (
-            w0 * I11 +
-            wm * mix +
-            w2 * I00
+            (1 - sub) * I11 +
+            sub * I00
         )
-
-        # out = out.reshape(BH, 1, W, 9)  # shape: (B*H, 1, W, W)
         return out  # shape: (B, C, N)
 
     @staticmethod
