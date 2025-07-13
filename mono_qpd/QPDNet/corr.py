@@ -104,8 +104,11 @@ class CorrBlock1D:
             lrcorr = self.lrcorr_pyramid[i]
             dx = torch.linspace(-r, r, 2*r+1)
             dx = dx.view(2*r+1, 1).to(coords.device)
-            lx = dx + (coords0-disp).reshape(batch*h1, w1, 1, 1) / 2**i
-            rx = -dx + (coords0+disp).reshape(batch*h1, w1, 1, 1) / 2**i
+            level_base = coords0
+            shift = (2**i - 1) / 2.0
+            level_base = coords0 - shift
+            lx = -dx + ((level_base-disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
+            rx = dx + ((level_base+disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
             lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
             rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
             corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
@@ -117,10 +120,6 @@ class CorrBlock1D:
         return out.contiguous().float()
         
     def diagonal_quadratic_interpolation(self, lrcorr, lx, rx):
-        """
-        lrcorr: (B*H, 1, W, W)
-        
-        """
         BH, _, W, W = lrcorr.shape
 
         lxf = torch.floor(lx).long()
@@ -128,11 +127,25 @@ class CorrBlock1D:
         rxf = torch.floor(rx).long()
         rxc = torch.ceil(rx).long()
 
-        sub = (rxc - rx)
+        # valid = (
+        #     (lxf >= 0) & (lxf < W) &
+        #     (lxc >= 0) & (lxc < W) &
+        #     (rxf >= 0) & (rxf < W) &
+        #     (rxc >= 0) & (rxc < W)
+        # )  
+        # valid_f = valid.float()
 
-        w0 = (1 - sub) ** 2
-        wm = 2 * sub * (1 - sub)
-        w2 = sub ** 2
+        x_r = rx - rxf
+        x_l = lxc - lx
+
+        C11 = x_r * x_l
+        C01 = (1 - x_r) * x_l
+        C10 = x_r * (1 - x_l)
+        C00 = (1 - x_r) * (1 - x_l)
+
+        # w0 = x_r ** 2
+        # wm = 2 * x_r * (1 - x_r)
+        # w2 = (1 - x_r) ** 2
 
         # def gather(ix, iy):
         #     indices = iy * W + ix # 112, 1, (112 * 112 * 9)
@@ -140,7 +153,7 @@ class CorrBlock1D:
         #     return torch.gather(flat, 2, indices)
 
         def gather(ix, iy):
-            valid_mask = (ix >= 0) & (ix < W) & (iy >= 0) & (iy < W)  # shape: (B*H, N)
+            valid_mask = (ix >= 0) & (ix <= W-1) & (iy >= 0) & (iy <= W-1)  # shape: (B*H, N)
             indices = iy * W + ix  # shape: (B*H, N)
             indices = indices.clone()
             indices[~valid_mask] = 0  # out-of-bound index는 0으로 대체
@@ -151,19 +164,22 @@ class CorrBlock1D:
 
             return gathered
 
-        I11 = gather(lxf, rxc)  # top-left
-        I01 = gather(lxf, rxf)  # bottom-left
-        I10 = gather(lxc, rxc)  # top-right
-        I00 = gather(lxc, rxf)  # bottom-right
+        I11 = gather(rxc, lxf)  # top-left
+        I01 = gather(rxf, lxf)  # bottom-left
+        I10 = gather(rxc, lxc)  # top-right
+        I00 = gather(rxf, lxc)  # bottom-right
 
-        mix = 0.5 * (I01 + I10)
+        out = C11 * I11 + C10 * I10 + C01 * I01 + C00 * I00
 
-        out = (
-            w0 * I11 +
-            wm * mix +
-            w2 * I00
-        )
+        # mix = 0.5 * (I01 + I10)
 
+        # out = (
+        #     w0 * I11 +
+        #     wm * mix +
+        #     w2 * I00
+        # )
+
+        # out = out * valid_f  # apply valid mask
         # out = out.reshape(BH, 1, W, 9)  # shape: (B*H, 1, W, W)
         return out  # shape: (B, C, N)
 
@@ -179,6 +195,7 @@ class CorrBlock1D:
         corr = torch.einsum('aijk,aijh->ajkh', left, right)
         corr = corr.reshape(B, H, W, 1, W).contiguous()
         return corr / torch.sqrt(torch.tensor(D).float())
+        # return corr
 
 
     @staticmethod

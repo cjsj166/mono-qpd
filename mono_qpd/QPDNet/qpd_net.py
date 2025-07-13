@@ -116,12 +116,16 @@ class QPDNet(nn.Module):
         dx = dx.view(2*r+1, 1).to(coords1.device)
 
         # creating grid
-        cr_x = (coords0+disp).reshape(batch*h1*w1, 1, 1, 1)
-        cl_x = (coords0-disp).reshape(batch*h1*w1, 1, 1, 1)
 
         feats = []
         for i, fmap in enumerate(fmap2_list):
             b, t, c, h, w = fmap.shape
+            level_base = coords0
+            shift = (2**i - 1) / 2.0
+            level_base = coords0 - shift
+
+            cr_x = (level_base+disp).reshape(batch*h1*w1, 1, 1, 1)
+            cl_x = (level_base-disp).reshape(batch*h1*w1, 1, 1, 1)
 
             cr_x0 = dx + cr_x / 2**i
             cl_x0 = dx + cl_x / 2**i
@@ -147,7 +151,7 @@ class QPDNet(nn.Module):
 
             dot = torch.sum(cl_feat * cr_feat, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
             dot = dot.reshape(b, h, w1, 2*r+1) # b, h, w1, 2*r+1
-            # dot = dot / torch.sqrt(torch.tensor(c, dtype=torch.float32, device=dot.device)) # Normalize by channel size
+            dot = dot / torch.sqrt(torch.tensor(c, dtype=torch.float32, device=dot.device)) # Normalize by channel size
 
             feats.append(dot)
 
@@ -196,9 +200,18 @@ class QPDNet(nn.Module):
         else:
             quit()
 
-        b, t, c, h, w = fmap2.shape
+        # with torch.no_grad():
+        #     B, T, C, H, W = fmap2.shape
+            
+        #     x_idx = torch.arange(W, device=fmap2.device, dtype=fmap2.dtype)     # (W,)
+        #     x_idx = x_idx.view(1, 1, 1, 1, W)                                   # (1,1,1,1,W)
+        #     x_idx = x_idx.expand(B, T, C, H, W)                                 # (B,T,C,H,W)
+        #     fmap2 = x_idx.clone()                                             # 원하는 값 저장
+        #     fmap2 = fmap2.detach()
+
+        # b, t, c, h, w = fmap2.shape
         # reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
-        # reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2))
+        # reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2)) # reduce_fmap2_2[0, :10, 56, 28]
         # reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
         # reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
 
@@ -215,12 +228,81 @@ class QPDNet(nn.Module):
 
         flow_predictions = []
         for itr in range(iters):
+            # coords1 = coords0 + 0.01
+            # coords0 = coords0 + 0.1
+            # coords1 = coords1 / 4.0
+            # coords0 = coords0 / 4.0
             coords1 = coords1.detach()
             corr = corr_fn(coords1, coords0) # index correlation volume
             # volume_lrcorr = corr[:, -36:]
             # lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
-            # print(lrcorr[0, :19, 56, 56])
-            # print(volume_lrcorr[0, :19, 56, 56])
+
+            # def debug_print(name, tensor_list):
+            #     print(name)
+            #     for num in tensor_list:
+            #         print(f"{num:.2f}", end=' ')
+            #     print('')
+
+            # for i in [0, 1, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69]:
+            #     debug_print(f"lrcorr[{i}]", lrcorr[0, :, 56, i].tolist())
+            #     debug_print(f"volume_lrcorr[{i}]", volume_lrcorr[0, :, 56, i].tolist())
+            #     debug_print(f"diff[{i}]", (lrcorr[0, :, 56, i] - volume_lrcorr[0, :, 56, i]).tolist())
+            #     print("")
+                        
+            # with torch.no_grad():
+            #     diff = (lrcorr - volume_lrcorr).abs()
+            #     flat   = diff.view(-1)                       # (total,)
+            #     k      = int(flat.numel() * 0.10 + 0.5)      # 반올림해 개수 결정
+            #     k      = max(k, 1)                           # 최소 1개 보장
+
+            #     # ② top-k 추출
+            #     topv, topi = torch.topk(flat, k, largest=True, sorted=False)
+
+            #     # ③ 다차원 인덱스로 변환
+            #     multi_idx  = torch.unravel_index(topi, diff.shape)
+            #     # multi_idx 는 (dim, ) 튜플 ─ 예: (b_idx, c_idx, y_idx, x_idx)
+
+            #     # ④ 필요하면 스택해 (k, ndim) 형태로 보기 좋게 정리
+            #     coords = torch.stack(multi_idx, dim=1)       # 각 행: [b, c, y, x]
+            #     # print('상위 10 % 개수:', k)
+            #     # print('샘플 인덱스 5개:\n', coords[:5])
+            #     # print('샘플 값:\n', topv[:5])
+
+            #     import matplotlib.pyplot as plt
+            #     # diff_level1 = diff[:, :9, :, :]
+            #     # diff_offset = torch.sum(diff_level1, dim=(2, 3))
+            #     # plt.imsave(f'result/diff_offset_iter{itr}.png', diff_offset.cpu().numpy(), cmap='gray')
+            #     # for i in range(9):
+            #     #     plt.imsave(f'result/diff_level1_iter{itr}_ch{i}.png', diff_level1[0, i, :, :].cpu().numpy(), cmap='gray')
+
+            #     diff_level1 = torch.sum(diff[:, :9, :, :], dim=(0, 1))
+            #     diff_level2 = torch.sum(diff[:, 9:18, :, :], dim=(0, 1))
+            #     diff_level3 = torch.sum(diff[:, 18:27, :, :], dim=(0, 1))
+            #     diff_level4 = torch.sum(diff[:, 27:36, :, :], dim=(0, 1))
+
+            #     plt.imsave(f'result/diff_level1_iter{itr}.png', diff_level1.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/diff_level2_iter{itr}.png', diff_level2.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/diff_level3_iter{itr}.png', diff_level3.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/diff_level4_iter{itr}.png', diff_level4.cpu().numpy(), cmap='gray')
+
+            #     lrcorr_level1 = torch.sum(lrcorr[:, :9, :, :], dim=(0, 1))
+            #     lrcorr_level2 = torch.sum(lrcorr[:, 9:18, :, :], dim=(0, 1))
+            #     lrcorr_level3 = torch.sum(lrcorr[:, 18:27, :, :], dim=(0, 1))
+            #     lrcorr_level4 = torch.sum(lrcorr[:, 27:36, :, :], dim=(0, 1))
+            #     volume_lrcorr_level1 = torch.sum(volume_lrcorr[:, :9, :, :], dim=(0, 1))
+            #     volume_lrcorr_level2 = torch.sum(volume_lrcorr[:, 9:18, :, :], dim=(0, 1))
+            #     volume_lrcorr_level3 = torch.sum(volume_lrcorr[:, 18:27, :, :], dim=(0, 1))
+            #     volume_lrcorr_level4 = torch.sum(volume_lrcorr[:, 27:36, :, :], dim=(0, 1))
+
+            #     plt.imsave(f'result/lrcorr_level1_iter{itr}.png', lrcorr_level1.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/lrcorr_level2_iter{itr}.png', lrcorr_level2.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/lrcorr_level3_iter{itr}.png', lrcorr_level3.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/lrcorr_level4_iter{itr}.png', lrcorr_level4.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/volume_lrcorr_level1_iter{itr}.png', volume_lrcorr_level1.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/volume_lrcorr_level2_iter{itr}.png', volume_lrcorr_level2.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/volume_lrcorr_level3_iter{itr}.png', volume_lrcorr_level3.cpu().numpy(), cmap='gray')
+            #     plt.imsave(f'result/volume_lrcorr_level4_iter{itr}.png', volume_lrcorr_level4.cpu().numpy(), cmap='gray')
+                
             # print(lrcorr[0, :19, 56, 56] - volume_lrcorr[0, :19, 56, 56])
             # diff_rel = (lrcorr - volume_lrcorr) / lrcorr
             # print("diff mean:", diff_rel.mean(),"diff std:", diff_rel.std())
