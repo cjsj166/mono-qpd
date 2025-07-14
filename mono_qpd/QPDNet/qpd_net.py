@@ -121,8 +121,8 @@ class QPDNet(nn.Module):
         for i, fmap in enumerate(fmap2_list):
             b, t, c, h, w = fmap.shape
             level_base = coords0
-            shift = (2**i - 1) / 2.0
-            level_base = coords0 - shift
+            # shift = (2**i - 1) / 2.0
+            # level_base = coords0 - shift
 
             cr_x = (level_base+disp).reshape(batch*h1*w1, 1, 1, 1)
             cl_x = (level_base-disp).reshape(batch*h1*w1, 1, 1, 1)
@@ -151,7 +151,7 @@ class QPDNet(nn.Module):
 
             dot = torch.sum(cl_feat * cr_feat, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
             dot = dot.reshape(b, h, w1, 2*r+1) # b, h, w1, 2*r+1
-            dot = dot / torch.sqrt(torch.tensor(c, dtype=torch.float32, device=dot.device)) # Normalize by channel size
+            # dot = dot / torch.sqrt(torch.tensor(c, dtype=torch.float32, device=dot.device)) # Normalize by channel size
 
             feats.append(dot)
 
