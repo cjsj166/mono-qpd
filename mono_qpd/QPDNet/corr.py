@@ -194,8 +194,8 @@ class CorrBlock1D:
         right = fmap2[:, 1]
         corr = torch.einsum('aijk,aijh->ajkh', left, right)
         corr = corr.reshape(B, H, W, 1, W).contiguous()
-        return corr / torch.sqrt(torch.tensor(D).float())
-        # return corr
+        # return corr / torch.sqrt(torch.tensor(D).float())
+        return corr
 
 
     @staticmethod
