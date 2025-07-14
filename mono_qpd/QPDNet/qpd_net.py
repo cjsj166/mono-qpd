@@ -271,24 +271,24 @@ class QPDNet(nn.Module):
                 # 'mean rel', (diff_abs / (ref.abs()+1e-12)).mean().item())
 
                         
-            with torch.no_grad():
-                diff = (lrcorr - volume_lrcorr).abs()
-                flat   = diff.view(-1)                       # (total,)
-                k      = int(flat.numel() * 0.10 + 0.5)      # 반올림해 개수 결정
-                k      = max(k, 1)                           # 최소 1개 보장
+            # with torch.no_grad():
+            #     diff = (lrcorr - volume_lrcorr).abs()
+            #     flat   = diff.view(-1)                       # (total,)
+            #     k      = int(flat.numel() * 0.10 + 0.5)      # 반올림해 개수 결정
+            #     k      = max(k, 1)                           # 최소 1개 보장
 
-                # ② top-k 추출
-                topv, topi = torch.topk(flat, k, largest=True, sorted=False)
+            #     # ② top-k 추출
+            #     topv, topi = torch.topk(flat, k, largest=True, sorted=False)
 
-                # ③ 다차원 인덱스로 변환
-                multi_idx  = torch.unravel_index(topi, diff.shape)
-                # multi_idx 는 (dim, ) 튜플 ─ 예: (b_idx, c_idx, y_idx, x_idx)
+            #     # ③ 다차원 인덱스로 변환
+            #     multi_idx  = torch.unravel_index(topi, diff.shape)
+            #     # multi_idx 는 (dim, ) 튜플 ─ 예: (b_idx, c_idx, y_idx, x_idx)
 
-                # ④ 필요하면 스택해 (k, ndim) 형태로 보기 좋게 정리
-                coords = torch.stack(multi_idx, dim=1)       # 각 행: [b, c, y, x]
-                # print('상위 10 % 개수:', k)
-                # print('샘플 인덱스 5개:\n', coords[:5])
-                # print('샘플 값:\n', topv[:5])
+            #     # ④ 필요하면 스택해 (k, ndim) 형태로 보기 좋게 정리
+            #     coords = torch.stack(multi_idx, dim=1)       # 각 행: [b, c, y, x]
+            #     # print('상위 10 % 개수:', k)
+            #     # print('샘플 인덱스 5개:\n', coords[:5])
+            #     # print('샘플 값:\n', topv[:5])
 
             #     import matplotlib.pyplot as plt
             #     # diff_level1 = diff[:, :9, :, :]
