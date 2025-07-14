@@ -209,16 +209,16 @@ class QPDNet(nn.Module):
         #     fmap2 = x_idx.clone()                                             # 원하는 값 저장
         #     fmap2 = fmap2.detach()
 
-        # b, t, c, h, w = fmap2.shape
-        # reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
-        # reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2)) # reduce_fmap2_2[0, :10, 56, 28]
-        # reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
-        # reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
+        b, t, c, h, w = fmap2.shape
+        reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
+        reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2)) # reduce_fmap2_2[0, :10, 56, 28]
+        reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
+        reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
 
-        # reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
-        # reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
-        # reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
-        # reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
+        reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
+        reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
+        reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
+        reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
         coords0, coords1 = self.initialize_flow(net_list[0])
@@ -234,13 +234,14 @@ class QPDNet(nn.Module):
             # coords0 = coords0 / 4.0
             coords1 = coords1.detach()
             corr = corr_fn(coords1, coords0) # index correlation volume
-            # volume_lrcorr = corr[:, -36:]
-            # lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
+            volume_lrcorr = corr[:, -36:]
+            lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
+            corr[:, -36:] = lrcorr
 
             # def debug_print(name, tensor_list):
             #     print(name)
             #     for num in tensor_list:
-            #         print(f"{num:.2f}", end=' ')
+            #         print(f"{num:.8f}", end=' ')
             #     print('')
 
             # for i in [0, 1, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69]:
@@ -248,6 +249,21 @@ class QPDNet(nn.Module):
             #     debug_print(f"volume_lrcorr[{i}]", volume_lrcorr[0, :, 56, i].tolist())
             #     debug_print(f"diff[{i}]", (lrcorr[0, :, 56, i] - volume_lrcorr[0, :, 56, i]).tolist())
             #     print("")
+            
+            # ref   = lrcorr        # feature‑sampling 버전
+            # test  = volume_lrcorr # 보간 volume 버전
+
+            # diff_abs  = (ref - test).abs()
+            # peak      = ref.abs().max()
+
+            # rtol = 1e-4           # 값이 ~6e4 까지 가는 경우
+            # atol = 1e-6
+
+            # same = (diff_abs <= atol + rtol * peak).all()
+            # print('동일?', same)
+            # print('max diff', diff_abs.max().item(),
+                # 'mean rel', (diff_abs / (ref.abs()+1e-12)).mean().item())
+
                         
             # with torch.no_grad():
             #     diff = (lrcorr - volume_lrcorr).abs()
