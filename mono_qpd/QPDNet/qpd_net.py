@@ -121,8 +121,8 @@ class QPDNet(nn.Module):
         for i, fmap in enumerate(fmap2_list):
             b, t, c, h, w = fmap.shape
             level_base = coords0
-            shift = (2**i - 1) / 2.0
-            level_base = coords0 - shift
+            # shift = (2**i - 1) / 2.0
+            # level_base = coords0 - shift
 
             cr_x = (level_base+disp).reshape(batch*h1*w1, 1, 1, 1)
             cl_x = (level_base-disp).reshape(batch*h1*w1, 1, 1, 1)
@@ -151,7 +151,7 @@ class QPDNet(nn.Module):
 
             dot = torch.sum(cl_feat * cr_feat, dim=1, keepdim=True) # b*h, 1, w1, 2*r+1
             dot = dot.reshape(b, h, w1, 2*r+1) # b, h, w1, 2*r+1
-            dot = dot / torch.sqrt(torch.tensor(c, dtype=torch.float32, device=dot.device)) # Normalize by channel size
+            # dot = dot / torch.sqrt(torch.tensor(c, dtype=torch.float32, device=dot.device)) # Normalize by channel size
 
             feats.append(dot)
 
@@ -234,9 +234,9 @@ class QPDNet(nn.Module):
             # coords0 = coords0 / 4.0
             coords1 = coords1.detach()
             corr = corr_fn(coords1, coords0) # index correlation volume
-            volume_lrcorr = corr[:, -36:]
-            lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
-            corr[:, -36:] = lrcorr
+            # volume_lrcorr = corr[:, -36:]
+            # lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
+            # corr[:, -36:] = lrcorr
 
             # def debug_print(name, tensor_list):
             #     print(name)
@@ -248,6 +248,12 @@ class QPDNet(nn.Module):
             #     debug_print(f"lrcorr[{i}]", lrcorr[0, :, 56, i].tolist())
             #     debug_print(f"volume_lrcorr[{i}]", volume_lrcorr[0, :, 56, i].tolist())
             #     debug_print(f"diff[{i}]", (lrcorr[0, :, 56, i] - volume_lrcorr[0, :, 56, i]).tolist())
+            #     print("")
+
+            # for i in [0, 1, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69]:
+            #     debug_print(f"lrcorr[{i}]", lrcorr[0, :, 0, i].tolist())
+            #     debug_print(f"volume_lrcorr[{i}]", volume_lrcorr[0, :, 0, i].tolist())
+            #     debug_print(f"diff[{i}]", (lrcorr[0, :, 0, i] - volume_lrcorr[0, :, 0, i]).tolist())
             #     print("")
             
             # ref   = lrcorr        # feature‑sampling 버전
@@ -265,24 +271,24 @@ class QPDNet(nn.Module):
                 # 'mean rel', (diff_abs / (ref.abs()+1e-12)).mean().item())
 
                         
-            # with torch.no_grad():
-            #     diff = (lrcorr - volume_lrcorr).abs()
-            #     flat   = diff.view(-1)                       # (total,)
-            #     k      = int(flat.numel() * 0.10 + 0.5)      # 반올림해 개수 결정
-            #     k      = max(k, 1)                           # 최소 1개 보장
+            with torch.no_grad():
+                diff = (lrcorr - volume_lrcorr).abs()
+                flat   = diff.view(-1)                       # (total,)
+                k      = int(flat.numel() * 0.10 + 0.5)      # 반올림해 개수 결정
+                k      = max(k, 1)                           # 최소 1개 보장
 
-            #     # ② top-k 추출
-            #     topv, topi = torch.topk(flat, k, largest=True, sorted=False)
+                # ② top-k 추출
+                topv, topi = torch.topk(flat, k, largest=True, sorted=False)
 
-            #     # ③ 다차원 인덱스로 변환
-            #     multi_idx  = torch.unravel_index(topi, diff.shape)
-            #     # multi_idx 는 (dim, ) 튜플 ─ 예: (b_idx, c_idx, y_idx, x_idx)
+                # ③ 다차원 인덱스로 변환
+                multi_idx  = torch.unravel_index(topi, diff.shape)
+                # multi_idx 는 (dim, ) 튜플 ─ 예: (b_idx, c_idx, y_idx, x_idx)
 
-            #     # ④ 필요하면 스택해 (k, ndim) 형태로 보기 좋게 정리
-            #     coords = torch.stack(multi_idx, dim=1)       # 각 행: [b, c, y, x]
-            #     # print('상위 10 % 개수:', k)
-            #     # print('샘플 인덱스 5개:\n', coords[:5])
-            #     # print('샘플 값:\n', topv[:5])
+                # ④ 필요하면 스택해 (k, ndim) 형태로 보기 좋게 정리
+                coords = torch.stack(multi_idx, dim=1)       # 각 행: [b, c, y, x]
+                # print('상위 10 % 개수:', k)
+                # print('샘플 인덱스 5개:\n', coords[:5])
+                # print('샘플 값:\n', topv[:5])
 
             #     import matplotlib.pyplot as plt
             #     # diff_level1 = diff[:, :9, :, :]
