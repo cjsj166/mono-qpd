@@ -105,8 +105,8 @@ class CorrBlock1D:
             dx = torch.linspace(-r, r, 2*r+1)
             dx = dx.view(2*r+1, 1).to(coords.device)
             level_base = coords0
-            shift = (2**i - 1) / 2.0
-            level_base = coords0 - shift
+            # shift = (2**i - 1) / 2.0
+            # level_base = coords0 - shift
             lx = -dx + ((level_base-disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
             rx = dx + ((level_base+disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
             lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
