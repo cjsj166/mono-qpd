@@ -209,13 +209,15 @@ class CorrBlock1D:
                 fmap1_m = fmap1[:,0].permute(0, 2, 3, 1)
                 fmap2_m = fmap2[:,s].permute(0, 2, 1, 3)
                 corr = torch.matmul(fmap1_m, fmap2_m).unsqueeze(3).contiguous()
-                corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+                # corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+                corr_list.append(corr)
             
             for s in range(2,S):
                 fmap1_m = fmap1[:,1].permute(0, 3, 2, 1)
                 fmap2_m = fmap2[:,s].permute(0, 3, 1, 2)
                 corr = torch.matmul(fmap1_m, fmap2_m).permute(0, 2, 1, 3).unsqueeze(3).contiguous()
-                corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+                # corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+                corr_list.append(corr)
             return corr_list
         
         B, D, H1, W1 = fmap1.shape
