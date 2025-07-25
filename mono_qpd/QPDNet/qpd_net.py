@@ -234,9 +234,9 @@ class QPDNet(nn.Module):
             # coords0 = coords0 / 4.0
             coords1 = coords1.detach()
             corr = corr_fn(coords1, coords0) # index correlation volume
-            volume_lrcorr = corr[:, -36:]
-            lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
-            corr[:, -36:] = lrcorr
+            # volume_lrcorr = corr[:, -36:]
+            # lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
+            # corr[:, -36:] = lrcorr
 
             # def debug_print(name, tensor_list):
             #     print(name)
@@ -244,7 +244,9 @@ class QPDNet(nn.Module):
             #         print(f"{num:.8f}", end=' ')
             #     print('')
 
-            # for i in [0, 1, 56, 57, 58, 59, 60, 61, 62, 63, 64, 65, 66, 67, 68, 69]:
+            # for i in [0, 1, 56, 61, 69, -2, -1]:
+            #     debug_print(f"coords1[{i}]", coords1[0, :, 56, i].tolist())
+            #     debug_print(f"disp[{i}]", (coords1[0, :, 56, i] - coords0[0, :, 56, i]).tolist())
             #     debug_print(f"lrcorr[{i}]", lrcorr[0, :, 56, i].tolist())
             #     debug_print(f"volume_lrcorr[{i}]", volume_lrcorr[0, :, 56, i].tolist())
             #     debug_print(f"diff[{i}]", (lrcorr[0, :, 56, i] - volume_lrcorr[0, :, 56, i]).tolist())
@@ -262,7 +264,7 @@ class QPDNet(nn.Module):
             # same = (diff_abs <= atol + rtol * peak).all()
             # print('동일?', same)
             # print('max diff', diff_abs.max().item(),
-                # 'mean rel', (diff_abs / (ref.abs()+1e-12)).mean().item())
+            #     'mean rel', (diff_abs / (ref.abs()+1e-12)).mean().item())
 
                         
             # with torch.no_grad():
