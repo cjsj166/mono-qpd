@@ -261,7 +261,7 @@ class LocalVolumeLR(TrainConfig):
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
 @dataclass
-class DispVolumeLR(TrainConfig):
+class OnlyDispVolumeLR(TrainConfig):
     num_steps: int = 200000
     batch_size: int = 4
     image_size: Tuple[int, int] = (448, 448)
@@ -277,7 +277,7 @@ class DispVolumeLR(TrainConfig):
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
 @dataclass
-class LocalDispVolumeLR(TrainConfig):
+class LocalOnlyDispVolumeLR(TrainConfig):
     num_steps: int = 200000
     batch_size: int = 1
     image_size: Tuple[int, int] = (448, 448)
