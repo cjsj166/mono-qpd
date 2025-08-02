@@ -183,9 +183,12 @@ class QPDNet(nn.Module):
                     ftb = torch.stack(ftb[1:],dim=1)
                     fmap2 = torch.cat([flr, ftb], dim=1)
                 else:
+                    right_flip = torch.flip(image2[1], dims=[2])
+                    image2[1, :, :, :] = right_flip
                     fmap = self.fnet([image1, image2])
                     fmap1 = fmap[0]
-                    fmap2 = torch.stack(fmap[1:],dim=1)
+                    fmap2_right = torch.flip(fmap[2], dims=[2])
+                    fmap2 = torch.stack([fmap[1], fmap2_right], dim=1)
 
             net_list = [torch.tanh(x[0]) for x in cnet_list]
             ori_inp_list = [torch.relu(x[1]) for x in cnet_list] # Original
@@ -210,15 +213,15 @@ class QPDNet(nn.Module):
         #     fmap2 = fmap2.detach()
 
         b, t, c, h, w = fmap2.shape
-        reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
-        reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2)) # reduce_fmap2_2[0, :10, 56, 28]
-        reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
-        reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
+        # reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
+        # reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2)) # reduce_fmap2_2[0, :10, 56, 28]
+        # reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
+        # reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
 
-        reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
-        reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
-        reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
-        reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
+        # reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
+        # reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
+        # reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
+        # reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
         coords0, coords1 = self.initialize_flow(net_list[0])
