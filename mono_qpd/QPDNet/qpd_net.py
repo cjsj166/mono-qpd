@@ -54,6 +54,7 @@ class QPDNet(nn.Module):
                 nn.Conv2d(128, 256, 3, padding=1))
         else:
             self.fnet = BasicEncoder(output_dim=256, norm_fn='instance', downsample=args.n_downsample)
+            self.fnet_c = BasicEncoder(output_dim=256, norm_fn='instance', downsample=args.n_downsample)
             if self.args.input_image_num==4:
                 self.fnet2 = BasicEncoder(output_dim=256, norm_fn='instance', downsample=args.n_downsample)
         
@@ -183,9 +184,16 @@ class QPDNet(nn.Module):
                     ftb = torch.stack(ftb[1:],dim=1)
                     fmap2 = torch.cat([flr, ftb], dim=1)
                 else:
-                    fmap = self.fnet([image1, image2])
-                    fmap1 = fmap[0]
-                    fmap2 = torch.stack(fmap[1:],dim=1)
+                    # fmap = self.fnet([image1, image2])
+                    # fmap1 = fmap[0]
+                    # fmap2 = torch.stack(fmap[1:],dim=1)
+                    fmap = self.fnet([image2])
+                    fmap_c = self.fnet_c([image1])
+                    fmap1 = fmap_c[0]
+
+                    b, c, h, w = fmap1.shape
+                    fmap2 = fmap[0].reshape(b, 2, c, h, w)
+                    # fmap2 = torch.stack(fmap[1:],dim=1)
 
             net_list = [torch.tanh(x[0]) for x in cnet_list]
             ori_inp_list = [torch.relu(x[1]) for x in cnet_list] # Original
