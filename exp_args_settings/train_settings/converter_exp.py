@@ -279,7 +279,7 @@ class UniBlur(TrainConfig):
 @dataclass
 class LocalUniBlur(TrainConfig):
     num_steps: int = 200000
-    batch_size: int = 1
+    batch_size: int = 2
     image_size: Tuple[int, int] = (448, 448)
     lr: int = 0.0002
     qpd_valid_bs: int = 1

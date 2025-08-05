@@ -183,11 +183,12 @@ class QPDNet(nn.Module):
                     ftb = torch.stack(ftb[1:],dim=1)
                     fmap2 = torch.cat([flr, ftb], dim=1)
                 else:
-                    right_flip = torch.flip(image2[1], dims=[2])
-                    image2[1, :, :, :] = right_flip
+                    b = image2.shape[0] // self.args.input_image_num
+                    right_flip = torch.flip(image2[b:], dims=[3])
+                    image2[b:, :, :, :] = right_flip
                     fmap = self.fnet([image1, image2])
                     fmap1 = fmap[0]
-                    fmap2_right = torch.flip(fmap[2], dims=[2])
+                    fmap2_right = torch.flip(fmap[2], dims=[3])
                     fmap2 = torch.stack([fmap[1], fmap2_right], dim=1)
 
             net_list = [torch.tanh(x[0]) for x in cnet_list]
