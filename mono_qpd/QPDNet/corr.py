@@ -117,29 +117,29 @@ class CorrBlock1D:
 
                 out_pyramid.append(corr.permute(0, 3, 1, 2))
 
-        for i in range(self.num_levels):
-            lrcorr = self.lrcorr_pyramid[i]
-            dx = torch.linspace(-r, r, 2*r+1)
-            dx = dx.view(2*r+1, 1).to(coords.device)
+        # for i in range(self.num_levels):
+        #     lrcorr = self.lrcorr_pyramid[i]
+        #     dx = torch.linspace(-r, r, 2*r+1)
+        #     dx = dx.view(2*r+1, 1).to(coords.device)
             
-            # level_base = coords0
-            shift = (2**i - 1) / 2.0
-            # level_base = coords0 - shift
-            # lx = -dx + ((level_base-disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
-            # rx = dx + ((level_base+disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
-            x0 = self.lrscale * dx + (self.lrscale * disp.reshape(batch*h1*w1, 1, 1, 1) + self.disp0index - shift) / 2.0**i
+        #     # level_base = coords0
+        #     shift = (2**i - 1) / 2.0
+        #     # level_base = coords0 - shift
+        #     # lx = -dx + ((level_base-disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
+        #     # rx = dx + ((level_base+disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
+        #     x0 = self.lrscale * dx + (self.lrscale * disp.reshape(batch*h1*w1, 1, 1, 1) + self.disp0index - shift) / 2.0**i
 
-            # lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
-            # rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
-            # corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
-            # corr = corr.reshape(batch, h1, w1, -1)  # [b, h, w, 9]
+        #     # lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
+        #     # rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
+        #     # corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
+        #     # corr = corr.reshape(batch, h1, w1, -1)  # [b, h, w, 9]
 
-            y0 = torch.zeros_like(x0)
-            coords_lvl = torch.cat([x0,y0], dim=-1) # batch, channel, # of points, 2(x, y)
-            corr = bilinear_sampler(lrcorr, coords_lvl)
-            corr = corr.view(batch, h1, w1, -1)
+        #     y0 = torch.zeros_like(x0)
+        #     coords_lvl = torch.cat([x0,y0], dim=-1) # batch, channel, # of points, 2(x, y)
+        #     corr = bilinear_sampler(lrcorr, coords_lvl)
+        #     corr = corr.view(batch, h1, w1, -1)
 
-            out_pyramid.append(corr.permute(0, 3, 1, 2))
+        #     out_pyramid.append(corr.permute(0, 3, 1, 2))
 
         out = torch.cat(out_pyramid, dim=1)
         return out.contiguous().float()
