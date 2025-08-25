@@ -16,7 +16,7 @@ def get_latest_ckpt(path):
     pth = Path(path)
     ckpts = pth.glob("**/*.pth")
 
-    valid_ckpts = [ckpt for ckpt in ckpts if extract_epoch(ckpt)]
+    valid_ckpts = [ckpt for ckpt in ckpts if type(extract_epoch(ckpt)) is int]
     
     sorted_ckpts = sorted(valid_ckpts, key=extract_epoch)
 
@@ -33,7 +33,7 @@ def get_ckpts_in_dir(dir_path):
     pat = os.path.join(dir_path, '*', 'checkpoints', '*.pth')
     ckpts = [Path(ckpt) for ckpt in glob(pat)]
 
-    valid_ckpts = [ckpt for ckpt in ckpts if extract_epoch(ckpt)]
+    valid_ckpts = [ckpt for ckpt in ckpts if type(extract_epoch(ckpt)) is int]
 
     ckpts = sorted(valid_ckpts, key=extract_epoch)
     return ckpts 

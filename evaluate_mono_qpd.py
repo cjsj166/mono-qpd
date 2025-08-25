@@ -258,6 +258,8 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
             bads = eval_est.ai2_bad_pixel_metrics(flow_pr_i, inv_depth_gt_i)
             est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
 
+            print(est_ai1, est_b1, est_ai2, est_b2, sc)
+
             val_id = i_batch * batch_size + i
 
             # print(flow_pr_i[0][418:421][317:343])

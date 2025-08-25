@@ -171,6 +171,37 @@
             ]
         },
 
+        {
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalDispVolumeLR",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalDispVolumeLR",
+                "--restore_ckpt",
+                "result/train/LocalDispVolumeLR/20250825_161518/checkpoints/000_epoch_1_Mono-QPD.pth"
+            ]
+        },
+
+
+        {
+            "name": "Mono-QPD, dataclass eval, LocalDispVolumeLR, 0epoch",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalDispVolumeLR",
+                "--ckpt_epoch", "0", // result/train/LocalDispVolumeLR/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
+                "--eval_datasets", "DPD_Disp",
+                // "--debug_mode"
+            ]
+        },
+
+
         // result/train/LRProduct/20250625_234003/checkpoints/260_epoch_195520_Mono-QPD.pth
         
         {
