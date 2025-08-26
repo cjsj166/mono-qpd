@@ -45,8 +45,8 @@ class QPDNet(nn.Module):
             if self.args.input_image_num==4:
                 self.FFAGroup = Group(conv=default_conv, dim=36*4, kernel_size=3, blocks=3).cuda()
             else:
-                # self.FFAGroup = Group(conv=default_conv, dim=36*2, kernel_size=3, blocks=3).cuda()
-                self.FFAGroup = Group(conv=default_conv, dim=36*3, kernel_size=3, blocks=3).cuda()
+                self.FFAGroup = Group(conv=default_conv, dim=36*2, kernel_size=3, blocks=3).cuda()
+                # self.FFAGroup = Group(conv=default_conv, dim=36*3, kernel_size=3, blocks=3).cuda()
 
         if args.shared_backbone:
             self.conv2 = nn.Sequential(
@@ -234,6 +234,7 @@ class QPDNet(nn.Module):
             # coords0 = coords0 / 4.0
             coords1 = coords1.detach()
             corr = corr_fn(coords1, coords0) # index correlation volume
+            corr = corr[:, :-36]
             # volume_lrcorr = corr[:, -36:]
             # lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
             # corr[:, -36:] = lrcorr
