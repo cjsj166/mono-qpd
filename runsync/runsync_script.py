@@ -160,7 +160,7 @@ cd {exec_path}
 
     # 재제출 시간 (운영: 23h55m). 지금은 테스트 값.
     # limit_sec = 23 * 3600 + 55 * 60
-    limit_sec = 4 * 60
+    limit_sec = 9 * 60
 
     # ---- pack 스크립트(학습 + watcher + restarter) 본문 ----
     pack_script_text = f"""#!/bin/bash
