@@ -771,6 +771,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--ckpt_epoch', type=str, default=0)
+    parser.add_argument('--save_result', action='store_true', help="Save predicted results")
     parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise', 'Make_QPD', 'Make_DDDP'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
     
     args = parser.parse_args()
@@ -834,7 +835,7 @@ if __name__ == '__main__':
         save_dir = os.path.join(conf.save_path, 'qpd-test')
         save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
-        result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
+        result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result is not None else False, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
 
         log_dir = os.path.join(save_dir, 'runs')
         logger = Logger(model, scheduler, total_steps, log_dir=log_dir)
@@ -851,7 +852,7 @@ if __name__ == '__main__':
         save_dir = os.path.join(conf.save_path, 'qpd-test-noise')
         save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
-        result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data-noise0.001', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
+        result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result is not None else False, datatype = conf.datatype, image_set="test", path='datasets/QP-Data-noise0.001', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
         
         log_dir = os.path.join(save_dir, 'runs') 
         logger = EvalLogger(log_dir=log_dir, epoch=epoch)
@@ -869,7 +870,7 @@ if __name__ == '__main__':
         save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
 
-        result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_valid_bs if conf.qpd_valid_bs else 1)
+        result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result else False, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_valid_bs if conf.qpd_valid_bs else 1)
         
         log_dir = os.path.join(save_dir, 'runs') 
         logger = EvalLogger(log_dir=log_dir, epoch=epoch) # epoch=checkpoint['total_steps'])
@@ -886,7 +887,7 @@ if __name__ == '__main__':
         save_dir = os.path.join(conf.save_path, 'dp-disp')
         save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
-        result = validate_DPD_Disp(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
+        result = validate_DPD_Disp(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result is not None else False, datatype = conf.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
         
         log_dir = os.path.join(save_dir, 'runs') 
         logger = EvalLogger(log_dir=log_dir, epoch=epoch)
@@ -903,7 +904,7 @@ if __name__ == '__main__':
         save_dir = os.path.join(conf.save_path, 'real-qpd-test')
         save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
-        result = validate_Real_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=conf.real_qpd_bs if conf.real_qpd_bs else 1)
+        result = validate_Real_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result is not None else False, datatype = conf.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=conf.real_qpd_bs if conf.real_qpd_bs else 1)
         
         log_dir = os.path.join(save_dir, 'runs') 
         logger = EvalLogger(log_dir=log_dir, epoch=epoch)
