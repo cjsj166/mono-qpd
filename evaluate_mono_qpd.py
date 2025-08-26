@@ -841,9 +841,9 @@ if __name__ == '__main__':
 
         named_results = {}
         for k, v in results.items():
-            named_results[f'val_qpd/{k}'] = v
+            named_results[f'val_qpd_test/{k}'] = v
             if 'img' not in k:
-                print(f'val_qpd/{k}: {v}')
+                print(f'val_qpd_test/{k}: {v}')
 
         logger.write_dict(named_results)
 
@@ -858,9 +858,9 @@ if __name__ == '__main__':
         
         named_result = {}
         for k, v in result.items():
-            named_result[f'val_qpd/{k}'] = v
+            named_result[f'val_qpd_test_noise/{k}'] = v
             if 'img' not in k:
-                print(f'val_qpd/{k}: {v}')
+                print(f'val_qpd_test_noise/{k}: {v}')
 
         logger.write_dict(named_result)
 
@@ -876,9 +876,9 @@ if __name__ == '__main__':
         
         named_result = {}
         for k, v in result.items():
-            named_result[f'val_qpd/{k}'] = v
+            named_result[f'val_qpd_valid/{k}'] = v
             if 'img' not in k:
-                print(f'val_qpd/{k}: {v}')
+                print(f'val_qpd_valid/{k}: {v}')
 
         logger.write_dict(named_result)
 
@@ -893,9 +893,9 @@ if __name__ == '__main__':
         
         named_result = {}
         for k, v in result.items():
-            named_result[f'val_qpd/{k}'] = v
+            named_result[f'val_qpd_dpd_disp/{k}'] = v
             if 'img' not in k:
-                print(f'val_qpd/{k}: {v}')
+                print(f'val_qpd_dpd_disp/{k}: {v}')
 
         logger.write_dict(named_result)
 
@@ -910,9 +910,9 @@ if __name__ == '__main__':
         
         named_result = {}
         for k, v in result.items():
-            named_result[f'val_qpd/{k}'] = v
+            named_result[f'val_real_qpd/{k}'] = v
             if 'img' not in k:
-                print(f'val_qpd/{k}: {v}')
+                print(f'val_real_qpd/{k}: {v}')
 
         logger.write_dict(named_result)
 
