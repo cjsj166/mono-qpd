@@ -376,12 +376,12 @@ def train(args):
                 
             #     logger.write_dict(named_results)
 
-                model.train()
+                # model.train()
                 # model.module.freeze_bn()
 
-        if total_steps > args.num_steps or (args.stop_step is not None and total_steps > args.stop_step):
-            should_keep_training = False
-            break
+            if total_steps > args.num_steps or (args.stop_step is not None and total_steps > args.stop_step):
+                should_keep_training = False
+                break
 
         if len(train_loader) >= 10000:
             model_save_path = os.path.join(args.save_path, 'checkpoints', f'{epoch}_epoch_{total_steps + 1}_{args.name}.pth.gz')
@@ -389,8 +389,6 @@ def train(args):
             logging.info(f"Saving file {model_save_path}")
             torch.save(model.module.state_dict(), model_save_path)
         
-
-
     print("FINISHED TRAINING")
     logger.close()
     model_save_path = os.path.join(args.save_path, 'checkpoints', f'final.pth')
