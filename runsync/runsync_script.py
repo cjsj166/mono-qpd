@@ -81,6 +81,7 @@ def write_and_submit(script_path: Path, text: str, do_submit: bool) -> str:
     print(str(script_path.resolve()))
     if not do_submit:
         return ""
+    # 그룹은 헤더가 아니라 qsub 인자에서 지정
     res = subprocess.run(f"qsub -g tga-lab_okmn {script_path}", shell=True, capture_output=True, text=True)
     out = res.stdout.strip()
     err = res.stderr.strip()
@@ -104,7 +105,7 @@ def main():
 
     exec_path = Path.cwd()
 
-    # ✅ scripts/<run_setting_name>/ 구조로 정리
+    # scripts/<run_setting_name>/ 구조
     root_scripts_dir = exec_path / "scripts"
     scripts_dir = root_scripts_dir / args.run_setting_name
     scripts_dir.mkdir(parents=True, exist_ok=True)
@@ -149,7 +150,7 @@ cd {exec_path}
         scripts_dir / f"{base}_eval_err.log",
     ).rstrip()
 
-    # 재제출 시간(23h55m)
+    # 재제출 시간 (운영: 23h55m). 지금은 테스트 값.
     # limit_sec = 23 * 3600 + 55 * 60
     limit_sec = 4 * 60
 
@@ -157,6 +158,8 @@ cd {exec_path}
     script = f"""#!/bin/bash
 {render_header(train_header, train_jobname, out_log, err_log)}
 cd {exec_path}
+
+echo "[info] JOB_ID=$JOB_ID JOB_NAME=$JOB_NAME"
 
 SELF="{script_path.resolve()}"
 CKPT_DIR="{checkpoints_dir.resolve()}"
@@ -168,9 +171,7 @@ echo "[pack] start single job: train + watcher + restarter"
 
 # ---- WATCHER: latest.pth 갱신 시에만 평가 서브잡 제출 ----
 watcher_loop() {{
-  # 기본 폴링/안정화 시간 (환경변수로 덮어쓸 수 있음)
-
-  echo "[watcher] watching latest: $CKPT_DIR/latest.pth"
+  echo "[watcher] watching latest: $CKPT_DIR/latest.pth (poll=${{POLL}}s, settle=${{SETTLE}}s)"
 
   # 파일 쓰기 안정화 체크: 연속 두 번 사이즈가 같으면 '안정'
   stable_size() {{
@@ -185,9 +186,8 @@ watcher_loop() {{
   LAST_SIG=""
 
   while true; do
-    # latest.pth가 심볼릭 링크일 때만 동작 (네 환경 전제)
+    # latest.pth는 심볼릭 링크 전제
     if [[ -L "$CKPT_DIR/latest.pth" ]]; then
-      # 링크의 최종 타겟(정규 경로)을 시그니처로 사용
       SIG=$(readlink -f "$CKPT_DIR/latest.pth" 2>/dev/null || echo "")
     else
       SIG=""
@@ -223,8 +223,9 @@ restarter_loop() {{
     fi
     now=$(date +%s); elapsed=$((now-start))
     if [ $elapsed -ge $LIMIT ]; then
-      echo "[restarter] time reached; re-submit SELF: $SELF"
-      qsub -g tga-lab_okmn "$SELF"
+      echo "[restarter] time reached; re-submit SELF with hold on current JOB_ID=$JOB_ID: $SELF"
+      # 현재 잡이 종료된 뒤에만 새 잡이 시작되도록 의존성 설정
+      qsub -g tga-lab_okmn -hold_jid "$JOB_ID" "$SELF"
       return 0
     fi
     sleep 30
