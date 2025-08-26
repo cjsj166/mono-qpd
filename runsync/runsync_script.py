@@ -45,6 +45,7 @@ def pick_header_env_for_eval():
 
 
 def render_header(header_env: dict, job_name: str, stdout_log: Path, stderr_log: Path) -> str:
+    # 이 헤더는 스크립트 파일 맨 위에만 들어가도록 사용한다.
     return f"""#$ -cwd
 #$ -o {stdout_log}
 #$ -e {stderr_log}
@@ -60,7 +61,7 @@ conda activate {header_env["env_name"]}
 
 
 def build_train_cmd(run_setting_name: str, checkpoints_dir: Path) -> str:
-    # latest.pth 유무에 상관없이 프로그램이 알아서 처리하므로 항상 넣는다.
+    # latest.pth 유무는 프로그램 내부에서 처리하므로 항상 넣는다.
     return f"python train_mono_qpd.py --exp_name {run_setting_name} --restore_ckpt latest"
 
 
@@ -81,7 +82,7 @@ def write_and_submit(script_path: Path, text: str, do_submit: bool) -> str:
     print(str(script_path.resolve()))
     if not do_submit:
         return ""
-    # 그룹은 헤더가 아니라 qsub 인자에서 지정
+    # 그룹은 qsub 옵션에서 지정
     res = subprocess.run(f"qsub -g tga-lab_okmn {script_path}", shell=True, capture_output=True, text=True)
     out = res.stdout.strip()
     err = res.stderr.strip()
@@ -131,40 +132,48 @@ cd {exec_path}
         write_and_submit(script_path, script, do_submit)
         return
 
-    # ===== train 모드(단일 잡 내부에 3 프로세스 병렬) =====
+    # ===== train 모드 =====
     train_header = pick_header_env_for_train()
     train_jobname = f"{args.run_setting_name}_train_pack"
     base = f"pack_{args.run_setting_name}_{ts}"
-    script_path = scripts_dir / f"{base}.sh"
+    pack_script_path = scripts_dir / f"{base}.sh"
     out_log = scripts_dir / f"{base}_out.log"
     err_log = scripts_dir / f"{base}_err.log"
 
     train_cmd = build_train_cmd(args.run_setting_name, checkpoints_dir)
     eval_cmd = build_eval_cmd(args.run_setting_name, "latest", args.eval_datasets)  # watcher는 항상 latest로 평가
 
-    # 평가 서브잡 헤더(HereDoc로 제출할 때 박아넣는다)
-    eval_header_text = render_header(
-        pick_header_env_for_eval(),
-        f"{args.run_setting_name}_eval",
-        scripts_dir / f"{base}_eval_out.log",
-        scripts_dir / f"{base}_eval_err.log",
-    ).rstrip()
+    # ✅ (중요) 평가 전용 스크립트를 별도 파일로 저장
+    eval_header = pick_header_env_for_eval()
+    eval_jobname = f"{args.run_setting_name}_eval"
+    eval_script_path = scripts_dir / f"eval_runner_{args.run_setting_name}.sh"  # 고정 파일명
+    eval_out_log = scripts_dir / f"eval_runner_{args.run_setting_name}_out.log"
+    eval_err_log = scripts_dir / f"eval_runner_{args.run_setting_name}_err.log"
+
+    eval_script_text = f"""#!/bin/bash
+{render_header(eval_header, eval_jobname, eval_out_log, eval_err_log)}
+cd {exec_path}
+{eval_cmd}
+"""
+    eval_script_path.write_text(eval_script_text)
+    eval_script_path.chmod(0o755)
 
     # 재제출 시간 (운영: 23h55m). 지금은 테스트 값.
     # limit_sec = 23 * 3600 + 55 * 60
     limit_sec = 4 * 60
 
-    # 단일 잡 스크립트(3개 프로세스 병렬: TRAIN(포그라운드), WATCHER(백), RESTARTER(백))
-    script = f"""#!/bin/bash
+    # ---- pack 스크립트(학습 + watcher + restarter) 본문 ----
+    pack_script_text = f"""#!/bin/bash
 {render_header(train_header, train_jobname, out_log, err_log)}
 cd {exec_path}
 
 echo "[info] JOB_ID=$JOB_ID JOB_NAME=$JOB_NAME"
 
-SELF="{script_path.resolve()}"
+SELF="{pack_script_path.resolve()}"
 CKPT_DIR="{checkpoints_dir.resolve()}"
-POLL=60
-SETTLE=10
+EVAL_SCRIPT="{eval_script_path.resolve()}"
+POLL="${{POLL:-60}}"
+SETTLE="${{SETTLE:-10}}"
 LIMIT={limit_sec}
 
 echo "[pack] start single job: train + watcher + restarter"
@@ -173,7 +182,7 @@ echo "[pack] start single job: train + watcher + restarter"
 watcher_loop() {{
   echo "[watcher] watching latest: $CKPT_DIR/latest.pth (poll=${{POLL}}s, settle=${{SETTLE}}s)"
 
-  # 파일 쓰기 안정화 체크: 연속 두 번 사이즈가 같으면 '안정'
+  # 파일 쓰기 안정화 체크
   stable_size() {{
     local f="$1"
     local s1 s2
@@ -186,24 +195,17 @@ watcher_loop() {{
   LAST_SIG=""
 
   while true; do
-    # latest.pth는 심볼릭 링크 전제
     if [[ -L "$CKPT_DIR/latest.pth" ]]; then
       SIG=$(readlink -f "$CKPT_DIR/latest.pth" 2>/dev/null || echo "")
     else
       SIG=""
     fi
 
-    # SIG가 유효하고, 이전과 달라졌다면 갱신으로 간주
     if [[ -n "$SIG" && "$SIG" != "$LAST_SIG" ]]; then
       TARGET="$SIG"
       if [[ -f "$TARGET" ]] && stable_size "$TARGET"; then
         echo "[watcher] latest updated → $TARGET"
-        qsub -g tga-lab_okmn <<'EOF'
-#!/bin/bash
-{eval_header_text}
-cd {exec_path}
-{eval_cmd}
-EOF
+        qsub -g tga-lab_okmn "$EVAL_SCRIPT"
         LAST_SIG="$SIG"
       fi
     fi
@@ -212,7 +214,7 @@ EOF
   done
 }}
 
-# ---- RESTARTER: final.pth 있으면 종료, 아니면 시간 도달 시 자기 자신 재제출 ----
+# ---- RESTARTER: final.pth 발견 시 종료, 아니면 시간 도달 시 자기 자신을 hold 의존으로 재제출 ----
 restarter_loop() {{
   echo "[restarter] limit=$LIMIT s; early exit if final.pth appears"
   local start=$(date +%s)
@@ -224,7 +226,6 @@ restarter_loop() {{
     now=$(date +%s); elapsed=$((now-start))
     if [ $elapsed -ge $LIMIT ]; then
       echo "[restarter] time reached; re-submit SELF with hold on current JOB_ID=$JOB_ID: $SELF"
-      # 현재 잡이 종료된 뒤에만 새 잡이 시작되도록 의존성 설정
       qsub -g tga-lab_okmn -hold_jid "$JOB_ID" "$SELF"
       return 0
     fi
@@ -248,7 +249,8 @@ echo "[pack] train finished rc=$TRAIN_RC"
 exit $TRAIN_RC
 """
 
-    write_and_submit(script_path, script, do_submit)
+    # pack 스크립트 쓰고 제출
+    write_and_submit(pack_script_path, pack_script_text, do_submit)
 
 
 if __name__ == "__main__":
