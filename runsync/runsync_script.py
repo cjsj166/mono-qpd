@@ -62,8 +62,7 @@ conda activate {header_env["env_name"]}
 
 def build_train_cmd(run_setting_name: str, checkpoints_dir: Path) -> str:
     # latest.pth 유무는 프로그램 내부에서 처리하므로 항상 넣는다.
-    return f"python train_mono_qpd.py --exp_name {run_setting_name} --restore_ckpt latest"
-
+    return f"python train_mono_qpd.py --exp_name {run_setting_name} --restore_ckpt result/train/{run_setting_name}/checkpoints/latest.pth"
 
 def build_eval_cmd(run_setting_name: str, ckpt_epoch: str, eval_datasets: list[str]) -> str:
     ds = " ".join(eval_datasets)
