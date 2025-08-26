@@ -20,8 +20,7 @@ import mono_qpd.QPDNet.Quad_datasets as datasets
 from argparse import Namespace
 from evaluate_mono_qpd import validate_QPD, validate_DPD_Disp
 from datetime import datetime
-from exp_args_settings.train_settings import get_train_config
-
+from runsync.presets import get_run_setting
 
 try:
     from torch.cuda.amp import GradScaler
@@ -119,8 +118,7 @@ class Logger:
         self.scheduler = scheduler
         self.total_steps = total_steps
         self.running_loss = {}
-        timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-        self.writer = SummaryWriter(log_dir=os.path.join(log_dir, timestamp))
+        self.writer = SummaryWriter(log_dir=os.path.join(log_dir))
 
     def _print_training_status(self):
         metrics_data = [self.running_loss[k]/Logger.SUM_FREQ for k in sorted(self.running_loss.keys())]
@@ -131,8 +129,7 @@ class Logger:
         logging.info(f"Training Metrics ({self.total_steps}): {training_str + metrics_str}")
 
         if self.writer is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            self.writer = SummaryWriter(log_dir=os.path.join('result/runs', timestamp))
+            self.writer = SummaryWriter(log_dir=os.path.join('result/runs'))
 
         for k in self.running_loss:
             self.writer.add_scalar(k, self.running_loss[k]/Logger.SUM_FREQ, self.total_steps)
@@ -153,8 +150,7 @@ class Logger:
 
     def write_dict(self, results):
         if self.writer is None:
-            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-            self.writer = SummaryWriter(log_dir=os.path.join('result/runs', timestamp))
+            self.writer = SummaryWriter(log_dir=os.path.join('result/runs'))
 
         for key in results:
             
@@ -187,23 +183,7 @@ def check_nan_hook(name):
         check_nan(module, name, output)        
     return check_nan_hook
 
-# def split_arguments(args):
-#     args_dict = vars(args)
-#     da_v2_keys = {'encoder', 'img-size', 'epochs', 'local-rank', 'port', 'restore_ckpt_da_v2', 'freeze_da_v2'}
-
-#     da_v2_args = {key: args_dict[key] for key in da_v2_keys if key in args_dict}
-#     else_args = {key: args_dict[key] for key in args_dict if key not in da_v2_keys}
-
-#     return {
-#         'da_v2': Namespace(**da_v2_args),
-#         'else': Namespace(**else_args),
-#     }
-
-
-# args.txt 만들기, runs timestamp폴더
 def train(args):
-    # Split arguments
-    # args = split_arguments(args)
 
     torch.manual_seed(1234)
     np.random.seed(1234)
@@ -222,8 +202,7 @@ def train(args):
     # args = args['else']
 
     # Prepare the save directory
-    timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
-    save_dir = os.path.join(args.save_path, timestamp)
+    save_dir = os.path.join(args.save_path)
     model_save_dir = os.path.join(save_dir, 'checkpoints')
     log_dir = os.path.join(save_dir, 'runs')
 
@@ -231,18 +210,17 @@ def train(args):
     os.makedirs(log_dir, exist_ok=True)
 
     train_loader = datasets.fetch_dataloader(args)
-    
-    if args.restore_ckpt_mono_qpd is not None:
-        assert os.path.exists(args.restore_ckpt_mono_qpd)
+    total_steps = 0
+    optimizer, scheduler = fetch_optimizer(args, model, -1)
+    model.da_v2.load_state_dict(torch.load(args.restore_ckpt_da_v2))
+    # if args.restore_ckpt_mono_qpd is not None:
+    #     # assert os.path.exists(args.restore_ckpt_mono_qpd)
+    if os.path.exists(args.restore_ckpt_mono_qpd):
 
         ckpt = torch.load(args.restore_ckpt_mono_qpd)
         total_steps = ckpt['total_steps']
-        model.load_state_dict(ckpt['model_state_dict'])
-
-        model = nn.DataParallel(model)
-        model.cuda()
-
-        optimizer, scheduler = fetch_optimizer(args, model, -1)
+        model.qpdnet.load_state_dict(ckpt['qpdnet_state_dict'])
+        model.feature_converter.load_state_dict(ckpt['fcvt_state_dict'])
     
         optimizer.load_state_dict(ckpt['optimizer_state_dict'])
         scheduler.load_state_dict(ckpt['scheduler_state_dict'])
@@ -251,27 +229,12 @@ def train(args):
             optimizer.load_state_dict(ckpt['optimizer_state_dict'])
             scheduler.load_state_dict(ckpt['scheduler_state_dict'])
 
-        restore_path_split = args.restore_ckpt_mono_qpd.split('/')
-
-        dst_path = os.path.join(save_dir, restore_path_split[-3]) # [new dir name]/[restored ckpt dir name]
-        src_path = '/'.join(restore_path_split[:-2]) # Excluding checkpoints/x.pth [restored ckpt dir name]/
-        os.symlink(src_path, dst_path)
-
-        dst_path = os.path.join('/'.join(restore_path_split[:-2]), os.path.basename(save_dir)) # [destination directory name]/[source directory name]
-        src_path = save_dir # [new dir name]/
-        os.symlink(src_path, dst_path)
     else:
-        total_steps = 0
-        optimizer, scheduler = fetch_optimizer(args, model, -1)
-
-        if args.restore_ckpt_qpd_net:
-            model.qpdnet.load_state_dict(torch.load(args.restore_ckpt_qpd_net))
-
-        if args.restore_ckpt_da_v2:
-            model.da_v2.load_state_dict(torch.load(args.restore_ckpt_da_v2))
-
+        print(f"Checkpoint not found. Training from scratch.")
         model = nn.DataParallel(model)
         model.cuda()
+        
+
 
 
     if args.freeze_da_v2:
@@ -312,8 +275,8 @@ def train(args):
     while should_keep_training:
         for i_batch, data_blob in enumerate(tqdm(train_loader)):
             # if args.debug_mode:
-            #     if i_batch > 3:
-            #         break
+            # if i_batch > 3:
+            #     break
 
             optimizer.zero_grad()
 
@@ -376,22 +339,33 @@ def train(args):
 
             total_steps += 1
 
-            if total_steps % (batch_len*5) == 0 or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:    
+            if total_steps % (batch_len * 5) == 0 or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:    
 
                 epoch = int(total_steps/batch_len)
                 
-                model_save_path = os.path.join(args.save_path, timestamp, 'checkpoints', f'{epoch:03d}_epoch_{total_steps}_{args.name}.pth')
+                model_save_path = os.path.join(args.save_path, 'checkpoints', f'{epoch:03d}_epoch_{total_steps}_{args.name}.pth')
                 model_save_path = Path(model_save_path).absolute()
 
                 print(os.path.basename(model_save_path))
                 logging.info(f"Saving file {model_save_path}")
                 torch.save({
-                            'model_state_dict': model.module.state_dict(),
+                            'qpdnet_state_dict': model.module.qpdnet.state_dict(),
+                            'fcvt_state_dict': model.module.feature_converter.state_dict(),
                             'optimizer_state_dict': optimizer.state_dict(),
                             'scheduler_state_dict': scheduler.state_dict(),
                             'total_steps': total_steps,
+                            'epoch': epoch,
                             # ... any other states you need
                             }, model_save_path)
+
+                # Update the latest symlink
+                tmp = os.path.join(model_save_dir, "latest.pth.tmp")
+                latest = os.path.join(model_save_dir, "latest.pth")
+
+                if os.path.islink(tmp) or os.path.exists(tmp): os.unlink(tmp)
+                os.symlink(model_save_path, tmp)
+                os.replace(tmp, latest)
+
 
             if total_steps % (batch_len*5) == 0 or total_steps==1:
                 if total_steps == 1:
@@ -463,15 +437,16 @@ def train(args):
             break
 
         if len(train_loader) >= 10000:
-            model_save_path = os.path.join(args.save_path, timestamp, 'checkpoints', f'{epoch}_epoch_{total_steps + 1}_{args.name}.pth.gz')
+            model_save_path = os.path.join(args.save_path, 'checkpoints', f'{epoch}_epoch_{total_steps + 1}_{args.name}.pth.gz')
             print()
             logging.info(f"Saving file {model_save_path}")
             torch.save(model.module.state_dict(), model_save_path)
+        
 
 
     print("FINISHED TRAINING")
     logger.close()
-    model_save_path = os.path.join(args.save_path, timestamp, 'checkpoints', f'{args.name}.pth')
+    model_save_path = os.path.join(args.save_path, 'checkpoints', f'final.pth')
     torch.save(model.module.state_dict(), model_save_path)
 
     return model_save_path
@@ -482,7 +457,8 @@ if __name__ == '__main__':
     parser.add_argument('--restore_ckpt', type=str, default=None, help="restore checkpoint")
     args = parser.parse_args()
 
-    conf = get_train_config(args.exp_name)
+    # conf = get_train_config(args.exp_name)
+    conf = get_run_setting(args.exp_name)
     
     if args.restore_ckpt:
         conf.restore_ckpt_mono_qpd = args.restore_ckpt

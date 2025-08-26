@@ -29,7 +29,8 @@ from metrics.eval import Eval
 from collections import OrderedDict
 
 from exp_args_settings.utils import get_ckpts_in_dir
-from exp_args_settings.train_settings import get_train_config
+
+from runsync.presets import get_run_setting
 
 def fix_key(state_dict):
     new_state_dict = OrderedDict()
@@ -258,7 +259,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
             bads = eval_est.ai2_bad_pixel_metrics(flow_pr_i, inv_depth_gt_i)
             est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
 
-            print(est_ai1, est_b1, est_ai2, est_b2, sc)
+            # print(est_ai1, est_b1, est_ai2, est_b2, sc)
 
             val_id = i_batch * batch_size + i
 
@@ -299,30 +300,18 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
 
                 plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), center_i.astype(np.uint8))
 
-                img_est_ai2_fit = Image.open(os.path.join(ai2_fit_dir, pth)).convert("RGB")
-                img_est_ai2_fit = np.array(img_est_ai2_fit)
-                img_est_ai2_fit = np.moveaxis(img_est_ai2_fit, -1, 0)
-                result[f'img/{val_id}/est_ai2_fit'] = img_est_ai2_fit
-                img_gt = Image.open(os.path.join(gt_dir, pth)).convert("RGB")
-                img_gt = np.array(img_gt)
-                img_gt = np.moveaxis(img_gt, -1, 0)
-                result[f'img/{val_id}/gt'] = img_gt
-                img_src = Image.open(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png'))).convert("RGB")
-                img_src = np.array(img_src)
-                img_src = np.moveaxis(img_src, -1, 0)
-                result[f'img/{val_id}/src'] = img_src
-
-                # plt.imsave(os.path.join(src_dir, 'test_l', 'source', 'scenes', pth.replace('B', 'L').replace('.jpg', '.png')), image2[0].astype(np.uint8))
-                # plt.imsave(os.path.join(src_dir, 'test_r', 'source', 'scenes', pth.replace('B', 'R').replace('.jpg', '.png')), image2[1].astype(np.uint8))
-
-                # percent = 10
-                # delta = np.percentile(np.abs(flow_pr), percent)
-                # mask = (flow_pr >= -delta) & (flow_pr <= delta)
-                # masked_flow_pr = np.where(mask, 255, 0)
-
-                # mask_rng_dir = os.path.join(masked_dir, f'{str(percent).replace('.','_')}')
-                # os.makedirs(mask_rng_dir, exist_ok=True)
-                # plt.imsave(os.path.join(mask_rng_dir, pth), masked_flow_pr.squeeze(), cmap='gray')
+                # img_est_ai2_fit = Image.open(os.path.join(ai2_fit_dir, pth)).convert("RGB")
+                # img_est_ai2_fit = np.array(img_est_ai2_fit)
+                # img_est_ai2_fit = np.moveaxis(img_est_ai2_fit, -1, 0)
+                # result[f'img/{val_id}/est_ai2_fit'] = img_est_ai2_fit
+                # img_gt = Image.open(os.path.join(gt_dir, pth)).convert("RGB")
+                # img_gt = np.array(img_gt)
+                # img_gt = np.moveaxis(img_gt, -1, 0)
+                # result[f'img/{val_id}/gt'] = img_gt
+                # img_src = Image.open(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png'))).convert("RGB")
+                # img_src = np.array(img_src)
+                # img_src = np.moveaxis(img_src, -1, 0)
+                # result[f'img/{val_id}/src'] = img_src
                 
 
     eval_est.save_metrics()
@@ -469,36 +458,18 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
                 plt.imsave(os.path.join(gt_dir, pth), disp_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
                 plt.imsave(os.path.join(src_dir, pth), center_i.astype(np.uint8))
 
-                img_est = Image.open(os.path.join(ai2_fit_dir, pth)).convert("RGB")
-                img_est = np.array(img_est)
-                img_est = np.moveaxis(img_est, -1, 0)
-                result[f'img/{val_id}/est'] = img_est
-                img_gt = Image.open(os.path.join(gt_dir, pth)).convert("RGB")
-                img_gt = np.array(img_gt)
-                img_gt = np.moveaxis(img_gt, -1, 0)
-                result[f'img/{val_id}/gt'] = np.array(img_gt)
-                img_src = Image.open(os.path.join(src_dir, pth)).convert("RGB")
-                img_src = np.array(img_src)
-                img_src = np.moveaxis(img_src, -1, 0)
-                result[f'img/{val_id}/src'] = np.array(img_src)
-
-                colormap = cm.jet
-
-                # est_colorized = colormap((est_ai2_fit - vmin) / (vmax - vmin))
-                # est_colorized = (est_colorized * 255).astype(np.uint8)[0, :, :, :3]
-                # est_colorized = np.moveaxis(est_colorized, -1, 0)
-                # result[f'{val_id}_est_colormap'] = est_colorized
-
-                # error_image = np.abs(est_ai2_fit - disp_gt_i)
-                # error_colorized = colormap((error_image - vmin_err) / (vmax_err - vmin_err))
-                # error_colorized = (error_colorized * 255).astype(np.uint8)[0, :, :, :3]
-                # error_colorized = np.moveaxis(error_colorized, -1, 0)
-                # result[f'{val_id}_err_colormap'] = error_colorized
-
-                # gt_colorized = colormap((disp_gt_i - vmin) / (vmax - vmin))
-                # gt_colorized = (gt_colorized * 255).astype(np.uint8)[0, :, :, :3]
-                # gt_colorized = np.moveaxis(gt_colorized, -1, 0)
-                # result[f'{val_id}_gt_colormap'] = gt_colorized
+                # img_est = Image.open(os.path.join(ai2_fit_dir, pth)).convert("RGB")
+                # img_est = np.array(img_est)
+                # img_est = np.moveaxis(img_est, -1, 0)
+                # result[f'img/{val_id}/est'] = img_est
+                # img_gt = Image.open(os.path.join(gt_dir, pth)).convert("RGB")
+                # img_gt = np.array(img_gt)
+                # img_gt = np.moveaxis(img_gt, -1, 0)
+                # result[f'img/{val_id}/gt'] = np.array(img_gt)
+                # img_src = Image.open(os.path.join(src_dir, pth)).convert("RGB")
+                # img_src = np.array(img_src)
+                # img_src = np.moveaxis(img_src, -1, 0)
+                # result[f'img/{val_id}/src'] = np.array(img_src)
 
     eval_est.save_metrics()
     result = {**result, **eval_est.get_mean_metrics()}
@@ -754,37 +725,57 @@ def make_DDDP(model, datatype='dual', gt_types=['AiF'], iters=32, mixed_prec=Fal
 
 
 if __name__ == '__main__':
+    start_time = time.time()
+
     parser = argparse.ArgumentParser()
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
-    parser.add_argument('--ckpt_epoch', type=int, default=0)
+    parser.add_argument('--ckpt_epoch', type=str, default=0)
     parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise', 'Make_QPD', 'Make_DDDP'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
     
     args = parser.parse_args()
 
-    conf = get_train_config(args.exp_name)
+    # conf = get_train_config(args.exp_name)
+    conf = get_run_setting(args.exp_name)
 
-    ckpts = get_ckpts_in_dir(conf.save_path)
 
-    for ckpt in ckpts:
-        try:
-            epoch = int(os.path.basename(ckpt).split('_')[0])
-        except Exception as e:
-            print(f'{e} occured from ckpt: {ckpt}')
+    if args.ckpt_epoch == 'latest':
+        restore_ckpt = os.path.join(conf.save_path, 'checkpoints', 'latest.pth')
+    else:
+        args.ckpt_epoch = int(args.ckpt_epoch)
+        ckpts = get_ckpts_in_dir(conf.save_path) # Get all checkpoints sorted by epoch
+        for ckpt in ckpts:
+            try:
+                epoch = int(os.path.basename(ckpt).split('_')[0])
+            except Exception as e:
+                print(f'{e} occured from ckpt: {ckpt}')
 
-        if epoch == args.ckpt_epoch:
-            restore_ckpt = ckpt
-            break    
+            if epoch == args.ckpt_epoch: # Find the specified epoch
+                restore_ckpt = ckpt
+                break
 
     model = MonoQPD(conf)
     if restore_ckpt is not None:
         assert str(restore_ckpt).endswith(".pth")
         logging.info("Loading checkpoint...")
         checkpoint = torch.load(restore_ckpt)
-        # model.load_state_dict(checkpoint, strict=True)
-        if 'model_state_dict' in checkpoint and 'optimizer_state_dict' in checkpoint and 'scheduler_state_dict' in checkpoint:
+        model.da_v2.load_state_dict(torch.load('mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'))
+        if 'qpdnet_state_dict' in checkpoint and 'optimizer_state_dict' in checkpoint and 'scheduler_state_dict' in checkpoint:
             c={}
-            c['model_state_dict'] = fix_key(checkpoint['model_state_dict'])
-            model.load_state_dict(c['model_state_dict'])
+            c['qpdnet_state_dict'] = fix_key(checkpoint['qpdnet_state_dict'])
+            model.qpdnet.load_state_dict(c['qpdnet_state_dict'])
+            model.feature_converter.load_state_dict(fix_key(checkpoint['fcvt_state_dict']))
+            epoch = checkpoint['epoch']
+
+        # # For loading old checkpoints
+        # model.load_state_dict(checkpoint, strict=True)
+        # if 'model_state_dict' in checkpoint and 'optimizer_state_dict' in checkpoint and 'scheduler_state_dict' in checkpoint:
+            # model_dummy = MonoQPD(conf)
+            # model_dummy.load_state_dict(checkpoint['model_state_dict'], strict=True)
+            # c['qpdnet_state_dict'] = fix_key(model_dummy.qpdnet.state_dict())
+            # c['fcvt_state_dict'] = fix_key(model_dummy.feature_converter.state_dict())
+            # model.qpdnet.load_state_dict(c['qpdnet_state_dict'], strict=True)
+            # model.feature_converter.load_state_dict(c['fcvt_state_dict'], strict=True)
+            
         else:
             model.load_state_dict(checkpoint, strict=True)
         logging.info(f"Done loading checkpoint")
@@ -799,28 +790,28 @@ if __name__ == '__main__':
     use_mixed_precision = conf.corr_implementation.endswith("_cuda")
 
     if 'QPD-Test' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'qpd-test', str(restore_ckpt.name).replace('.pth', ''))
+        save_path = os.path.join(conf.save_path, 'qpd-test', f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
     if 'QPD-Test-noise' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'qpd-test-noise', str(restore_ckpt.name).replace('.pth', ''))
+        save_path = os.path.join(conf.save_path, 'qpd-test-noise', f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data-noise0.001', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
     if 'QPD-Valid' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'qpd-valid', str(restore_ckpt.name).replace('.pth', ''))
+        save_path = os.path.join(conf.save_path, 'qpd-valid', f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_valid_bs if conf.qpd_valid_bs else 1)
     if 'DPD_Disp' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'dp-disp', str(restore_ckpt.name).replace('.pth', ''))
+        save_path = os.path.join(conf.save_path, 'dp-disp', f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_DPD_Disp(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
     if 'Real_QPD' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'real-qpd-test', str(restore_ckpt.name).replace('.pth', ''))
+        save_path = os.path.join(conf.save_path, 'real-qpd-test', f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_Real_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=conf.real_qpd_bs if conf.real_qpd_bs else 1)
 
     if 'Make_QPD' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'make-qpd', str(restore_ckpt.name).replace('.pth', ''))
+        save_path = os.path.join(conf.save_path, 'make-qpd', f'{epoch:03d}_epoch')
         print(save_path)
         
         # Make 448x448 patch with no augmentation with train set
@@ -841,7 +832,7 @@ if __name__ == '__main__':
         result = None
 
     if 'Make_DDDP' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'make-dddp', str(restore_ckpt.name).replace('.pth', ''))
+        save_path = os.path.join(conf.save_path, 'make-dddp', f'{epoch:03d}_epoch')
         print(save_path)
         
         # Make 448x448 patch with no augmentation with train set
@@ -858,6 +849,7 @@ if __name__ == '__main__':
         make_DDDP(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/DDDP_448patch', save_path=save_path, batch_size=2 if conf.qpd_test_bs else 1, preprocess_params=preprocess_params)
         result = None
 
+    elapsed = time.time() - start_time
 
-
+    print("Time taken: ", time.strftime("%H:%M:%S", time.gmtime(elapsed)))
     print(result)

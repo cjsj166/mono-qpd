@@ -13,147 +13,29 @@
         },
 
         {
-            "name": "exp_util test",
+            "name": "runsync train, LocalDispVolumeLR",
             "type": "debugpy",
             "request": "launch",
-            "program": "exp_data_organizer.py",
+            "program": "runsync/runsync_script.py",
             "console": "integratedTerminal",
             "args": [
-                "--exp_name",
-                "InterpOriginal_nonaug",
-                
-            ]
-        },
-
-
-        {
-            "name": "MonoQPD, train, qpd-train, fixed-conv, si-loss",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--batch_size",
-                "1",
-                "--restore_ckpt_da_v2",
-                "mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth",
-                "--image_size",
-                "224", "224",
-                "--datasets_path",
-                "datasets/QP-Data",
-                "--freeze_da_v2",
-                "--save_path",
-                "result/train/",
-                "--feature_converter",
-                "fixed-conv",
-                "--si_loss",
-                "0.5",
-            ]
-        },
-
-
-        {
-            "name": "MonoQPD, train, qpd-train, fixed-conv",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--batch_size",
-                "1",
-                "--restore_ckpt_da_v2",
-                "mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth",
-                "--image_size",
-                "224", "224",
-                "--datasets_path",
-                "datasets/QP-Data",
-                "--freeze_da_v2",
-                "--save_path",
-                "result/train/",
-                "--feature_converter",
-                "fixed-conv",
-            ]
-        },
-
-
-        {
-            "name": "MonoQPD, train, qpd-train, interp",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--batch_size",
-                "1",
-                "--restore_ckpt_da_v2",
-                "mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth",
-                "--image_size",
-                "224", "224",
-                "--datasets_path",
-                "datasets/QP-Data",
-                "--freeze_da_v2",
-                "--save_path",
-                "result/train/",
-                "--feature_converter",
-                "interp",
+                "--type", "train",
+                "--run_setting_name", "LocalDispVolumeLR",
+                // "--restore_ckpt", "latest"
             ]
         },
 
         {
-            "name": "MonoQPD, dataclass train, qpd-train, InterpQPDSetting",
+            "name": "runsync eval, LocalDispVolumeLR latest",
             "type": "debugpy",
             "request": "launch",
-            "program": "train_mono_qpd.py",
+            "program": "runsync/runsync_script.py",
             "console": "integratedTerminal",
             "args": [
-                "--exp_name",
-                "InterpQPDSetting",
-                // "--restore_ckpt",
-                // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
-            ]
-        },
-
-        {
-            "name": "MonoQPD, dataclass train, qpd-train, LocalGRU2",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "LocalGRU2",
-                // "--restore_ckpt",
-                // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
-            ]
-        },
-
-        
-        {
-            "name": "MonoQPD, dataclass train, qpd-train, LocalNoVolume",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "LocalNoVolume",
-                // "--restore_ckpt",
-                // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
-            ]
-        },
-
-                
-        {
-            "name": "MonoQPD, dataclass train, qpd-train, LocalNoVolumeLRProduct",
-            "type": "debugpy",
-            "request": "launch",
-            "program": "train_mono_qpd.py",
-            "console": "integratedTerminal",
-            "args": [
-                "--exp_name",
-                "LocalNoVolumeLRProduct",
-                // "--restore_ckpt",
-                // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
+                "--type", "eval",
+                "--run_setting_name", "LocalDispVolumeLR",
+                "--ckpt_epoch", "latest",
+                "--eval_datasets", "DPD_Disp", "QPD-Valid",
             ]
         },
 
@@ -181,13 +63,14 @@
                 "--exp_name",
                 "LocalDispVolumeLR",
                 "--restore_ckpt",
-                "result/train/LocalDispVolumeLR/20250825_161518/checkpoints/000_epoch_1_Mono-QPD.pth"
+                "result/train/LocalDispVolumeLR/checkpoints/latest.pth",
+                // "--debug_mode"
             ]
         },
 
 
         {
-            "name": "Mono-QPD, dataclass eval, LocalDispVolumeLR, 0epoch",
+            "name": "Mono-QPD, dataclass eval, LocalDispVolumeLR, latest",
             "type": "debugpy",
             "request": "launch",
             "program": "evaluate_mono_qpd.py",
@@ -195,8 +78,23 @@
             "args": [
                 "--exp_name",
                 "LocalDispVolumeLR",
-                "--ckpt_epoch", "0", // result/train/LocalDispVolumeLR/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
-                "--eval_datasets", "DPD_Disp",
+                "--ckpt_epoch", "latest", // result/train/LocalDispVolumeLR/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
+                "--eval_datasets", "DPD_Disp", "QPD-Valid"
+                // "--debug_mode"
+            ]
+        },
+
+        
+        {
+            "name": "Mono-QPD, runsync_run, train, LocalDispVolumeLR",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalDispVolumeLR",
+                "--ckpt_epoch", "latest", // result/train/LocalDispVolumeLR/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
                 // "--debug_mode"
             ]
         },
