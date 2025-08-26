@@ -260,7 +260,7 @@ class CorrBlock1D:
         for k, d in enumerate(disp_idx):
             l = torch.roll(left2,  shifts= int(d), dims=3)    # W축
             r = torch.roll(right2, shifts=-int(d),  dims=3)
-            corr2 = (l * r).sum(dim=1) / torch.sqrt(torch.tensor(C).float())
+            corr2 = (l * r).sum(dim=1)
 
             valid = ((w2_idx - d) >= 0) & ((w2_idx + d) < W2) # wrap-around 제거
             corr2[..., ~valid] = 0
