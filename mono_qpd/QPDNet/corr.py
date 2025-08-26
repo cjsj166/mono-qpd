@@ -219,7 +219,7 @@ class CorrBlock1D:
         right = fmap2[:, 1]
         corr = torch.einsum('aijk,aijh->ajkh', left, right)
         corr = corr.reshape(B, H, W, 1, W).contiguous()
-        return corr / torch.sqrt(torch.tensor(D).float())
+        return corr
         # return corr
 
     @staticmethod
@@ -304,13 +304,13 @@ class CorrBlock1D:
                 fmap1_m = fmap1[:,0].permute(0, 2, 3, 1)
                 fmap2_m = fmap2[:,s].permute(0, 2, 1, 3)
                 corr = torch.matmul(fmap1_m, fmap2_m).unsqueeze(3).contiguous()
-                corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+                corr_list.append(corr)
             
             for s in range(2,S):
                 fmap1_m = fmap1[:,1].permute(0, 3, 2, 1)
                 fmap2_m = fmap2[:,s].permute(0, 3, 1, 2)
                 corr = torch.matmul(fmap1_m, fmap2_m).permute(0, 2, 1, 3).unsqueeze(3).contiguous()
-                corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+                corr_list.append(corr)
             return corr_list
         
         B, D, H1, W1 = fmap1.shape
@@ -320,13 +320,13 @@ class CorrBlock1D:
             fmap1_m = fmap1.permute(0, 2, 3, 1)
             fmap2_m = fmap2[:,s].permute(0, 2, 1, 3)
             corr = torch.matmul(fmap1_m, fmap2_m).unsqueeze(3).contiguous()
-            corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+            corr_list.append(corr)
         
         for s in range(2,S):
             fmap1_m = fmap1.permute(0, 3, 2, 1)
             fmap2_m = fmap2[:,s].permute(0, 3, 1, 2)
             corr = torch.matmul(fmap1_m, fmap2_m).permute(0, 2, 1, 3).unsqueeze(3).contiguous()
-            corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+            corr_list.append(corr)
         return corr_list
 
 
@@ -360,7 +360,7 @@ class CorrBlock1D:
 #         fmap2 = fmap2.view(B, D, H, W2)
 #         corr = torch.einsum('aijk,aijh->ajkh', fmap1, fmap2)
 #         corr = corr.reshape(B, H, W1, 1, W2).contiguous()
-#         return corr / torch.sqrt(torch.tensor(D).float())
+#         return corr
 
 
 # class PytorchAlternateCorrBlock1D:
@@ -386,7 +386,7 @@ class CorrBlock1D:
 #             output_corr.append(corr)
 #         corr = torch.stack(output_corr, dim=1).permute(0,2,3,1)
 
-#         return corr / torch.sqrt(torch.tensor(D).float())
+#         return corr
 
 #     def __call__(self, coords):
 #         r = self.radius
