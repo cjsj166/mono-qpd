@@ -160,30 +160,55 @@ cd {exec_path}
 
 SELF="{script_path.resolve()}"
 CKPT_DIR="{checkpoints_dir.resolve()}"
-POLL=20
+POLL=60
 SETTLE=10
 LIMIT={limit_sec}
 
 echo "[pack] start single job: train + watcher + restarter"
 
-# ---- WATCHER: 최신 체크포인트 감시 후 평가 서브잡 제출 ----
+# ---- WATCHER: latest.pth 갱신 시에만 평가 서브잡 제출 ----
 watcher_loop() {{
-  echo "[watcher] watching $CKPT_DIR every $POLL s"
-  LAST=""
+  # 기본 폴링/안정화 시간 (환경변수로 덮어쓸 수 있음)
+
+  echo "[watcher] watching latest: $CKPT_DIR/latest.pth"
+
+  # 파일 쓰기 안정화 체크: 연속 두 번 사이즈가 같으면 '안정'
+  stable_size() {{
+    local f="$1"
+    local s1 s2
+    s1=$(stat -c %s "$f" 2>/dev/null || echo 0)
+    sleep "$SETTLE"
+    s2=$(stat -c %s "$f" 2>/dev/null || echo 0)
+    [[ "$s2" -gt 0 && "$s1" -eq "$s2" ]]
+  }}
+
+  LAST_SIG=""
+
   while true; do
-    NEWEST=$(ls -1t "$CKPT_DIR"/*.pth 2>/dev/null | head -n1)
-    if [ -n "$NEWEST" ] && [ "$NEWEST" != "$LAST" ]; then
-      echo "[watcher] detected new ckpt: $NEWEST"
-      sleep $SETTLE
-      LAST="$NEWEST"
-      qsub -g tga-lab_okmn <<'EOF'
+    # latest.pth가 심볼릭 링크일 때만 동작 (네 환경 전제)
+    if [[ -L "$CKPT_DIR/latest.pth" ]]; then
+      # 링크의 최종 타겟(정규 경로)을 시그니처로 사용
+      SIG=$(readlink -f "$CKPT_DIR/latest.pth" 2>/dev/null || echo "")
+    else
+      SIG=""
+    fi
+
+    # SIG가 유효하고, 이전과 달라졌다면 갱신으로 간주
+    if [[ -n "$SIG" && "$SIG" != "$LAST_SIG" ]]; then
+      TARGET="$SIG"
+      if [[ -f "$TARGET" ]] && stable_size "$TARGET"; then
+        echo "[watcher] latest updated → $TARGET"
+        qsub -g tga-lab_okmn <<'EOF'
 #!/bin/bash
 {eval_header_text}
 cd {exec_path}
 {eval_cmd}
 EOF
+        LAST_SIG="$SIG"
+      fi
     fi
-    sleep $POLL
+
+    sleep "$POLL"
   done
 }}
 
