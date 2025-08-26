@@ -51,7 +51,6 @@ def render_header(header_env: dict, job_name: str, stdout_log: Path, stderr_log:
 #$ -N {job_name}
 #$ -l {header_env["node_type"]}=1
 #$ -l h_rt={header_env["running_time"]}
-#$ -g tga-lab_okmn
 #$ -V
 . /etc/profile.d/modules.sh
 module load {header_env["cuda_version"]} {header_env["cudnn_version"]}
@@ -82,7 +81,7 @@ def write_and_submit(script_path: Path, text: str, do_submit: bool) -> str:
     print(str(script_path.resolve()))
     if not do_submit:
         return ""
-    res = subprocess.run(f"qsub {script_path}", shell=True, capture_output=True, text=True)
+    res = subprocess.run(f"qsub -g tga-lab_okmn {script_path}", shell=True, capture_output=True, text=True)
     out = res.stdout.strip()
     err = res.stderr.strip()
     if out:
@@ -177,7 +176,7 @@ watcher_loop() {{
       echo "[watcher] detected new ckpt: $NEWEST"
       sleep $SETTLE
       LAST="$NEWEST"
-      qsub <<'EOF'
+      qsub -g tga-lab_okmn <<'EOF'
 #!/bin/bash
 {eval_header_text}
 cd {exec_path}
@@ -200,7 +199,7 @@ restarter_loop() {{
     now=$(date +%s); elapsed=$((now-start))
     if [ $elapsed -ge $LIMIT ]; then
       echo "[restarter] time reached; re-submit SELF: $SELF"
-      qsub "$SELF"
+      qsub -g tga-lab_okmn "$SELF"
       return 0
     fi
     sleep 30
