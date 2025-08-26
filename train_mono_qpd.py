@@ -15,12 +15,15 @@ import torch.optim as optim
 from mono_qpd.mono_qpd import MonoQPD
 import os
 from mono_qpd.loss import ScaleInvariantLoss, LeastSquareScaleInvariantLoss
-from evaluate_mono_qpd import *
+# from evaluate_mono_qpd import *
 import mono_qpd.QPDNet.Quad_datasets as datasets
 from argparse import Namespace
 from evaluate_mono_qpd import validate_QPD, validate_DPD_Disp
 from datetime import datetime
+from logger import Logger
+
 from runsync.presets import get_run_setting
+
 
 try:
     from torch.cuda.amp import GradScaler
@@ -108,66 +111,6 @@ def fetch_optimizer(args, model, last_epoch=-1):
 
     return optimizer, scheduler
 
-
-class Logger:
-
-    SUM_FREQ = 100
-
-    def __init__(self, model, scheduler, total_steps, log_dir='result/runs'):
-        self.model = model
-        self.scheduler = scheduler
-        self.total_steps = total_steps
-        self.running_loss = {}
-        self.writer = SummaryWriter(log_dir=os.path.join(log_dir))
-
-    def _print_training_status(self):
-        metrics_data = [self.running_loss[k]/Logger.SUM_FREQ for k in sorted(self.running_loss.keys())]
-        training_str = "[{:6d}, {:10.7f}] ".format(self.total_steps+1, self.scheduler.get_last_lr()[0])
-        metrics_str = ("{:10.4f}, "*len(metrics_data)).format(*metrics_data)
-        
-        # print the training status
-        logging.info(f"Training Metrics ({self.total_steps}): {training_str + metrics_str}")
-
-        if self.writer is None:
-            self.writer = SummaryWriter(log_dir=os.path.join('result/runs'))
-
-        for k in self.running_loss:
-            self.writer.add_scalar(k, self.running_loss[k]/Logger.SUM_FREQ, self.total_steps)
-            self.running_loss[k] = 0.0
-
-    def push(self, metrics):
-        self.total_steps += 1
-
-        for key in metrics:
-            if key not in self.running_loss:
-                self.running_loss[key] = 0.0
-
-            self.running_loss[key] += metrics[key]
-
-        if self.total_steps % Logger.SUM_FREQ == Logger.SUM_FREQ-1:
-            self._print_training_status()
-            self.running_loss = {}
-
-    def write_dict(self, results):
-        if self.writer is None:
-            self.writer = SummaryWriter(log_dir=os.path.join('result/runs'))
-
-        for key in results:
-            
-            if isinstance(results[key], torch.Tensor):
-                if results[key].dim() == 4:
-                    results[key] = results[key][0]
-                self.writer.add_image(key, results[key], self.total_steps)
-            elif isinstance(results[key], numpy.ndarray):
-                if results[key].ndim == 4:
-                    results[key] = results[key][0]
-                self.writer.add_image(key, results[key], self.total_steps)
-            else:
-                self.writer.add_scalar(key, results[key], self.total_steps)
-
-    def close(self):
-        self.writer.close()
-
 # Functions for NaN debugging
 def check_nan(module, name, output):
     if isinstance(output, tuple) or isinstance(output, list):
@@ -182,6 +125,9 @@ def check_nan_hook(name):
     def check_nan_hook(module, input, output):
         check_nan(module, name, output)        
     return check_nan_hook
+
+def count_parameters(model):
+    return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 def train(args):
 
@@ -215,12 +161,15 @@ def train(args):
     model.da_v2.load_state_dict(torch.load(args.restore_ckpt_da_v2))
     # if args.restore_ckpt_mono_qpd is not None:
     #     # assert os.path.exists(args.restore_ckpt_mono_qpd)
-    if os.path.exists(args.restore_ckpt_mono_qpd):
+    if args.restore_ckpt_mono_qpd is not None and os.path.exists(args.restore_ckpt_mono_qpd):
 
         ckpt = torch.load(args.restore_ckpt_mono_qpd)
         total_steps = ckpt['total_steps']
         model.qpdnet.load_state_dict(ckpt['qpdnet_state_dict'])
         model.feature_converter.load_state_dict(ckpt['fcvt_state_dict'])
+
+        model = nn.DataParallel(model)
+        model.cuda()
     
         optimizer.load_state_dict(ckpt['optimizer_state_dict'])
         scheduler.load_state_dict(ckpt['scheduler_state_dict'])
@@ -233,8 +182,6 @@ def train(args):
         print(f"Checkpoint not found. Training from scratch.")
         model = nn.DataParallel(model)
         model.cuda()
-        
-
 
 
     if args.freeze_da_v2:
@@ -339,8 +286,8 @@ def train(args):
 
             total_steps += 1
 
-            if total_steps % (batch_len * 5) == 0 or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:    
-
+            if total_steps % (batch_len // 8) == 0 or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:    
+                # total_steps % (batch_len * 2)
                 epoch = int(total_steps/batch_len)
                 
                 model_save_path = os.path.join(args.save_path, 'checkpoints', f'{epoch:03d}_epoch_{total_steps}_{args.name}.pth')
@@ -366,68 +313,68 @@ def train(args):
                 os.symlink(model_save_path, tmp)
                 os.replace(tmp, latest)
 
-
-            if total_steps % (batch_len*5) == 0 or total_steps==1:
-                if total_steps == 1:
-                    val_save_skip = 50
+            # validation function call, but commented as we use separate validation script
+            # if total_steps % (batch_len*5) == 0 or total_steps==1:
+            #     if total_steps == 1:
+            #         val_save_skip = 50
                 
-                save_dir = os.path.join(args.save_path, 'qpd-valid', f'{epoch:03d}_epoch')
+            #     save_dir = os.path.join(args.save_path, 'qpd-valid', f'{epoch:03d}_epoch')
 
-                # FIXME: This is a temporary fix for the bug in the validation code
-                # commented temporalily ----------------------------------------------------------------------------------
+            #     # FIXME: This is a temporary fix for the bug in the validation code
+            #     # commented temporalily ----------------------------------------------------------------------------------
 
-                val_save_skip = 380 // 10
-                if args.debug_mode:
-                    val_save_skip = 370
-                    # val_save_skip = 380 // 10
+            #     val_save_skip = 380 // 10
+            #     if args.debug_mode:
+            #         val_save_skip = 370
+            #         # val_save_skip = 380 // 10
 
-                results = validate_QPD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
+            #     results = validate_QPD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
                     
-                if qpd_epebest>=results['epe']:
-                    qpd_epebest = results['epe']
-                    qpd_epeepoch = epoch
-                if qpd_rmsebest>=results['rmse']:
-                    qpd_rmsebest = results['rmse']
-                    qpd_rmseepoch = epoch
-                if qpd_ai2best>=results['ai2']:
-                    qpd_ai2best = results['ai2']
-                    qpd_ai2epoch = epoch
+            #     if qpd_epebest>=results['epe']:
+            #         qpd_epebest = results['epe']
+            #         qpd_epeepoch = epoch
+            #     if qpd_rmsebest>=results['rmse']:
+            #         qpd_rmsebest = results['rmse']
+            #         qpd_rmseepoch = epoch
+            #     if qpd_ai2best>=results['ai2']:
+            #         qpd_ai2best = results['ai2']
+            #         qpd_ai2epoch = epoch
                 
                 
-                named_results = {}
-                for k, v in results.items():
-                    named_results[f'val_qpd/{k}'] = v
-                    if 'img' not in k:
-                        print(f'val_qpd/{k}: {v}')
+            #     named_results = {}
+            #     for k, v in results.items():
+            #         named_results[f'val_qpd/{k}'] = v
+            #         if 'img' not in k:
+            #             print(f'val_qpd/{k}: {v}')
 
-                logger.write_dict(named_results)
+            #     logger.write_dict(named_results)
 
-                # logging.info(f"Current Best Result qpd epe epoch {qpd_epeepoch}, result: {qpd_epebest}")
-                # logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
-                # logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
+            #     # logging.info(f"Current Best Result qpd epe epoch {qpd_epeepoch}, result: {qpd_epebest}")
+            #     # logging.info(f"Current Best Result qpd rmse epoch {qpd_rmseepoch}, result: {qpd_rmsebest}")
+            #     # logging.info(f"Current Best Result qpd ai2 epoch {qpd_ai2epoch}, result: {qpd_ai2best}")
 
-                # commented temporalily ----------------------------------------------------------------------------------
+            #     # commented temporalily ----------------------------------------------------------------------------------
 
-                val_save_skip = 100 // 10
-                if args.debug_mode:
-                    val_save_skip = 90
-                    # val_save_skip = 100 // 10
+            #     val_save_skip = 100 // 10
+            #     if args.debug_mode:
+            #         val_save_skip = 90
+            #         # val_save_skip = 100 // 10
 
-                results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, datatype=args.datatype, gt_types=['inv_depth'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
+            #     results = validate_DPD_Disp(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, datatype=args.datatype, gt_types=['inv_depth'], image_set='test', path='datasets/MDD_dataset', save_path=save_dir)
 
-                if dpdisp_ai2best>=results['ai2']:
-                    dpdisp_ai2best = results['ai2']
-                    dpdisp_ai2epoch = epoch
+            #     if dpdisp_ai2best>=results['ai2']:
+            #         dpdisp_ai2best = results['ai2']
+            #         dpdisp_ai2epoch = epoch
                 
-                logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
+            #     logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
                 
-                named_results = {}
-                for k, v in results.items():
-                    named_results[f'val_dpdisp/{k}'] = v
-                    if 'img' not in k:
-                        print(f'val_dpdisp/{k}: {v}')
+            #     named_results = {}
+            #     for k, v in results.items():
+            #         named_results[f'val_dpdisp/{k}'] = v
+            #         if 'img' not in k:
+            #             print(f'val_dpdisp/{k}: {v}')
                 
-                logger.write_dict(named_results)
+            #     logger.write_dict(named_results)
 
                 model.train()
                 # model.module.freeze_bn()

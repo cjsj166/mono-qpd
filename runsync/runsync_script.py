@@ -150,7 +150,8 @@ cd {exec_path}
     ).rstrip()
 
     # 재제출 시간(23h55m)
-    limit_sec = 23 * 3600 + 55 * 60
+    # limit_sec = 23 * 3600 + 55 * 60
+    limit_sec = 4 * 60
 
     # 단일 잡 스크립트(3개 프로세스 병렬: TRAIN(포그라운드), WATCHER(백), RESTARTER(백))
     script = f"""#!/bin/bash

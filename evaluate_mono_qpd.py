@@ -2,6 +2,7 @@ from __future__ import print_function, division
 import sys
 sys.path.append('core')
 
+import torch.optim as optim
 import argparse
 import time
 import logging
@@ -27,10 +28,50 @@ from copy import deepcopy
 
 from metrics.eval import Eval
 from collections import OrderedDict
+from torch.utils.tensorboard import SummaryWriter
 
 from exp_args_settings.utils import get_ckpts_in_dir
 
 from runsync.presets import get_run_setting
+
+class EvalLogger:
+    def __init__(self, log_dir='result/runs', epoch: int = 0):
+        """
+        Evaluation 전용 Logger
+        - epoch: 기록 시점의 epoch
+        """
+        self.epoch = epoch
+        self.writer = SummaryWriter(log_dir=os.path.join(log_dir))
+
+    def write_dict(self, results: dict):
+        """
+        딕셔너리 형태의 평가 결과 기록
+        - 스칼라는 scalar로
+        - 이미지/배열은 image로
+        """
+        if self.writer is None:
+            self.writer = SummaryWriter(log_dir=os.path.join('result/runs'))
+
+        for key, value in results.items():
+            if isinstance(value, torch.Tensor):
+                if value.dim() == 4:
+                    value = value[0]
+                self.writer.add_image(key, value, global_step=self.epoch)
+            elif isinstance(value, np.ndarray):
+                if value.ndim == 4:
+                    value = value[0]
+                self.writer.add_image(key, value, global_step=self.epoch)
+            else:
+                self.writer.add_scalar(key, value, global_step=self.epoch)
+
+    def close(self):
+        if self.writer:
+            self.writer.flush()
+            self.writer.close()
+
+
+
+
 
 def fix_key(state_dict):
     new_state_dict = OrderedDict()
@@ -790,64 +831,90 @@ if __name__ == '__main__':
     use_mixed_precision = conf.corr_implementation.endswith("_cuda")
 
     if 'QPD-Test' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'qpd-test', f'{epoch:03d}_epoch')
+        save_dir = os.path.join(conf.save_path, 'qpd-test')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
+
+        log_dir = os.path.join(save_dir, 'runs')
+        logger = Logger(model, scheduler, total_steps, log_dir=log_dir)
+
+        named_results = {}
+        for k, v in results.items():
+            named_results[f'val_qpd/{k}'] = v
+            if 'img' not in k:
+                print(f'val_qpd/{k}: {v}')
+
+        logger.write_dict(named_results)
+
     if 'QPD-Test-noise' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'qpd-test-noise', f'{epoch:03d}_epoch')
+        save_dir = os.path.join(conf.save_path, 'qpd-test-noise')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data-noise0.001', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
+        
+        log_dir = os.path.join(save_dir, 'runs') 
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
+        
+        named_result = {}
+        for k, v in result.items():
+            named_result[f'val_qpd/{k}'] = v
+            if 'img' not in k:
+                print(f'val_qpd/{k}: {v}')
+
+        logger.write_dict(named_result)
+
     if 'QPD-Valid' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'qpd-valid', f'{epoch:03d}_epoch')
+        save_dir = os.path.join(conf.save_path, 'qpd-valid')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
+
         result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_valid_bs if conf.qpd_valid_bs else 1)
+        
+        log_dir = os.path.join(save_dir, 'runs') 
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch) # epoch=checkpoint['total_steps'])
+        
+        named_result = {}
+        for k, v in result.items():
+            named_result[f'val_qpd/{k}'] = v
+            if 'img' not in k:
+                print(f'val_qpd/{k}: {v}')
+
+        logger.write_dict(named_result)
+
     if 'DPD_Disp' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'dp-disp', f'{epoch:03d}_epoch')
+        save_dir = os.path.join(conf.save_path, 'dp-disp')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_DPD_Disp(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/MDD_dataset', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
+        
+        log_dir = os.path.join(save_dir, 'runs') 
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
+        
+        named_result = {}
+        for k, v in result.items():
+            named_result[f'val_qpd/{k}'] = v
+            if 'img' not in k:
+                print(f'val_qpd/{k}: {v}')
+
+        logger.write_dict(named_result)
+
     if 'Real_QPD' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'real-qpd-test', f'{epoch:03d}_epoch')
+        save_dir = os.path.join(conf.save_path, 'real-qpd-test')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_Real_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/Real-QP-Data', save_path=save_path, batch_size=conf.real_qpd_bs if conf.real_qpd_bs else 1)
-
-    if 'Make_QPD' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'make-qpd', f'{epoch:03d}_epoch')
-        print(save_path)
         
-        # Make 448x448 patch with no augmentation with train set
-        # preprocess_params=None # preprocess_params={'crop_h':768, 'crop_w':1024, 'resize_h': 768, 'resize_w':1024}
-        # aug_params={"crop_size":(448,448) ,"min_scale":0, "max_scale":0, "yjitter":False, 
-        # "do_flip":False, "brightness":0, "contrast":0, "hue":0, "saturation_range":[1,1], "gamma":[1,1,1,1]}
-        aug_params=None
-        preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}
-        make_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="train", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params=preprocess_params, aug_params=aug_params)
-
-        # Crop center 672x896 patch for validation set
-        preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}
-        make_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="validation", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params=preprocess_params)
-
-        # Crop center 672x896 patch for test set also
-        preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}
-        make_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1, preprocess_params=preprocess_params)
-        result = None
-
-    if 'Make_DDDP' in args.eval_datasets:
-        save_path = os.path.join(conf.save_path, 'make-dddp', f'{epoch:03d}_epoch')
-        print(save_path)
+        log_dir = os.path.join(save_dir, 'runs') 
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
         
-        # Make 448x448 patch with no augmentation with train set
-        aug_params=None
-        preprocess_params={'crop_h':448, 'crop_w':448, 'resize_h': 448, 'resize_w':448}
-        make_DDDP(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="train", path='datasets/DDDP_448patch', save_path=save_path, batch_size=12 if conf.qpd_test_bs else 1, preprocess_params=preprocess_params)
+        named_result = {}
+        for k, v in result.items():
+            named_result[f'val_qpd/{k}'] = v
+            if 'img' not in k:
+                print(f'val_qpd/{k}: {v}')
 
-        # Crop center 672x896 patch for validation set
-        preprocess_params={'crop_h':448, 'crop_w':448, 'resize_h': 448, 'resize_w':448}
-        make_DDDP(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="val", path='datasets/DDDP_448patch', save_path=save_path, batch_size=12 if conf.qpd_test_bs else 1, preprocess_params=preprocess_params)
-
-        # Crop center 672x896 patch for test set also
-        preprocess_params={'crop_h':896, 'crop_w':1344, 'resize_h': 896, 'resize_w':1344}
-        make_DDDP(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True, datatype = conf.datatype, image_set="test", path='datasets/DDDP_448patch', save_path=save_path, batch_size=2 if conf.qpd_test_bs else 1, preprocess_params=preprocess_params)
-        result = None
+        logger.write_dict(named_result)
 
     elapsed = time.time() - start_time
 

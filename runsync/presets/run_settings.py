@@ -102,7 +102,7 @@ class DispVolumeLR(BaseConfig):
 
 @dataclass
 class LocalDispVolumeLR(BaseConfig):
-    num_steps: int = 200000
+    num_steps: int = 15_000 # 200_000
     batch_size: int = 1
     image_size: Tuple[int, int] = (448, 448)
     lr: int = 0.0002
