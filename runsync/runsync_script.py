@@ -45,7 +45,7 @@ def pick_header_env_for_eval():
 
 
 def render_header(header_env: dict, job_name: str, stdout_log: Path, stderr_log: Path) -> str:
-    # 이 헤더는 스크립트 파일 맨 위에만 들어가도록 사용한다.
+    # 스크립트 파일 최상단에만 들어가는 SGE directive 헤더
     return f"""#$ -cwd
 #$ -o {stdout_log}
 #$ -e {stderr_log}
@@ -61,8 +61,9 @@ conda activate {header_env["env_name"]}
 
 
 def build_train_cmd(run_setting_name: str, checkpoints_dir: Path) -> str:
-    # latest.pth 유무는 프로그램 내부에서 처리하므로 항상 넣는다.
+    # 프로그램 내부에서 latest.pth 경로 처리 가능. 여기선 명시 경로 사용.
     return f"python train_mono_qpd.py --exp_name {run_setting_name} --restore_ckpt result/train/{run_setting_name}/checkpoints/latest.pth"
+
 
 def build_eval_cmd(run_setting_name: str, ckpt_epoch: str, eval_datasets: list[str]) -> str:
     ds = " ".join(eval_datasets)
@@ -92,6 +93,23 @@ def write_and_submit(script_path: Path, text: str, do_submit: bool) -> str:
     return out
 
 
+def get_current_branch(cwd: Path) -> str | None:
+    """현재 git 브랜치명 반환. 레포가 아니거나 실패하면 None."""
+    cmds = [
+        ["git", "branch", "--show-current"],
+        ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+    ]
+    for cmd in cmds:
+        try:
+            res = subprocess.run(cmd, cwd=str(cwd), capture_output=True, text=True, check=True)
+            br = res.stdout.strip()
+            if br and br != "HEAD":
+                return br
+        except Exception:
+            continue
+    return None
+
+
 def main():
     args = parse_args()
     if args.after > 0:
@@ -104,6 +122,20 @@ def main():
     checkpoints_dir.mkdir(parents=True, exist_ok=True)
 
     exec_path = Path.cwd()
+    git_branch = get_current_branch(exec_path)  # 실행 시점 브랜치 고정
+    # 스크립트 내에서 사용할 checkout 스니펫
+    if git_branch:
+        git_checkout_snippet = f"""\
+# --- pin git branch at script execution time ---
+if git rev-parse --is-inside-work-tree >/dev/null 2>&1; then
+  echo "[git] checkout '{git_branch}'"
+  git checkout "{git_branch}"
+fi
+"""
+    else:
+        git_checkout_snippet = """\
+# --- no git repo detected or branch unknown; skipping checkout ---
+"""
 
     # scripts/<run_setting_name>/ 구조
     root_scripts_dir = exec_path / "scripts"
@@ -126,6 +158,7 @@ def main():
         script = f"""#!/bin/bash
 {render_header(eval_header, jobname, out_log, err_log)}
 cd {exec_path}
+{git_checkout_snippet}
 {eval_cmd}
 """
         write_and_submit(script_path, script, do_submit)
@@ -142,16 +175,17 @@ cd {exec_path}
     train_cmd = build_train_cmd(args.run_setting_name, checkpoints_dir)
     eval_cmd = build_eval_cmd(args.run_setting_name, "latest", args.eval_datasets)  # watcher는 항상 latest로 평가
 
-    # ✅ (중요) 평가 전용 스크립트를 별도 파일로 저장
+    # ✅ 평가 전용 스크립트 별도 파일 (고정 파일명)
     eval_header = pick_header_env_for_eval()
     eval_jobname = f"{args.run_setting_name}_eval"
-    eval_script_path = scripts_dir / f"eval_runner_{args.run_setting_name}.sh"  # 고정 파일명
+    eval_script_path = scripts_dir / f"eval_runner_{args.run_setting_name}.sh"
     eval_out_log = scripts_dir / f"eval_runner_{args.run_setting_name}_out.log"
     eval_err_log = scripts_dir / f"eval_runner_{args.run_setting_name}_err.log"
 
     eval_script_text = f"""#!/bin/bash
 {render_header(eval_header, eval_jobname, eval_out_log, eval_err_log)}
 cd {exec_path}
+{git_checkout_snippet}
 {eval_cmd}
 """
     eval_script_path.write_text(eval_script_text)
@@ -165,6 +199,7 @@ cd {exec_path}
     pack_script_text = f"""#!/bin/bash
 {render_header(train_header, train_jobname, out_log, err_log)}
 cd {exec_path}
+{git_checkout_snippet}
 
 echo "[info] JOB_ID=$JOB_ID JOB_NAME=$JOB_NAME"
 
