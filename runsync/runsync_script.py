@@ -51,6 +51,7 @@ def render_header(header_env: dict, job_name: str, stdout_log: Path, stderr_log:
 #$ -N {job_name}
 #$ -l {header_env["node_type"]}=1
 #$ -l h_rt={header_env["running_time"]}
+#$ -g tga-lab_okmn
 #$ -V
 . /etc/profile.d/modules.sh
 module load {header_env["cuda_version"]} {header_env["cudnn_version"]}
