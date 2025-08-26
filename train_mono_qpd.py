@@ -286,8 +286,7 @@ def train(args):
 
             total_steps += 1
 
-            if total_steps % (batch_len // 8) == 0 or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:    
-                # total_steps % (batch_len * 2)
+            if total_steps % (batch_len) == 0 or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:    
                 epoch = int(total_steps/batch_len)
                 
                 model_save_path = os.path.join(args.save_path, 'checkpoints', f'{epoch:03d}_epoch_{total_steps}_{args.name}.pth')
