@@ -85,7 +85,7 @@ class BaseConfig:
 
 
 @dataclass
-class Exp0825CLCRLR(BaseConfig):
+class Exp0830CLRContextCLCRLRCorr(BaseConfig):
     num_steps: int = 200000
     batch_size: int = 4
     image_size: Tuple[int, int] = (448, 448)
@@ -101,7 +101,7 @@ class Exp0825CLCRLR(BaseConfig):
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
 @dataclass
-class LocalExp0825CLCRLR(BaseConfig):
+class LocalExp0830CLRContextCLCRLRCorr(BaseConfig):
     num_steps: int = 200_000 # 200_000
     batch_size: int = 1
     image_size: Tuple[int, int] = (448, 448)
