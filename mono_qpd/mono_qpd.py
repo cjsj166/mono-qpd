@@ -73,28 +73,28 @@ class MonoQPD(nn.Module):
         assert h % 224 == 0 and w % 224 == 0, "Image dimensions must be multiples of 224"
         # image1_resized = self.resize_to_14_multiples(image1)
 
-        center_normalized = self.normalize_image(image1)
+        # center_normalized = self.normalize_image(image1)
         left_normalized = self.normalize_image(image2[0:1])
         right_normalized = self.normalize_image(image2[1:])
         # enc_features, depth = self.da_v2(image1_normalized) # Original
         if self.da_v2_output_condition == 'enc_features':
-            c_features = self.da_v2(center_normalized)
-            c_features = c_features[1:]
+            # c_features = self.da_v2(center_normalized)
+            # c_features = c_features[1:]
             l_features = self.da_v2(left_normalized)
             l_features = l_features[1:]
             r_features = self.da_v2(right_normalized)
             r_features = r_features[1:]
         
-        clr_features = [torch.cat([l, c, r], dim=1) for l, c, r in zip(l_features, c_features, r_features)]
-        clr_features = self.feature_converter(clr_features)
+        lr_features = [torch.cat([l, r], dim=1) for l, r in zip(l_features, r_features)]
+        lr_features = self.feature_converter(lr_features)
         # for f in ret_features:
         #     print(f.shape)
-        clr_features = clr_features[::-1] # Reverse the order of the features
+        lr_features = lr_features[::-1] # Reverse the order of the features
 
         if test_mode:
-            original_disp, upsampled = self.qpdnet(clr_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
+            original_disp, upsampled = self.qpdnet(lr_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
             return original_disp, upsampled
         else:
-            disp_predictions = self.qpdnet(clr_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
+            disp_predictions = self.qpdnet(lr_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)
             return disp_predictions
 
