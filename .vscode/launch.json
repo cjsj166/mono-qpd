@@ -13,72 +13,72 @@
         },
 
         {
-            "name": "runsync train, LocalExp0825CLCRLR",
+            "name": "runsync train, LocalExp0829CLCRBiLR",
             "type": "debugpy",
             "request": "launch",
             "program": "runsync/runsync_script.py",
             "console": "integratedTerminal",
             "args": [
                 "--type", "train",
-                "--run_setting_name", "LocalExp0825CLCRLR",
+                "--run_setting_name", "LocalExp0829CLCRBiLR",
                 // "--restore_ckpt", "latest"
             ]
         },
 
         {
-            "name": "runsync eval, LocalExp0825CLCRLR latest",
+            "name": "runsync eval, LocalExp0829CLCRBiLR latest",
             "type": "debugpy",
             "request": "launch",
             "program": "runsync/runsync_script.py",
             "console": "integratedTerminal",
             "args": [
                 "--type", "eval",
-                "--run_setting_name", "LocalExp0825CLCRLR",
+                "--run_setting_name", "LocalExp0829CLCRBiLR",
                 "--ckpt_epoch", "latest",
                 "--eval_datasets", "DPD_Disp", "QPD-Valid",
             ]
         },
 
         {
-            "name": "MonoQPD, dataclass train, qpd-train, LocalExp0825CLCRLR",
+            "name": "MonoQPD, dataclass train, qpd-train, LocalExp0829CLCRBiLR",
             "type": "debugpy",
             "request": "launch",
             "program": "train_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "LocalExp0825CLCRLR",
+                "LocalExp0829CLCRBiLR",
                 // "--restore_ckpt",
                 // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
             ]
         },
 
         {
-            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0825CLCRLR",
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0829CLCRBiLR",
             "type": "debugpy",
             "request": "launch",
             "program": "train_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "LocalExp0825CLCRLR",
+                "LocalExp0829CLCRBiLR",
                 "--restore_ckpt",
-                "result/train/LocalExp0825CLCRLR/checkpoints/latest.pth",
+                "result/train/LocalExp0829CLCRBiLR/checkpoints/latest.pth",
                 // "--debug_mode"
             ]
         },
 
 
         {
-            "name": "Mono-QPD, dataclass eval, LocalExp0825CLCRLR, latest",
+            "name": "Mono-QPD, dataclass eval, LocalExp0829CLCRBiLR, latest",
             "type": "debugpy",
             "request": "launch",
             "program": "evaluate_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "LocalExp0825CLCRLR",
-                "--ckpt_epoch", "latest", // result/train/LocalExp0825CLCRLR/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
+                "LocalExp0829CLCRBiLR",
+                "--ckpt_epoch", "latest", // result/train/LocalExp0829CLCRBiLR/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
                 "--eval_datasets", "DPD_Disp", "QPD-Valid"
                 // "--debug_mode"
             ]
@@ -86,15 +86,15 @@
 
         
         {
-            "name": "Mono-QPD, runsync_run, train, LocalExp0825CLCRLR",
+            "name": "Mono-QPD, runsync_run, train, LocalExp0829CLCRBiLR",
             "type": "debugpy",
             "request": "launch",
             "program": "evaluate_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "LocalExp0825CLCRLR",
-                "--ckpt_epoch", "latest", // result/train/LocalExp0825CLCRLR/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
+                "LocalExp0829CLCRBiLR",
+                "--ckpt_epoch", "latest", // result/train/LocalExp0829CLCRBiLR/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
                 // "--debug_mode"
             ]
         },

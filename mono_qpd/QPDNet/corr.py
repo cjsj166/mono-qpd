@@ -36,8 +36,6 @@ class CorrBlock1D:
         self.corr_pyramid = []
         self.lrcorr_pyramid = []
         self.input_image_num = input_image_num
-        self.disp0index = None
-        self.lrscale = 2
         # all pairs correlation
         corr = CorrBlock1D.corr(fmap1, fmap2, input_image_num)
 
@@ -50,34 +48,19 @@ class CorrBlock1D:
                 self.corr_pyramid.append(corr_temp)
 
         b, t, c, h, w = fmap2.shape
-        lr_disp_vol, self.disp0index = CorrBlock1D.disp_vol(fmap2, scale=self.lrscale)
-        b, h, w, d = lr_disp_vol.shape
+        lrcorr = CorrBlock1D.lrcorr(fmap2)
+        lrcorr = lrcorr.reshape(b*h, 1, w, w).contiguous() # [b*h, w, 1, w]
+        self.lrcorr_pyramid.append(lrcorr) # save volume without reshaping as we need to sample diagonal coordinates
+        for i in range(self.num_levels-1):
+            b, t, c, h, w = fmap2.shape
+            fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
+            fmap2 = F.avg_pool2d(fmap2, [1, 2], stride=[1, 2])
+            _, _, h, w = fmap2.shape
+            fmap2 = fmap2.reshape(b, t, c, h, w).contiguous()
 
-        # 1) flat 해서 pyramid base 레벨 저장
-        vol_lvl = lr_disp_vol.view(b * h * w, 1, 1, d).contiguous()
-        self.lrcorr_pyramid = [vol_lvl]   # ↔ Center-Left/Right와 동일한 포맷
-
-        # 2) disparity 방향만 average pooling (공간 축은 손대지 않음)
-        for _ in range(self.num_levels - 1):
-            # kernel_size=(1,2), stride=(1,2)  → D축을 절반으로
-            vol_lvl = F.avg_pool2d(vol_lvl, kernel_size=(1, 2), stride=(1, 2))
-            self.lrcorr_pyramid.append(vol_lvl)
-        
-        # lrcorr = CorrBlock1D.lrcorr(fmap2)
-        # lrcorr = lrcorr.reshape(b*h, 1, w, w).contiguous() # [b*h, w, 1, w]
-
-        # bh = 56
-        # x = 56
-        # y = 56
-        # disp = 0
-        # print(lrcorr[bh, :, x:x+3, y:y+3])
-        # disp_lrcorr = self.lrcorr_pyramid[0].reshape(b*h, 1, w, d).contiguous() # [b*h, w, 1, w]
-        # print(disp_lrcorr[bh, :, x:x+3, self.disp0index + disp - 2: self.disp0index + disp + 3:2])
-
-
-        # pass
-
-        
+            lrcorr = CorrBlock1D.lrcorr(fmap2)
+            lrcorr = lrcorr.reshape(b*h, 1, w, w).contiguous() # [b*h, w, 1, w]
+            self.lrcorr_pyramid.append(lrcorr)
 
     def __call__(self, coords,coords0):
         r = self.radius
@@ -96,7 +79,7 @@ class CorrBlock1D:
                 corr = self.corr_pyramid[j*self.num_levels+i] # [12544, 1, 1, 112 // 2**i]
                 dx = torch.linspace(-r, r, 2*r+1)
                 dx = dx.view(2*r+1, 1).to(coords.device)
-                if j ==0 :
+                if j ==0 : 
                     x0 = dx + (coords0-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
                 elif j==1:
                     x0 = dx + coords.reshape(batch*h1*w1, 1, 1, 1) / 2**i
@@ -121,23 +104,12 @@ class CorrBlock1D:
             lrcorr = self.lrcorr_pyramid[i]
             dx = torch.linspace(-r, r, 2*r+1)
             dx = dx.view(2*r+1, 1).to(coords.device)
-            
-            # level_base = coords0
-            shift = (2**i - 1) / 2.0
-            # level_base = coords0 - shift
-            # lx = -dx + ((level_base-disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
-            # rx = dx + ((level_base+disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
-            x0 = self.lrscale * dx + (self.lrscale * disp.reshape(batch*h1*w1, 1, 1, 1) + self.disp0index - shift) / 2.0**i
-
-            # lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
-            # rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
-            # corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
-            # corr = corr.reshape(batch, h1, w1, -1)  # [b, h, w, 9]
-
-            y0 = torch.zeros_like(x0)
-            coords_lvl = torch.cat([x0,y0], dim=-1) # batch, channel, # of points, 2(x, y)
-            corr = bilinear_sampler(lrcorr, coords_lvl)
-            corr = corr.view(batch, h1, w1, -1)
+            lx = dx + (coords0-disp).reshape(batch*h1, w1, 1, 1) / 2**i
+            rx = -dx + (coords0+disp).reshape(batch*h1, w1, 1, 1) / 2**i
+            lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
+            rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
+            corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
+            corr = corr.reshape(batch, h1, w1, -1)  # [b, h, w, 9]
 
             out_pyramid.append(corr.permute(0, 3, 1, 2))
 
@@ -145,6 +117,10 @@ class CorrBlock1D:
         return out.contiguous().float()
         
     def diagonal_quadratic_interpolation(self, lrcorr, lx, rx):
+        """
+        lrcorr: (B*H, 1, W, W)
+        
+        """
         BH, _, W, W = lrcorr.shape
 
         lxf = torch.floor(lx).long()
@@ -152,25 +128,11 @@ class CorrBlock1D:
         rxf = torch.floor(rx).long()
         rxc = torch.ceil(rx).long()
 
-        # valid = (
-        #     (lxf >= 0) & (lxf < W) &
-        #     (lxc >= 0) & (lxc < W) &
-        #     (rxf >= 0) & (rxf < W) &
-        #     (rxc >= 0) & (rxc < W)
-        # )  
-        # valid_f = valid.float()
+        sub = (rxc - rx)
 
-        x_r = rx - rxf
-        x_l = lxc - lx
-
-        C11 = x_r * x_l
-        C01 = (1 - x_r) * x_l
-        C10 = x_r * (1 - x_l)
-        C00 = (1 - x_r) * (1 - x_l)
-
-        # w0 = x_r ** 2
-        # wm = 2 * x_r * (1 - x_r)
-        # w2 = (1 - x_r) ** 2
+        # w0 = (1 - sub) ** 2
+        # wm = 2 * sub * (1 - sub)
+        # w2 = sub ** 2
 
         # def gather(ix, iy):
         #     indices = iy * W + ix # 112, 1, (112 * 112 * 9)
@@ -178,7 +140,7 @@ class CorrBlock1D:
         #     return torch.gather(flat, 2, indices)
 
         def gather(ix, iy):
-            valid_mask = (ix >= 0) & (ix <= W-1) & (iy >= 0) & (iy <= W-1)  # shape: (B*H, N)
+            valid_mask = (ix >= 0) & (ix < W) & (iy >= 0) & (iy < W)  # shape: (B*H, N)
             indices = iy * W + ix  # shape: (B*H, N)
             indices = indices.clone()
             indices[~valid_mask] = 0  # out-of-bound index는 0으로 대체
@@ -189,12 +151,10 @@ class CorrBlock1D:
 
             return gathered
 
-        I11 = gather(rxc, lxf)  # top-left
-        I01 = gather(rxf, lxf)  # bottom-left
-        I10 = gather(rxc, lxc)  # top-right
-        I00 = gather(rxf, lxc)  # bottom-right
-
-        out = C11 * I11 + C10 * I10 + C01 * I01 + C00 * I00
+        I11 = gather(lxf, rxc)  # top-left
+        # I01 = gather(lxf, rxf)  # bottom-left
+        # I10 = gather(lxc, rxc)  # top-right
+        I00 = gather(lxc, rxf)  # bottom-right
 
         # mix = 0.5 * (I01 + I10)
 
@@ -204,8 +164,10 @@ class CorrBlock1D:
         #     w2 * I00
         # )
 
-        # out = out * valid_f  # apply valid mask
-        # out = out.reshape(BH, 1, W, 9)  # shape: (B*H, 1, W, W)
+        out = (
+            (1 - sub) * I11 +
+            sub * I00
+        )
         return out  # shape: (B, C, N)
 
     @staticmethod
@@ -220,77 +182,6 @@ class CorrBlock1D:
         corr = torch.einsum('aijk,aijh->ajkh', left, right)
         corr = corr.reshape(B, H, W, 1, W).contiguous()
         return corr / torch.sqrt(torch.tensor(D).float())
-        # return corr
-
-    @staticmethod
-    def disp_vol(fmap2, scale=2):
-        B, T, C, H, W = fmap2.shape          # D 대신 C(채널)로 표기 정리
-        left  = fmap2[:, 0]                  # (B,C,H,W)
-        right = fmap2[:, 1]                  # (B,C,H,W)
-
-        # 1) 업샘플 길이: (W-1)*scale + 1   (align_corners=True)
-        W2 = (W - 1) * scale + 1
-        left2  = F.interpolate(left,  size=(H, W2), mode="bilinear", align_corners=True)
-        right2 = F.interpolate(right, size=(H, W2), mode="bilinear", align_corners=True)
-
-        # 2) 기본 disp 범위
-        disp_max0 = W // 2 + 1
-        disp_max2 = disp_max0 * scale
-
-        # 길이 맞추기(4의 배수)
-        L0  = 2 * disp_max2 + 1
-        L   = ((L0 + 3) // 4) * 4
-        pad = L - L0
-        lp  = pad // 2
-        rp  = pad - lp
-
-        start = -disp_max2 - lp
-        end   =  disp_max2 + rp
-        zero = -start
-
-        disp_idx = torch.arange(start, end + 1, device=fmap2.device, dtype=torch.long)
-        Dn = disp_idx.numel()                # 4의 배수
-
-        # 3) 결과 버퍼: (B, H, W, Dn)  ← 여기만 바뀜
-        vol = fmap2.new_empty(B, H, W, Dn)
-
-        w2_idx = torch.arange(W2, device=fmap2.device)
-
-        # 4) roll + 내적 + 다운샘플
-        for k, d in enumerate(disp_idx):
-            l = torch.roll(left2,  shifts= int(d), dims=3)    # W축
-            r = torch.roll(right2, shifts=-int(d),  dims=3)
-            corr2 = (l * r).sum(dim=1) / torch.sqrt(torch.tensor(C).float())
-
-            valid = ((w2_idx - d) >= 0) & ((w2_idx + d) < W2) # wrap-around 제거
-            corr2[..., ~valid] = 0
-
-            vol[:, :, :, k] = corr2[:, :, ::scale]            # 마지막 축에 기록
-
-        disp_list = disp_idx.float() / scale
-
-        # ------------------------------------------------------------------
-        # 5) 位置ごとの有効disparityマスクを適用（エッジ付近を0埋め）
-        #    - coarse座標系(W)の各wに対して、fine座標(w*scale)基準で許容ずれ量を算出
-        #    - |disp_idx| > max_shift_fine の要素は無効化
-        # ------------------------------------------------------------------
-        # w_coarse: 0..W-1
-        w_coarse = torch.arange(W, device=fmap2.device, dtype=torch.long)
-        # fine上の中心位置
-        w_fine_center = w_coarse * scale
-        # 左右端までの余白幅( fine単位 )
-        max_left  = w_fine_center
-        max_right = (W2 - 1) - w_fine_center
-        max_disp_fine = torch.minimum(max_left, max_right)  # shape: [W]
-
-        # disp_idxはfine単位
-        disp_abs_fine = disp_idx.abs().view(1, 1, 1, Dn)             # [1,1,1,Dn]
-        max_disp_fine = max_disp_fine.view(1, 1, W, 1)               # [1,1,W,1]
-
-        valid_mask = disp_abs_fine <= max_disp_fine                  # [1,1,W,Dn]
-        vol = vol.masked_fill(~valid_mask, 0)
-
-        return vol, zero
 
 
     @staticmethod
