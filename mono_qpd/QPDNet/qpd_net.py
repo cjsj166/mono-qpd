@@ -173,7 +173,7 @@ class QPDNet(nn.Module):
                 *cnet_list, x = self.cnet(torch.cat((image1, image2), dim=0), dual_inp=True, num_layers=self.args.n_gru_layers)
                 fmap1, fmap2 = self.conv2(x).split(dim=0, split_size=x.shape[0]//2)
             else:
-                cnet_list = self.cnet(image1, num_layers=self.args.n_gru_layers)
+                cnet_list = self.cnet(image2[0:1], num_layers=self.args.n_gru_layers) # Left image context features
                 if self.args.input_image_num==4:
                     image_num = image2.shape[0]//self.args.input_image_num
                     flr = self.fnet([image1, image2[:2*image_num]])
@@ -210,15 +210,15 @@ class QPDNet(nn.Module):
         #     fmap2 = fmap2.detach()
 
         b, t, c, h, w = fmap2.shape
-        reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
-        reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2)) # reduce_fmap2_2[0, :10, 56, 28]
-        reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
-        reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
+        # reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
+        # reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2)) # reduce_fmap2_2[0, :10, 56, 28]
+        # reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
+        # reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
 
-        reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
-        reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
-        reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
-        reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
+        # reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
+        # reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
+        # reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
+        # reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
         coords0, coords1 = self.initialize_flow(net_list[0])
@@ -228,13 +228,9 @@ class QPDNet(nn.Module):
 
         flow_predictions = []
         for itr in range(iters):
-            # coords1 = coords0 + 0.01
-            # coords0 = coords0 + 0.1
-            # coords1 = coords1 / 4.0
-            # coords0 = coords0 / 4.0
             coords1 = coords1.detach()
             corr = corr_fn(coords1, coords0) # index correlation volume
-            corr = corr[:, -36:]
+            # corr = corr[:, -36:]
             # volume_lrcorr = corr[:, -36:]
             # lrcorr = self.fmap2_lookup(coords1, coords0, [reduce_fmap2, reduce_fmap2_2, reduce_fmap2_4, reduce_fmap2_8])
             # corr[:, -36:] = lrcorr
@@ -354,9 +350,9 @@ class QPDNet(nn.Module):
                 flow_up = self.upsample_flow(coords1 - coords0, up_mask)
             flow_up = flow_up[:,:1]
 
-            flow_predictions.append(flow_up)
+            flow_predictions.append(flow_up / 2) # return half of left-right disparity
 
         if test_mode:
-            return coords1 - coords0, flow_up
+            return (coords1 - coords0) / 2, flow_up # return half of left-right disparity
 
         return flow_predictions

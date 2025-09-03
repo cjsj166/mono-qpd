@@ -49,19 +49,19 @@ class CorrBlock1D:
                 corr_temp = F.avg_pool2d(corr_temp, [1,2], stride=[1,2])
                 self.corr_pyramid.append(corr_temp)
 
-        b, t, c, h, w = fmap2.shape
-        lr_disp_vol, self.disp0index = CorrBlock1D.disp_vol(fmap2, scale=self.lrscale)
-        b, h, w, d = lr_disp_vol.shape
+        # b, t, c, h, w = fmap2.shape
+        # lr_disp_vol, self.disp0index = CorrBlock1D.disp_vol(fmap2, scale=self.lrscale)
+        # b, h, w, d = lr_disp_vol.shape
 
-        # 1) flat 해서 pyramid base 레벨 저장
-        vol_lvl = lr_disp_vol.view(b * h * w, 1, 1, d).contiguous()
-        self.lrcorr_pyramid = [vol_lvl]   # ↔ Center-Left/Right와 동일한 포맷
+        # # 1) flat 해서 pyramid base 레벨 저장
+        # vol_lvl = lr_disp_vol.view(b * h * w, 1, 1, d).contiguous()
+        # self.lrcorr_pyramid = [vol_lvl]   # ↔ Center-Left/Right와 동일한 포맷
 
-        # 2) disparity 방향만 average pooling (공간 축은 손대지 않음)
-        for _ in range(self.num_levels - 1):
-            # kernel_size=(1,2), stride=(1,2)  → D축을 절반으로
-            vol_lvl = F.avg_pool2d(vol_lvl, kernel_size=(1, 2), stride=(1, 2))
-            self.lrcorr_pyramid.append(vol_lvl)
+        # # 2) disparity 방향만 average pooling (공간 축은 손대지 않음)
+        # for _ in range(self.num_levels - 1):
+        #     # kernel_size=(1,2), stride=(1,2)  → D축을 절반으로
+        #     vol_lvl = F.avg_pool2d(vol_lvl, kernel_size=(1, 2), stride=(1, 2))
+        #     self.lrcorr_pyramid.append(vol_lvl)
         
         # lrcorr = CorrBlock1D.lrcorr(fmap2)
         # lrcorr = lrcorr.reshape(b*h, 1, w, w).contiguous() # [b*h, w, 1, w]
@@ -91,55 +91,71 @@ class CorrBlock1D:
 
         batch, h1, w1, _ = coords.shape
 
-        for j in range(int(len(self.corr_pyramid)/self.num_levels)):
-            for i in range(self.num_levels):
-                corr = self.corr_pyramid[j*self.num_levels+i] # [12544, 1, 1, 112 // 2**i]
-                dx = torch.linspace(-r, r, 2*r+1)
-                dx = dx.view(2*r+1, 1).to(coords.device)
-                if j ==0 :
-                    x0 = dx + (coords0-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
-                elif j==1:
-                    x0 = dx + coords.reshape(batch*h1*w1, 1, 1, 1) / 2**i
-                elif j==2: 
-                    x0 = dx + (coords0_tb-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
-                else:
-                    x0 = dx + (coords0_tb+disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i # [12544, 1, 9, 1]
-                y0 = torch.zeros_like(x0)
-
-                coords_lvl = torch.cat([x0,y0], dim=-1) # batch, channel, # of points, 2(x, y)
-                corr = bilinear_sampler(corr, coords_lvl)
-                corr = corr.view(batch, h1, w1, -1)
-
-                ########### Flip Left and Top ################
-                if j==0 or j==2: 
-                    corr = torch.flip(corr, dims=[3])
-                #################################
-
-                out_pyramid.append(corr.permute(0, 3, 1, 2))
-
         for i in range(self.num_levels):
-            lrcorr = self.lrcorr_pyramid[i]
+            corr = self.corr_pyramid[i] # [12544, 1, 1, 112 // 2**i]
             dx = torch.linspace(-r, r, 2*r+1)
             dx = dx.view(2*r+1, 1).to(coords.device)
-            
-            # level_base = coords0
-            shift = (2**i - 1) / 2.0
-            # level_base = coords0 - shift
-            # lx = -dx + ((level_base-disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
-            # rx = dx + ((level_base+disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
-            x0 = self.lrscale * dx + (self.lrscale * disp.reshape(batch*h1*w1, 1, 1, 1) + self.disp0index - shift) / 2.0**i
 
-            # lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
-            # rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
-            # corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
-            # corr = corr.reshape(batch, h1, w1, -1)  # [b, h, w, 9]
-
+            x0 = dx + coords.reshape(batch*h1*w1, 1, 1, 1) / 2**i
             y0 = torch.zeros_like(x0)
+
             coords_lvl = torch.cat([x0,y0], dim=-1) # batch, channel, # of points, 2(x, y)
-            corr = bilinear_sampler(lrcorr, coords_lvl)
+            corr = bilinear_sampler(corr, coords_lvl)
             corr = corr.view(batch, h1, w1, -1)
 
             out_pyramid.append(corr.permute(0, 3, 1, 2))
+
+
+
+        # for j in range(int(len(self.corr_pyramid)/self.num_levels)):
+        #     for i in range(self.num_levels):
+        #         corr = self.corr_pyramid[j*self.num_levels+i] # [12544, 1, 1, 112 // 2**i]
+        #         dx = torch.linspace(-r, r, 2*r+1)
+        #         dx = dx.view(2*r+1, 1).to(coords.device)
+        #         if j ==0 :
+        #             x0 = dx + (coords0-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
+        #         elif j==1:
+        #             x0 = dx + coords.reshape(batch*h1*w1, 1, 1, 1) / 2**i
+        #         elif j==2: 
+        #             x0 = dx + (coords0_tb-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
+        #         else:
+        #             x0 = dx + (coords0_tb+disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i # [12544, 1, 9, 1]
+        #         y0 = torch.zeros_like(x0)
+
+        #         coords_lvl = torch.cat([x0,y0], dim=-1) # batch, channel, # of points, 2(x, y)
+        #         corr = bilinear_sampler(corr, coords_lvl)
+        #         corr = corr.view(batch, h1, w1, -1)
+
+        #         ########### Flip Left and Top ################
+        #         if j==0 or j==2: 
+        #             corr = torch.flip(corr, dims=[3])
+        #         #################################
+
+        #         out_pyramid.append(corr.permute(0, 3, 1, 2))
+
+        # for i in range(self.num_levels):
+        #     lrcorr = self.lrcorr_pyramid[i]
+        #     dx = torch.linspace(-r, r, 2*r+1)
+        #     dx = dx.view(2*r+1, 1).to(coords.device)
+            
+        #     # level_base = coords0
+        #     shift = (2**i - 1) / 2.0
+        #     # level_base = coords0 - shift
+        #     # lx = -dx + ((level_base-disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
+        #     # rx = dx + ((level_base+disp).reshape(batch*h1, w1, 1, 1)) / 2.0**i
+        #     x0 = self.lrscale * dx + (self.lrscale * disp.reshape(batch*h1*w1, 1, 1, 1) + self.disp0index - shift) / 2.0**i
+
+        #     # lx = lx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
+        #     # rx = rx.reshape(batch*h1, 1, -1)  # [b*h, 1, w*9]
+        #     # corr = self.diagonal_quadratic_interpolation(lrcorr, lx, rx)
+        #     # corr = corr.reshape(batch, h1, w1, -1)  # [b, h, w, 9]
+
+        #     y0 = torch.zeros_like(x0)
+        #     coords_lvl = torch.cat([x0,y0], dim=-1) # batch, channel, # of points, 2(x, y)
+        #     corr = bilinear_sampler(lrcorr, coords_lvl)
+        #     corr = corr.view(batch, h1, w1, -1)
+
+        #     out_pyramid.append(corr.permute(0, 3, 1, 2))
 
         out = torch.cat(out_pyramid, dim=1)
         return out.contiguous().float()
@@ -316,17 +332,22 @@ class CorrBlock1D:
         B, D, H1, W1 = fmap1.shape
         _, S, _, H2, W2 = fmap2.shape
         corr_list = []
-        for s in range(2):
-            fmap1_m = fmap1.permute(0, 2, 3, 1)
-            fmap2_m = fmap2[:,s].permute(0, 2, 1, 3)
-            corr = torch.matmul(fmap1_m, fmap2_m).unsqueeze(3).contiguous()
-            corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
-        
-        for s in range(2,S):
-            fmap1_m = fmap1.permute(0, 3, 2, 1)
-            fmap2_m = fmap2[:,s].permute(0, 3, 1, 2)
-            corr = torch.matmul(fmap1_m, fmap2_m).permute(0, 2, 1, 3).unsqueeze(3).contiguous()
-            corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+        # for s in range(2):
+        #     fmap1_m = fmap1.permute(0, 2, 3, 1)
+        #     fmap2_m = fmap2[:,s].permute(0, 2, 1, 3)
+        #     corr = torch.matmul(fmap1_m, fmap2_m).unsqueeze(3).contiguous()
+        #     corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+
+        fmap_l = fmap2[:, 0].permute(0, 2, 3, 1)
+        fmap_r = fmap2[:, 1].permute(0, 2, 1, 3)
+        corr = torch.matmul(fmap_l, fmap_r).unsqueeze(3).contiguous()
+        corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
+
+        # for s in range(2,S):
+        #     fmap1_m = fmap1.permute(0, 3, 2, 1)
+        #     fmap2_m = fmap2[:,s].permute(0, 3, 1, 2)
+        #     corr = torch.matmul(fmap1_m, fmap2_m).permute(0, 2, 1, 3).unsqueeze(3).contiguous()
+        #     corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
         return corr_list
 
 

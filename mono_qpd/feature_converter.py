@@ -173,9 +173,9 @@ class InterpConverter(nn.Module):
     def __init__(self):
         super(InterpConverter, self).__init__()
 
-        self.channel_conv1 = nn.Conv2d(2048, 128, 1, stride=(1,1)) # For downsizing channels
-        self.channel_conv2 = nn.Conv2d(2048, 128, 1, stride=(1,1))
-        self.channel_conv3 = nn.Conv2d(2048, 128, 1, stride=(1,1))
+        self.channel_conv1 = nn.Conv2d(1024, 128, 1, stride=(1,1)) # For downsizing channels
+        self.channel_conv2 = nn.Conv2d(1024, 128, 1, stride=(1,1))
+        self.channel_conv3 = nn.Conv2d(1024, 128, 1, stride=(1,1))
         
         self.relu1 = nn.ReLU()
         self.relu2 = nn.ReLU()
