@@ -74,8 +74,9 @@ class MonoQPD(nn.Module):
         # image1_resized = self.resize_to_14_multiples(image1)
 
         center_normalized = self.normalize_image(image1)
-        left_normalized = self.normalize_image(image2[0:1])
-        right_normalized = self.normalize_image(image2[1:])
+        b = image1.shape[0]
+        left_normalized = self.normalize_image(image2[0:b])
+        right_normalized = self.normalize_image(image2[b:])
         # enc_features, depth = self.da_v2(image1_normalized) # Original
         if self.da_v2_output_condition == 'enc_features':
             c_features = self.da_v2(center_normalized)
