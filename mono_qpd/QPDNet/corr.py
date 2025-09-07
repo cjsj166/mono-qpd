@@ -96,14 +96,14 @@ class CorrBlock1D:
                 corr = self.corr_pyramid[j*self.num_levels+i] # [12544, 1, 1, 112 // 2**i]
                 dx = torch.linspace(-r, r, 2*r+1)
                 dx = dx.view(2*r+1, 1).to(coords.device)
-                if j ==0 :
+                if j == 0 :
                     x0 = dx + (coords0-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
-                elif j==1:
+                elif j == 1:
                     x0 = dx + coords.reshape(batch*h1*w1, 1, 1, 1) / 2**i
-                elif j==2: 
-                    x0 = dx + (coords0_tb-disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i
+                elif j == 3: 
+                    x0 = dx + (coords0-disp/2).reshape(batch*h1*w1, 1, 1, 1) / 2**i
                 else:
-                    x0 = dx + (coords0_tb+disp).reshape(batch*h1*w1, 1, 1, 1) / 2**i # [12544, 1, 9, 1]
+                    x0 = dx + (coords0+disp/2).reshape(batch*h1*w1, 1, 1, 1) / 2**i
                 y0 = torch.zeros_like(x0)
 
                 coords_lvl = torch.cat([x0,y0], dim=-1) # batch, channel, # of points, 2(x, y)
@@ -295,38 +295,15 @@ class CorrBlock1D:
 
     @staticmethod
     def corr(fmap1, fmap2, input_image_num):
-        ## if the 2 feature extractor is used for Left&Right and Top&Bottom.
-        if len(fmap1.shape) == 5:
-            B, S1, D, H1, W1 = fmap1.shape
-            _, S, _, H2, W2 = fmap2.shape
-            corr_list = []
-            for s in range(2):
-                fmap1_m = fmap1[:,0].permute(0, 2, 3, 1)
-                fmap2_m = fmap2[:,s].permute(0, 2, 1, 3)
-                corr = torch.matmul(fmap1_m, fmap2_m).unsqueeze(3).contiguous()
-                corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
-            
-            for s in range(2,S):
-                fmap1_m = fmap1[:,1].permute(0, 3, 2, 1)
-                fmap2_m = fmap2[:,s].permute(0, 3, 1, 2)
-                corr = torch.matmul(fmap1_m, fmap2_m).permute(0, 2, 1, 3).unsqueeze(3).contiguous()
-                corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
-            return corr_list
-        
         B, D, H1, W1 = fmap1.shape
         _, S, _, H2, W2 = fmap2.shape
         corr_list = []
-        for s in range(2):
+        for s in range(S):
             fmap1_m = fmap1.permute(0, 2, 3, 1)
             fmap2_m = fmap2[:,s].permute(0, 2, 1, 3)
             corr = torch.matmul(fmap1_m, fmap2_m).unsqueeze(3).contiguous()
             corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
         
-        for s in range(2,S):
-            fmap1_m = fmap1.permute(0, 3, 2, 1)
-            fmap2_m = fmap2[:,s].permute(0, 3, 1, 2)
-            corr = torch.matmul(fmap1_m, fmap2_m).permute(0, 2, 1, 3).unsqueeze(3).contiguous()
-            corr_list.append(corr / torch.sqrt(torch.tensor(D).float()))
         return corr_list
 
 

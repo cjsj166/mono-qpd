@@ -46,7 +46,7 @@ class QPDNet(nn.Module):
                 self.FFAGroup = Group(conv=default_conv, dim=36*4, kernel_size=3, blocks=3).cuda()
             else:
                 # self.FFAGroup = Group(conv=default_conv, dim=36*2, kernel_size=3, blocks=3).cuda()
-                self.FFAGroup = Group(conv=default_conv, dim=36*3, kernel_size=3, blocks=3).cuda()
+                self.FFAGroup = Group(conv=default_conv, dim=36*5, kernel_size=3, blocks=3).cuda()
 
         if args.shared_backbone:
             self.conv2 = nn.Sequential(
@@ -167,6 +167,11 @@ class QPDNet(nn.Module):
 
         image1 = (2 * (image1 / 255.0) - 1.0).contiguous()
         image2 = (2 * (image2 / 255.0) - 1.0).contiguous()
+
+        cl = (image1 + image2[0:1]) / 2.0
+        cr = (image1 + image2[1:2]) / 2.0
+        image2 = torch.cat([image2, cl, cr], dim=0)
+
         # run the context network
         with autocast(enabled=self.args.mixed_precision):
             if self.args.shared_backbone:
@@ -210,15 +215,15 @@ class QPDNet(nn.Module):
         #     fmap2 = fmap2.detach()
 
         b, t, c, h, w = fmap2.shape
-        reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
-        reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2)) # reduce_fmap2_2[0, :10, 56, 28]
-        reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
-        reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
+        # reduce_fmap2 = fmap2.reshape(b*t, c, h, w).contiguous() # [b*t, c, h, w] # .permute(0, 2, 3, 1)
+        # reduce_fmap2_2 = F.avg_pool2d(reduce_fmap2, kernel_size=(1, 2), stride=(1, 2)) # reduce_fmap2_2[0, :10, 56, 28]
+        # reduce_fmap2_4 = F.avg_pool2d(reduce_fmap2_2, kernel_size=(1, 2), stride=(1, 2))
+        # reduce_fmap2_8 = F.avg_pool2d(reduce_fmap2_4, kernel_size=(1, 2), stride=(1, 2))
 
-        reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
-        reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
-        reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
-        reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
+        # reduce_fmap2 = reduce_fmap2.reshape(b, t, c, h, w)
+        # reduce_fmap2_2 = reduce_fmap2_2.reshape(b, t, c, h, w//2)
+        # reduce_fmap2_4 = reduce_fmap2_4.reshape(b, t, c, h, w//4)
+        # reduce_fmap2_8 = reduce_fmap2_8.reshape(b, t, c, h, w//8)
         corr_fn = corr_block(fmap1, fmap2, radius=self.args.corr_radius, num_levels=self.args.corr_levels, input_image_num=self.args.input_image_num)
 
         coords0, coords1 = self.initialize_flow(net_list[0])
