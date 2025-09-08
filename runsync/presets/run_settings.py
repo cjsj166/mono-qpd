@@ -30,7 +30,7 @@ class BaseConfig:
     image_size: Tuple[int] = (224, 224)
     train_iters: int = 8
     wdecay: float = 0.00001
-    CAPA: bool = True
+    CAPA: bool = False
     si_loss: float = 0.0
 
     # Validation parameters
@@ -85,7 +85,7 @@ class BaseConfig:
 
 
 @dataclass
-class Exp0825FMDP(BaseConfig):
+class Exp0908FMDPWoFFA(BaseConfig):
     num_steps: int = 200000
     batch_size: int = 4
     image_size: Tuple[int, int] = (448, 448)
@@ -101,7 +101,7 @@ class Exp0825FMDP(BaseConfig):
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
 @dataclass
-class LocalExp0825FMDP(BaseConfig):
+class LocalExp0908FMDPWoFFA(BaseConfig):
     num_steps: int = 200_000 # 200_000
     batch_size: int = 1
     image_size: Tuple[int, int] = (448, 448)
