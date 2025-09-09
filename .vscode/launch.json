@@ -36,6 +36,7 @@
                 "--run_setting_name", "LocalExp0909CLRContextLRCorr",
                 "--ckpt_epoch", "latest",
                 "--eval_datasets", "DPD_Disp", "QPD-Valid",
+                "--save_result"
             ]
         },
 

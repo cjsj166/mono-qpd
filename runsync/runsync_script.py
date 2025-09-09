@@ -19,6 +19,7 @@ def parse_args():
     # eval 모드 전용
     p.add_argument("--ckpt_epoch", default="latest")
     p.add_argument("--eval_datasets", nargs="+", default=["DPD_Disp", "QPD-Valid"])
+    p.add_argument("--save_result", action='store_true', default=False)
     return p.parse_args()
 
 
@@ -65,13 +66,14 @@ def build_train_cmd(run_setting_name: str, checkpoints_dir: Path) -> str:
     return f"python train_mono_qpd.py --exp_name {run_setting_name} --restore_ckpt result/train/{run_setting_name}/checkpoints/latest.pth"
 
 
-def build_eval_cmd(run_setting_name: str, ckpt_epoch: str, eval_datasets: list[str]) -> str:
+def build_eval_cmd(run_setting_name: str, ckpt_epoch: str, eval_datasets: list[str], save_result: bool) -> str:
     ds = " ".join(eval_datasets)
     return (
         f"python evaluate_mono_qpd.py "
         f"--exp_name {run_setting_name} "
         f"--ckpt_epoch {ckpt_epoch} "
-        f"--eval_datasets {ds}"
+        f"--eval_datasets {ds} "
+        + (f"--save_result " if save_result else "")
     )
 
 
@@ -153,7 +155,7 @@ fi
         script_path = scripts_dir / f"{base}.sh"
         out_log = scripts_dir / f"{base}_out.log"
         err_log = scripts_dir / f"{base}_err.log"
-        eval_cmd = build_eval_cmd(args.run_setting_name, args.ckpt_epoch, args.eval_datasets)
+        eval_cmd = build_eval_cmd(args.run_setting_name, args.ckpt_epoch, args.eval_datasets, args.save_result)
 
         script = f"""#!/bin/bash
 {render_header(eval_header, jobname, out_log, err_log)}
