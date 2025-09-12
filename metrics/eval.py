@@ -98,9 +98,9 @@ class Eval():
             return si, alpha
         return None
 
-    def spearman_correlation(self, Y, Target):
+    def spearman_correlation(self, Y, Target, confidence_map=None):
         if 'sc' in self.enabled_metrics:
-            sc = 1 - np.abs(spearman_correlation(Y, Target))
+            sc = 1 - np.abs(spearman_correlation(Y, Target, W=confidence_map))
             self.metrics_data['sc'].append(sc)
             return sc
         return None
@@ -117,7 +117,7 @@ class Eval():
 
         return result
 
-    def ai2_bad_pixel_metrics(self, Y, Target):
+    def ai2_bad_pixel_metrics(self, Y, Target, confidence_map=None):
         result = []
         if any('ai2_bad' in metric for metric in self.enabled_metrics):
             ai2, b2 = self.affine_invariant_2(Y, Target)
@@ -125,16 +125,24 @@ class Eval():
             for metric in self.enabled_metrics:
                 if metric.startswith('ai2_bad'):
                     threshold = float('.'.join(metric.split('_')[2:]))
-                    self.metrics_data[metric].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, threshold))
+                    self.metrics_data[metric].append(self.bad_pixel_metric(Y*b2[0] + b2[1], Target, threshold, confidence_map=confidence_map))
                     result.append(self.metrics_data[metric])
 
         return result
     
-    def bad_pixel_metric(self, Y, Target, threshold):
-        diff = np.abs(Y - Target)
-        bad_pixels = np.sum(diff > threshold)
-        total_pixels = np.prod(Y.shape)
+    def bad_pixel_metric(self, Y, Target, threshold, confidence_map=None):
+        if confidence_map is None:
+            confidence_map = np.ones_like(Target)
+        conf = confidence_map.ravel()
+        y = Y.ravel()
+        t = Target.ravel()
+        diff = np.abs(y - t)
+        bad_pixels = np.sum((diff > threshold) * conf)
+        total_pixels = np.sum(conf)
+        if total_pixels == 0:
+            return np.nan
         return bad_pixels / total_pixels
+
 
     def end_point_error(self, Y, Target):
         if 'epe' in self.enabled_metrics:

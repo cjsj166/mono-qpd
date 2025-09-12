@@ -178,7 +178,7 @@ def read_gen(file_name, pil=False):
     ext = splitext(file_name)[-1]
     # print("ext", ext)
     if ext == '.png' or ext == '.jpeg' or ext == '.ppm' or ext == '.jpg':
-        return Image.open(file_name)
+        return np.array(Image.open(file_name))
     elif ext == '.TIF':
         return np.array(Image.open(file_name)).astype(np.float32) / 255
     elif ext == '.bin' or ext == '.raw' or ext == '.npy':
