@@ -231,6 +231,24 @@ class QPD(QuadDataset):
             if 'AiF' in gt_types:
                 self.aif_list += [ aif ]
             
+class DP5K(QuadDataset):
+    def __init__(self, datatype='dual', gt_types=['disp'], aug_params=None, root='', image_set='train', preprocess_params=None):
+        super(DP5K, self).__init__(aug_params=aug_params, datatype='dual', gt_types=gt_types, sparse=False, lrtb='', image_set = image_set, preprocess_params=preprocess_params)
+        assert os.path.exists(root)
+        
+        imagel_list = sorted(glob(os.path.join(root, image_set+'_l','source', 'seq_*/*.png')))
+        imager_list = sorted(glob(os.path.join(root, image_set+'_r','source', 'seq_*/*.png')))
+        imagec_list = sorted(glob(os.path.join(root, image_set+'_c','source', 'seq_*/*.png')))
+        aif_list = sorted(glob(os.path.join(root, image_set+'_c','target', 'seq_*/*.png')))
+        disp_list = sorted(glob(os.path.join(root, image_set+'_c','target_depth', 'seq_*/*.png')))
+
+        for idx, (imgc, imgl, imgr, disp, aif) in enumerate(zip(imagec_list, imagel_list, imager_list, disp_list, aif_list)):
+            if datatype == 'dual':
+                self.image_list += [ [imgc, imgl, imgr] ]
+            if 'disp' in gt_types:
+                self.disparity_list += [ disp ]
+            if 'AiF' in gt_types:
+                self.aif_list += [ aif ]
 
 class DDDP(QuadDataset):
     def __init__(self, datatype='dual', gt_types=['AiF'], aug_params=None, root='', image_set='train', preprocess_params=None):
