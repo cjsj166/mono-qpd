@@ -1039,7 +1039,7 @@ if __name__ == '__main__':
         logger.write_dict(named_result)
 
     if 'DP5K-Test' in args.eval_datasets:
-        save_dir = os.path.join(conf.save_path, 'dp5k-test')
+        save_dir = os.path.join(conf.save_path, 'dp5k')
         save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_DP5K(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result else False, datatype = conf.datatype, image_set="test", path='datasets/DP5K', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
@@ -1056,7 +1056,7 @@ if __name__ == '__main__':
         logger.write_dict(named_result)
 
     if 'DP5K-Valid' in args.eval_datasets:
-        save_dir = os.path.join(conf.save_path, 'dp5k-valid')
+        save_dir = os.path.join(conf.save_path, 'dp5k')
         save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
         result = validate_DP5K(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result else False, datatype = conf.datatype, image_set="valid", path='datasets/DP5K', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)

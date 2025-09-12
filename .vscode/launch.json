@@ -49,7 +49,6 @@
                 "--type", "eval",
                 "--run_setting_name", "LocalExp0825FMDP",
                 "--ckpt_epoch", "latest",
-                // "--eval_run_time", "01:00:00",
                 "--eval_datasets", "QPD-Test", "QPD-Test-noise", "DP5K-Valid", "DP5K-Test",
                 "--save_result"
             ]
