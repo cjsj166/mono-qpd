@@ -73,7 +73,7 @@ def build_eval_cmd(run_setting_name: str, ckpt_epoch: str, eval_datasets: list[s
         f"--exp_name {run_setting_name} "
         f"--ckpt_epoch {ckpt_epoch} "
         f"--eval_datasets {ds} "
-        + (f"--save_result " if save_result else "")
+        f"{'--save_result' if save_result else ''}"
     )
 
 

@@ -359,6 +359,143 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
     result = {**result, **eval_est.get_mean_metrics()}
     return result
 
+@torch.no_grad()
+def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='', save_path='result/predictions', batch_size=1, preprocess_params={'crop_h':1120, 'crop_w':1568, 'resize_h':1120, 'resize_w':1568}):
+    """ Peform validation using the FlyingThings3D (TEST) split """
+    model.eval()
+    aug_params = {}
+    
+    if path == '':
+        val_dataset = datasets.DP5K(datatype=datatype, gt_types=gt_types, aug_params=aug_params, preprocess_params=preprocess_params, image_set=image_set)
+    else:
+        val_dataset = datasets.DP5K(datatype=datatype, gt_types=gt_types, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params, root=path)
+
+    # val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+    #     pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
+    
+    val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+        pin_memory=True, num_workers=0, drop_last=False)    
+
+
+    ai2_fit_dir = os.path.join(save_path, 'ai2_fit')
+    ai2_dir = os.path.join(save_path, 'ai2')
+    gt_dir = os.path.join(save_path, 'gt')
+    src_dir = os.path.join(save_path, 'src')
+    src_test_c_dir = os.path.join(src_dir, 'test_c', 'source', 'scenes')
+    os.makedirs(ai2_fit_dir, exist_ok=True)
+    os.makedirs(ai2_dir, exist_ok=True)
+    os.makedirs(gt_dir, exist_ok=True)
+    os.makedirs(src_dir, exist_ok=True)
+    os.makedirs(src_test_c_dir, exist_ok=True)
+
+    eval_est = Eval(os.path.join(save_path, 'center'), enabled_metrics=['ai1', 'ai2', 'sc', 'ai2_bad_0_003', 'ai2_bad_0_005', 'ai2_bad_0_01', 'ai2_bad_0_03', 'ai2_bad_0_05'])
+
+    result = {}
+
+    if val_save_skip < batch_size:
+        val_save_skip = 1
+    else:
+        val_save_skip = val_save_skip // batch_size
+
+
+    # for val_id in tqdm(range(val_num)):
+    for i_batch, data_blob in enumerate(tqdm(val_loader)):
+        if i_batch % val_save_skip != 0:
+            continue
+        # if i_batch > 3:
+        #     break
+
+        image_paths = data_blob['image_list']
+        center = data_blob['center'].cuda()
+        lrtb_list = data_blob['lrtb_list'].cuda()
+        depth_gt =  -data_blob['disp'].cuda()
+        valid_gt = data_blob['disp_valid'].cuda()
+
+        concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()
+        
+        with autocast(enabled=mixed_prec):
+            _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
+
+        # Crop invalid regions
+        h, w = flow_pr.shape[-2:]
+        # flow_pr = flow_pr[..., 32:h-32, 32:w-32]
+        # depth_gt = depth_gt[..., 32:h-32, 32:w-32]
+        # center = center[..., 32:h-32, 32:w-32]
+
+        # flow_pr = torch.zeros_like(flow_gt)
+
+        # Align dimensions and file format
+        flow_pr = flow_pr.cpu().numpy()
+        depth_gt = depth_gt.cpu().numpy()
+        center = center.permute(0,2,3,1).cpu().numpy()
+        
+        assert flow_pr.shape == depth_gt.shape, (flow_pr.shape, depth_gt.shape)
+
+        current_batch_size = flow_pr.shape[0]
+        for i in range(current_batch_size):
+            flow_pr_i = flow_pr[i]
+            depth_gt_i = depth_gt[i]
+            depth_conf = depth_gt_i > 0
+
+            depth_gt_i /= 100.0 # convert to meters
+            inv_depth_gt_i = np.zeros_like(depth_gt_i)
+            inv_depth_gt_i[depth_conf] = 1 / depth_gt_i[depth_conf] # convert to 1/meters
+
+            center_i = center[i]
+            est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr_i, inv_depth_gt_i, confidence_map=depth_conf)
+            est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr_i, inv_depth_gt_i, confidence_map=depth_conf)
+            sc = eval_est.spearman_correlation(flow_pr_i, inv_depth_gt_i, confidence_map=depth_conf)
+            bads = eval_est.ai2_bad_pixel_metrics(flow_pr_i, inv_depth_gt_i, confidence_map=depth_conf)
+            est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
+
+            val_id = i_batch * batch_size + i
+
+            if save_result:
+                if not os.path.exists('result/predictions/'+path+'/'):
+                    os.makedirs('result/predictions/'+path+'/')
+                
+                pth_lists = image_paths[0][i].split('/')[-3:]
+                pth = '/'.join(pth_lists)
+                
+
+                # Set range
+                vmargin = 0.3
+                vrng = inv_depth_gt_i[depth_conf].max() - inv_depth_gt_i[depth_conf].min()
+                vmin, vmax = inv_depth_gt_i[depth_conf].min() - vrng * vmargin, inv_depth_gt_i[depth_conf].max() + vrng * vmargin
+                vmin = 0 if vmin < 0 else vmin
+                
+                err_margin = 0.3
+                vmin_err, vmax_err = 0, vrng * err_margin
+
+                eval_est.add_colorrange(vmin, vmax)
+
+                # Save in colormap
+                os.makedirs(os.path.join(ai2_fit_dir, os.path.dirname(pth)), exist_ok=True)
+                plt.imsave(os.path.join(ai2_fit_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+
+                ai2_err = np.ones_like(inv_depth_gt_i) * -100
+                ai2_err[depth_conf] = np.abs(est_ai2_fit[depth_conf] - inv_depth_gt_i[depth_conf])
+                os.makedirs(os.path.join(ai2_dir, os.path.dirname(pth)), exist_ok=True)
+                plt.imsave(os.path.join(ai2_dir, pth), ai2_err.squeeze(), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+                ai2_err_color = np.array(Image.open(os.path.join(ai2_dir, pth)))
+                ai2_err_color[~depth_conf.squeeze()] = [0, 0, 0, 255]
+                plt.imsave(os.path.join(ai2_dir, pth), ai2_err_color)
+
+                os.makedirs(os.path.join(gt_dir, os.path.dirname(pth)), exist_ok=True)
+                plt.imsave(os.path.join(gt_dir, pth), inv_depth_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+                gt_color = np.array(Image.open(os.path.join(gt_dir, pth)))
+                gt_color[~depth_conf.squeeze()] = [0, 0, 0, 255]
+                plt.imsave(os.path.join(gt_dir, pth), gt_color)
+
+                os.makedirs(os.path.join(src_test_c_dir, os.path.dirname(pth)), exist_ok=True)
+                plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), center_i.astype(np.uint8))
+
+
+    eval_est.save_metrics()
+    result = {**result, **eval_est.get_mean_metrics()}
+    return result
+
+
 
 @torch.no_grad()
 def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='', save_path='result/train', batch_size=1, preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}):
@@ -772,8 +909,8 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--ckpt_epoch', type=str, default=0)
     parser.add_argument('--save_result', action='store_true', help="Save predicted results")
-    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise', 'Make_QPD', 'Make_DDDP'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
-    
+    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise', 'DP5K-Valid', 'DP5K-Test', 'Make_QPD', 'Make_DDDP'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+
     args = parser.parse_args()
 
     # conf = get_train_config(args.exp_name)
@@ -838,13 +975,13 @@ if __name__ == '__main__':
         result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result else False, datatype = conf.datatype, image_set="test", path='datasets/QP-Data', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
 
         log_dir = os.path.join(save_dir, 'runs')
-        logger = Logger(model, scheduler, total_steps, log_dir=log_dir)
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
 
         named_results = {}
-        for k, v in results.items():
-            named_results[f'val_qpd_test/{k}'] = v
+        for k, v in result.items():
+            named_results[f'test_qpd/{k}'] = v
             if 'img' not in k:
-                print(f'val_qpd_test/{k}: {v}')
+                print(f'test_qpd/{k}: {v}')
 
         logger.write_dict(named_results)
 
@@ -901,6 +1038,40 @@ if __name__ == '__main__':
 
         logger.write_dict(named_result)
 
+    if 'DP5K-Test' in args.eval_datasets:
+        save_dir = os.path.join(conf.save_path, 'dp5k')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
+        print(save_path)
+        result = validate_DP5K(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result else False, datatype = conf.datatype, image_set="test", path='datasets/DP5K', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
+        
+        log_dir = os.path.join(save_dir, 'runs') 
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
+        
+        named_result = {}
+        for k, v in result.items():
+            named_result[f'test_dp5k/{k}'] = v
+            if 'img' not in k:
+                print(f'test_dp5k/{k}: {v}')
+
+        logger.write_dict(named_result)
+
+    if 'DP5K-Valid' in args.eval_datasets:
+        save_dir = os.path.join(conf.save_path, 'dp5k')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
+        print(save_path)
+        result = validate_DP5K(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result else False, datatype = conf.datatype, image_set="valid", path='datasets/DP5K', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1)
+        
+        log_dir = os.path.join(save_dir, 'runs') 
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
+        
+        named_result = {}
+        for k, v in result.items():
+            named_result[f'val_dp5k/{k}'] = v
+            if 'img' not in k:
+                print(f'val_dp5k/{k}: {v}')
+
+        logger.write_dict(named_result)
+
     if 'Real_QPD' in args.eval_datasets:
         save_dir = os.path.join(conf.save_path, 'real-qpd-test')
         save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
@@ -917,6 +1088,8 @@ if __name__ == '__main__':
                 print(f'val_real_qpd/{k}: {v}')
 
         logger.write_dict(named_result)
+
+
 
     elapsed = time.time() - start_time
 
