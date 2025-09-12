@@ -7,12 +7,13 @@ from pathlib import Path
 from datetime import datetime
 from time import sleep
 from presets import get_run_setting
-from presets.header_env_settings import FMDPTrain, FMDPValid
+from presets.header_env_settings import DP5KValid, FMDPTrain, FMDPValid
 
 
 def parse_args():
     p = argparse.ArgumentParser("TSUBAME single-job (train + watcher + restarter)")
     p.add_argument("--type", choices=["train", "eval"], required=True)
+    p.add_argument("--eval_run_time", default="00:15:00", type=str)
     p.add_argument("--run_setting_name", required=True)
     p.add_argument("--after", type=int, default=0, help="N초 대기 후 제출")
     p.add_argument("--run_script", default="True", choices=["True", "False"])
@@ -34,15 +35,16 @@ def pick_header_env_for_train():
     }
 
 
-def pick_header_env_for_eval():
+def pick_header_env_for_eval(run_time: str):
     h = FMDPValid()
     return {
         "node_type": h.node_type,
-        "running_time": h.running_time,
+        "running_time": run_time,
         "env_name": h.env_name,
         "cuda_version": h.cuda_version,
         "cudnn_version": h.cudnn_version,
     }
+
 
 
 def render_header(header_env: dict, job_name: str, stdout_log: Path, stderr_log: Path) -> str:
@@ -149,7 +151,7 @@ fi
 
     # ===== eval 모드(단발) =====
     if args.type == "eval":
-        eval_header = pick_header_env_for_eval()
+        eval_header = pick_header_env_for_eval(args.eval_run_time)
         jobname = f"{args.run_setting_name}_eval_once"
         base = f"eval_once_{args.run_setting_name}_{ts}"
         script_path = scripts_dir / f"{base}.sh"
