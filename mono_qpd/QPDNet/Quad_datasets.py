@@ -221,15 +221,33 @@ class QPD(QuadDataset):
         aif_list = sorted(glob(os.path.join(root, image_set+'_c','target', 'seq_*/*.png')))
         disp_list = sorted(glob(os.path.join(root, image_set+'_c','target_disp', 'seq_*/*.npy')))
 
-        for idx, (imgc, imgl, imgr, imgt, imgb, disp, aif) in enumerate(zip(imagec_list, imagel_list, imager_list, imaget_list, imageb_list, disp_list, aif_list)):
-            if datatype == 'dual':
+
+
+        if datatype == 'dual':
+            for idx, (imgc, imgl, imgr) in enumerate(zip(imagec_list, imagel_list, imager_list)):
                 self.image_list += [ [imgc, imgl, imgr] ]
-            elif datatype == 'quad':
+        elif datatype == 'quad':
+            for idx, (imgc, imgl, imgr, imgt, imgb) in enumerate(zip(imagec_list, imagel_list, imager_list, imaget_list, imageb_list)):
                 self.image_list += [ [imgc, imgl, imgr, imgt, imgb] ]
-            if 'disp' in gt_types:
+
+        if 'disp' in gt_types:
+            for idx, disp in enumerate(disp_list):
                 self.disparity_list += [ disp ]
-            if 'AiF' in gt_types:
+        
+        if 'AiF' in gt_types:
+            for idx, aif in enumerate(aif_list):
                 self.aif_list += [ aif ]
+
+
+        # for idx, (imgc, imgl, imgr, imgt, imgb, disp, aif) in enumerate(zip(imagec_list, imagel_list, imager_list, imaget_list, imageb_list, disp_list, aif_list)):
+        #     if datatype == 'dual':
+        #         self.image_list += [ [imgc, imgl, imgr] ]
+        #     elif datatype == 'quad':
+        #         self.image_list += [ [imgc, imgl, imgr, imgt, imgb] ]
+        #     if 'disp' in gt_types:
+        #         self.disparity_list += [ disp ]
+        #     if 'AiF' in gt_types:
+        #         self.aif_list += [ aif ]
             
 class DP5K(QuadDataset):
     def __init__(self, datatype='dual', gt_types=['disp'], aug_params=None, root='', image_set='train', preprocess_params=None):
