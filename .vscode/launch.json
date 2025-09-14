@@ -115,9 +115,9 @@
                 "--ckpt_epoch", "latest", // result/train/LocalExp0825FMDP/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
                 "--eval_datasets", 
                 // "QPD-Test", 
-                // "QPD-Test-noise", 
-                "DP5K-Valid", 
-                "DP5K-Test",
+                "QPD-Test-noise", 
+                // "DP5K-Valid", 
+                // "DP5K-Test",
                 "--save_result"
                 // "--debug_mode"
             ]
