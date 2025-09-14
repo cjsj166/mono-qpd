@@ -508,11 +508,11 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
     else:
         val_dataset = datasets.QPD(datatype=datatype, gt_types=gt_types, aug_params=aug_params, image_set=image_set, preprocess_params=preprocess_params, root=path)
 
-    # val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
-    #     pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
-
     val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
-        pin_memory=True, num_workers=0, drop_last=False)
+        pin_memory=True, num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, drop_last=False)
+
+    # val_loader = data.DataLoader(val_dataset, batch_size=batch_size, 
+    #     pin_memory=True, num_workers=0, drop_last=False)
 
     
     disp_dir = os.path.join(save_path, 'disp')
