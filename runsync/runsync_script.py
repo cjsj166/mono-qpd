@@ -177,7 +177,7 @@ cd {exec_path}
     err_log = scripts_dir / f"{base}_err.log"
 
     train_cmd = build_train_cmd(args.run_setting_name, checkpoints_dir)
-    eval_cmd = build_eval_cmd(args.run_setting_name, "latest", args.eval_datasets)  # watcher는 항상 latest로 평가
+    eval_cmd = build_eval_cmd(args.run_setting_name, "latest", args.eval_datasets, args.save_result)  # watcher는 항상 latest로 평가
 
     # ✅ 평가 전용 스크립트 별도 파일 (고정 파일명)
     eval_header = pick_header_env_for_eval()
