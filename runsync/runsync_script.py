@@ -180,7 +180,7 @@ cd {exec_path}
     eval_cmd = build_eval_cmd(args.run_setting_name, "latest", args.eval_datasets, args.save_result)  # watcher는 항상 latest로 평가
 
     # ✅ 평가 전용 스크립트 별도 파일 (고정 파일명)
-    eval_header = pick_header_env_for_eval()
+    eval_header = pick_header_env_for_eval(args.eval_run_time)
     eval_jobname = f"{args.run_setting_name}_eval"
     eval_script_path = scripts_dir / f"eval_runner_{args.run_setting_name}.sh"
     eval_out_log = scripts_dir / f"eval_runner_{args.run_setting_name}_out.log"
