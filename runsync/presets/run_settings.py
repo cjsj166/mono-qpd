@@ -83,9 +83,8 @@ class BaseConfig:
 
         self.save_path = str(save_path)
 
-
 @dataclass
-class Exp0825CLCRLR(BaseConfig):
+class Exp0916AdjustCLCRLRN14(BaseConfig):
     num_steps: int = 200000
     batch_size: int = 4
     image_size: Tuple[int, int] = (448, 448)
@@ -95,13 +94,49 @@ class Exp0825CLCRLR(BaseConfig):
     real_qpd_bs: int = 4
     dp_disp_bs: int = 2
     val_save_skip: int = 1
+    clcr_weight: float = 0.25
 
     restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
     feature_converter: str = 'interp'
     val_datasets: Tuple[str] = ('DPD-Disp',)
 
 @dataclass
-class LocalExp0825CLCRLR(BaseConfig):
+class Exp0916AdjustCLCRLRN24(BaseConfig):
+    num_steps: int = 200000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 2
+    val_save_skip: int = 1
+    clcr_weight: float = 0.5
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+@dataclass
+class Exp0916AdjustCLCRLRN34(BaseConfig):
+    num_steps: int = 200000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 2
+    val_save_skip: int = 1
+    clcr_weight: float = 0.75
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+
+@dataclass
+class LocalExp0916AdjustCLCRLRN24(BaseConfig):
     num_steps: int = 200_000 # 200_000
     batch_size: int = 1
     image_size: Tuple[int, int] = (448, 448)
@@ -112,6 +147,7 @@ class LocalExp0825CLCRLR(BaseConfig):
     dp_disp_bs: int = 1
     val_save_skip: int = 1
     debug_mode: bool = True
+    clcr_weight: float = 0.5
 
     restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
     feature_converter: str = 'interp'
