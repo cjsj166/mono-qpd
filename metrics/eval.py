@@ -186,7 +186,6 @@ class Eval():
                     mean_line += f"{mean_metrics[metric]:.5f} "
             mean_line += "\n"
             f.write(mean_line)
-            f.write("----end----\n")
 
 """
 dir_path = '/mnt/d/Mono+Dual/QPDNet/result/eval/dp-disp'
