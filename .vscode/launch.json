@@ -40,24 +40,28 @@
         },
 
         {
-            "name": "runsync eval, LocalExp0825FMDP latest, QPD-Test DP5K",
+            "name": "runsync eval, LocalExp0916AdjustCLCRLRN24 latest, QPD-Test DP5K",
             "type": "debugpy",
             "request": "launch",
             "program": "runsync/runsync_script.py",
             "console": "integratedTerminal",
             "args": [
                 "--type", "eval",
-                "--run_setting_name", "LocalExp0825FMDP",
+                "--run_setting_name", "LocalExp0916AdjustCLCRLRN24",
                 "--ckpt_epoch", "latest",
                 // "--eval_run_time", "01:00:00",
-                "--eval_datasets", "QPD-Test", "QPD-Test-noise", "DP5K-Valid", "DP5K-Test",
+                "--eval_datasets", 
+                // "QPD-Test", 
+                // "QPD-Test-noise", 
+                "DP5K-Valid", 
+                "DP5K-Test",
                 "--save_result"
             ]
         },
 
 
         {
-            "name": "MonoQPD, dataclass train, qpd-train, LocalExp0825FMDP",
+            "name": "MonoQPD, dataclass train, qpd-train, LocalExp0916AdjustCLCRLRN24",
             "type": "debugpy",
             "request": "launch",
             "program": "train_mono_qpd.py",
@@ -94,8 +98,8 @@
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "LocalExp0825FMDP",
-                "--ckpt_epoch", "latest", // result/train/LocalExp0825FMDP/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
+                "LocalExp0916AdjustCLCRLRN24",
+                "--ckpt_epoch", "latest", // result/train/LocalExp0916AdjustCLCRLRN24/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
                 "--eval_datasets", "DPD_Disp", "QPD-Valid",
                 "--save_result"
                 // "--debug_mode"
@@ -103,20 +107,21 @@
         },
 
         {
-            "name": "Mono-QPD, dataclass eval, Exp0825FMDP, latest, QPD-Test DP5K",
+            "name": "Mono-QPD, dataclass eval, LocalExp0916AdjustCLCRLRN24, latest, QPD-Test DP5K",
             "type": "debugpy",
             "request": "launch",
             "program": "evaluate_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "Exp0825FMDP",
-                "--ckpt_epoch", "latest", // result/train/LocalExp0825FMDP/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
+                "LocalExp0916AdjustCLCRLRN24",
+                "--ckpt_epoch", "latest", // result/train/LocalExp0916AdjustCLCRLRN24/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
                 "--eval_datasets", 
                 // "QPD-Test", 
-                "QPD-Test-noise", 
-                // "DP5K-Valid", 
-                // "DP5K-Test",
+                // "QPD-Test-noise",
+                // "DPD_Disp",
+                "DP5K-Valid", 
+                "DP5K-Test",
                 "--save_result"
                 // "--debug_mode"
             ]
