@@ -261,6 +261,9 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
         if i_batch % val_save_skip != 0:
             continue
 
+        # if i_batch > 3:
+        #     break
+
         image_paths = data_blob['image_list']
         center = data_blob['center'].cuda()
         lrtb_list = data_blob['lrtb_list'].cuda()
@@ -269,8 +272,6 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
 
         concat_lr = torch.cat([lrtb_list[:,0],lrtb_list[:,1]], dim=0).contiguous()
 
-
-        
         with autocast(enabled=mixed_prec):
             _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
 
@@ -291,6 +292,7 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
 
         current_batch_size = flow_pr.shape[0]
         for i in range(current_batch_size):
+
             flow_pr_i = flow_pr[i]
             inv_depth_gt_i = inv_depth_gt[i]
             center_i = center[i]
@@ -299,6 +301,11 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
             sc = eval_est.spearman_correlation(flow_pr_i, inv_depth_gt_i)
             bads = eval_est.ai2_bad_pixel_metrics(flow_pr_i, inv_depth_gt_i)
             est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
+            
+            pth_lists = image_paths[0][i].split('/')
+            pth = os.path.basename('/'.join(pth_lists[-3:]))
+            filename = os.path.join(save_path.replace('result/train/', ''), pth) 
+            eval_est.add_filename(filename)
 
             # print(est_ai1, est_b1, est_ai2, est_b2, sc)
 
@@ -447,6 +454,11 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
             sc = eval_est.spearman_correlation(flow_pr_i, inv_depth_gt_i, confidence_map=depth_conf)
             bads = eval_est.ai2_bad_pixel_metrics(flow_pr_i, inv_depth_gt_i, confidence_map=depth_conf)
             est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
+            
+            pth_lists = image_paths[0][i].split('/')
+            pth = os.path.basename('/'.join(pth_lists[-3:]))
+            filename = os.path.join(save_path.replace('result/train/', ''), pth) 
+            eval_est.add_filename(filename)
 
             val_id = i_batch * batch_size + i
 
@@ -489,7 +501,6 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
 
                 os.makedirs(os.path.join(src_test_c_dir, os.path.dirname(pth)), exist_ok=True)
                 plt.imsave(os.path.join(src_test_c_dir, pth.replace('.jpg', '.png')), center_i.astype(np.uint8))
-
 
     eval_est.save_metrics()
     result = {**result, **eval_est.get_mean_metrics()}
@@ -549,6 +560,9 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
         if i_batch % val_save_skip != 0:
             continue
 
+        # if i_batch > 3:
+        #     break
+
         image_paths = data_blob['image_list']
         center = data_blob['center'].cuda()
         lrtb_list = data_blob['lrtb_list'].cuda()
@@ -581,7 +595,11 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
             est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr_i, disp_gt_i)
             si, alpha = eval_est.scale_invariant(flow_pr_i, disp_gt_i)
             est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
-
+            
+            pth_lists = image_paths[0][i].split('/')
+            pth = os.path.basename('/'.join(pth_lists[-3:]))
+            filename = os.path.join(save_path.replace('result/train/', ''), pth) 
+            eval_est.add_filename(filename)
             # result[f'img/{val_id}/est_ai2_fit'] = est_ai2_fit
             # result[f'img/{val_id}/est'] = flow_pr_i
             # result[f'img/{val_id}/gt'] = disp_gt_i
