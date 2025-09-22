@@ -168,14 +168,14 @@ class Eval():
         
     def save_metrics(self):
         with open(self.save_path, "w") as f:
-            header = "filename " + " ".join(self.enabled_metrics) + " color-range\n"
+            header = "filename " + " ".join(self.enabled_metrics) + "\n"
             f.write(header)
             for i, filename in enumerate(self.filenames):
                 line = f"{filename} "
                 for metric in self.enabled_metrics:
                     if metric in self.metrics_data:
                         line += f"{self.metrics_data[metric][i]:.3f} "
-                line += f"{self.color_range[i][0]:.3f}-{self.color_range[i][1]:.3f}\n"
+                line += "\n"
                 f.write(line)
             
             # write mean
