@@ -313,6 +313,16 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
 
             # print(flow_pr_i[0][418:421][317:343])
 
+            # Set range
+            vmargin = 0.3
+            vrng = inv_depth_gt_i.max() - inv_depth_gt_i.min()
+            vmin, vmax = inv_depth_gt_i.min() - vrng * vmargin, inv_depth_gt_i.max() + vrng * vmargin
+            vmin = 0 if vmin < 0 else vmin
+            err_rng = 0.7
+            vmin_err, vmax_err = 0, vrng * err_rng
+
+            eval_est.add_colorrange(vmin, vmax)
+
             if save_result:
                 if not os.path.exists('result/predictions/'+path+'/'):
                     os.makedirs('result/predictions/'+path+'/')
@@ -320,24 +330,6 @@ def validate_DPD_Disp(model, datatype='dual', gt_types=['inv_depth'], iters=32, 
                 pth_lists = image_paths[0][i].split('/')[-3:]
                 pth = '/'.join(pth_lists)
                 pth = os.path.basename(pth)
-
-                # Set range
-                vmargin = 0.3
-                vrng = inv_depth_gt_i.max() - inv_depth_gt_i.min()
-                vmin, vmax = inv_depth_gt_i.min() - vrng * vmargin, inv_depth_gt_i.max() + vrng * vmargin
-                vmin = 0 if vmin < 0 else vmin
-                err_rng = 0.7
-                vmin_err, vmax_err = 0, vrng * err_rng
-
-                eval_est.add_colorrange(vmin, vmax)
-                
-                os.makedirs('result/MVA_submission', exist_ok=True)
-
-                with open('result/MVA_submission/dpd_disp_affine_fit_range.txt', 'a') as f:
-                    f.write(f'{val_id}: {vmin}, {vmax}\n')
-
-                with open('result/MVA_submission/dpd_disp_ai2_range.txt', 'a') as f:
-                    f.write(f'{val_id}: {vmin_err}, {vmax_err}\n')
 
 
                 # Save in colormap
@@ -462,6 +454,16 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
 
             val_id = i_batch * batch_size + i
 
+            # Set range
+            vmargin = 0.3
+            vrng = inv_depth_gt_i[depth_conf].max() - inv_depth_gt_i[depth_conf].min()
+            vmin, vmax = inv_depth_gt_i[depth_conf].min() - vrng * vmargin, inv_depth_gt_i[depth_conf].max() + vrng * vmargin
+            vmin = 0 if vmin < 0 else vmin
+            
+            err_margin = 0.3
+            vmin_err, vmax_err = 0, vrng * err_margin
+            eval_est.add_colorrange(vmin, vmax)
+
             if save_result:
                 if not os.path.exists('result/predictions/'+path+'/'):
                     os.makedirs('result/predictions/'+path+'/')
@@ -470,16 +472,6 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
                 pth = '/'.join(pth_lists)
                 
 
-                # Set range
-                vmargin = 0.3
-                vrng = inv_depth_gt_i[depth_conf].max() - inv_depth_gt_i[depth_conf].min()
-                vmin, vmax = inv_depth_gt_i[depth_conf].min() - vrng * vmargin, inv_depth_gt_i[depth_conf].max() + vrng * vmargin
-                vmin = 0 if vmin < 0 else vmin
-                
-                err_margin = 0.3
-                vmin_err, vmax_err = 0, vrng * err_margin
-
-                eval_est.add_colorrange(vmin, vmax)
 
                 # Save in colormap
                 os.makedirs(os.path.join(ai2_fit_dir, os.path.dirname(pth)), exist_ok=True)
@@ -606,6 +598,11 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
 
             val_id = i_batch * batch_size + i
 
+            vrng = disp_gt_i.max() - disp_gt_i.min()
+            vmargin = 0.1
+            vmin, vmax = disp_gt_i.min() - vrng * vmargin, disp_gt_i.max() + vrng * vmargin
+            eval_est.add_colorrange(vmin, vmax)
+
             if save_result:
                 if not os.path.exists('result/predictions/'+path+'/'):
                     os.makedirs('result/predictions/'+path+'/')
@@ -624,11 +621,6 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
                 os.makedirs(os.path.dirname(os.path.join(gt_dir, pth)), exist_ok=True)
                 os.makedirs(os.path.dirname(os.path.join(src_dir, pth)), exist_ok=True)
 
-                vrng = disp_gt_i.max() - disp_gt_i.min()
-
-                vmargin = 0.1
-                vmin, vmax = disp_gt_i.min() - vrng * vmargin, disp_gt_i.max() + vrng * vmargin
-                eval_est.add_colorrange(vmin, vmax)
                 plt.imsave(os.path.join(disp_dir, pth), flow_pr_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
                 plt.imsave(os.path.join(ai2_fit_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
 
