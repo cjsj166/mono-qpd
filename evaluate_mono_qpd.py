@@ -1135,6 +1135,7 @@ if __name__ == '__main__':
                 print(f'val_qpd_test_noise/{k}: {v}')
 
         logger.write_dict(named_result)
+        logger.close()
 
     if 'QPD-Valid' in args.eval_datasets:
         save_dir = os.path.join(conf.save_path, 'qpd-valid')
@@ -1154,6 +1155,7 @@ if __name__ == '__main__':
                 print(f'val_qpd_valid/{k}: {v}')
 
         logger.write_dict(named_result)
+        logger.close()
 
     if 'DPD_Disp' in args.eval_datasets:
         save_dir = os.path.join(conf.save_path, 'dp-disp')
@@ -1171,6 +1173,7 @@ if __name__ == '__main__':
                 print(f'val_qpd_dpd_disp/{k}: {v}')
 
         logger.write_dict(named_result)
+        logger.close()
     
     if 'DP119' in args.eval_datasets:
         save_dir = os.path.join(conf.save_path, 'dp119')
@@ -1188,6 +1191,7 @@ if __name__ == '__main__':
                 print(f'dp119/{k}: {v}')
 
         logger.write_dict(named_result)
+        logger.close()
 
 
     if 'DP5K-Test' in args.eval_datasets:
@@ -1206,6 +1210,7 @@ if __name__ == '__main__':
                 print(f'test_dp5k/{k}: {v}')
 
         logger.write_dict(named_result)
+        logger.close()
 
     if 'DP5K-Test-Lowres' in args.eval_datasets:
         save_dir = os.path.join(conf.save_path, 'dp5k-test-lowres')
@@ -1223,6 +1228,7 @@ if __name__ == '__main__':
                 print(f'test_lowres_dp5k/{k}: {v}')
 
         logger.write_dict(named_result)
+        logger.close()
 
     if 'DP5K-Valid' in args.eval_datasets:
         save_dir = os.path.join(conf.save_path, 'dp5k-valid')
@@ -1240,6 +1246,7 @@ if __name__ == '__main__':
                 print(f'val_dp5k/{k}: {v}')
 
         logger.write_dict(named_result)
+        logger.close()
 
     if 'Real_QPD' in args.eval_datasets:
         save_dir = os.path.join(conf.save_path, 'real-qpd-test')
@@ -1257,6 +1264,7 @@ if __name__ == '__main__':
                 print(f'val_real_qpd/{k}: {v}')
 
         logger.write_dict(named_result)
+        logger.close()
 
 
 
