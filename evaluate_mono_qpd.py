@@ -521,8 +521,8 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
         if i_batch % val_save_skip != 0:
             continue
-        # if i_batch > 3:
-        #     break
+        if i_batch > 3:
+            break
 
         image_paths = data_blob['image_list']
         center = data_blob['center'].cuda()
@@ -1211,7 +1211,7 @@ if __name__ == '__main__':
         save_dir = os.path.join(conf.save_path, 'dp5k-test-lowres')
         save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
         print(save_path)
-        result = validate_DP5K(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result else False, datatype = conf.datatype, image_set="test", path='datasets/DP5K', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1, preprocess_params={'crop_h':1120, 'crop_w':1120, 'resize_h':448, 'resize_w':448})
+        result = validate_DP5K(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result else False, datatype = conf.datatype, image_set="test", path='datasets/DP5K', save_path=save_path, batch_size=conf.dp_disp_bs if conf.dp_disp_bs else 1, preprocess_params={'crop_h':1120, 'crop_w':1120, 'resize_h':896, 'resize_w':896})
         
         log_dir = os.path.join(save_dir, 'runs') 
         logger = EvalLogger(log_dir=log_dir, epoch=epoch)
