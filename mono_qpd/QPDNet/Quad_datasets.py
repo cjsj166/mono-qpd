@@ -268,6 +268,23 @@ class DP5K(QuadDataset):
             if 'AiF' in gt_types:
                 self.aif_list += [ aif ]
 
+class DP119(QuadDataset):
+    def __init__(self, datatype='dual', gt_types=['inv_depth'], aug_params=None, root='', image_set='test', resize_ratio = None, preprocess_params=None):
+        super(DP119, self).__init__(aug_params=aug_params, datatype='dual', gt_types=gt_types, sparse=False, lrtb='', image_set = image_set, preprocess_params=preprocess_params)
+        self.inv_depth_list = []
+        self.resize_ratio = resize_ratio
+
+        assert os.path.exists(root)
+        imagel_list = sorted(glob(os.path.join(root, image_set+'_l','source', 'seq_*/*.jpg')))
+        imager_list = sorted(glob(os.path.join(root, image_set+'_r','source', 'seq_*/*.jpg')))
+        imagec_list = sorted(glob(os.path.join(root, image_set+'_c','source', 'seq_*/*.jpg')))
+        depth_list = sorted(glob(os.path.join(root, image_set+'_c','target_depth', 'seq_*/*.npy')))
+
+        for idx, (imgc, imgl, imgr, depth) in enumerate(zip(imagec_list, imagel_list, imager_list, depth_list)):
+            self.image_list += [ [imgc, imgl, imgr] ]
+            self.inv_depth_list += [ depth ] # depth
+
+
 class DDDP(QuadDataset):
     def __init__(self, datatype='dual', gt_types=['AiF'], aug_params=None, root='', image_set='train', preprocess_params=None):
         super(DDDP, self).__init__(aug_params=aug_params, datatype='dual', gt_types=gt_types, sparse=False, lrtb='', image_set = image_set, preprocess_params=preprocess_params)
