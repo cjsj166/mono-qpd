@@ -121,8 +121,10 @@
                 // "QPD-Test", 
                 // "QPD-Test-noise",
                 // "DPD_Disp",
-                "DP5K-Valid", 
-                "DP5K-Test",
+                // "DP119",
+                // "DP5K-Valid", 
+                // "DP5K-Test",
+                "DP5K-Test-Lowres",
                 "--save_result"
                 // "--debug_mode"
             ]
@@ -962,4 +964,5 @@
 
     ]
 }
+
 
