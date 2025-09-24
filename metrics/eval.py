@@ -174,7 +174,7 @@ class Eval():
                 line = f"{filename} "
                 for metric in self.enabled_metrics:
                     if metric in self.metrics_data:
-                        line += f"{self.metrics_data[metric][i]:.3f} "
+                        line += f"{self.metrics_data[metric][i]:.5f} "
                 line += "\n"
                 f.write(line)
             
