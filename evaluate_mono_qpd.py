@@ -521,8 +521,8 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
         if i_batch % val_save_skip != 0:
             continue
-        if i_batch > 3:
-            break
+        # if i_batch > 3:
+        #     break
 
         image_paths = data_blob['image_list']
         center = data_blob['center'].cuda()
