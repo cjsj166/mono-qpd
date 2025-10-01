@@ -1043,7 +1043,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--ckpt_epoch', type=str, default=0)
     parser.add_argument('--save_result', action='store_true', help="Save predicted results")
-    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise', 'DP5K-Valid', 'DP5K-Test', 'DP5K-Test-Lowres', 'DP119', 'Make_QPD', 'Make_DDDP'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-FStop-1_2-Test', 'QPD-FStop-1_4-Test', 'QPD-FStop-2_0-Test', 'QPD-FStop-2_8-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise', 'DP5K-Valid', 'DP5K-Test', 'DP5K-Test-Lowres', 'DP119', 'Make_QPD', 'Make_DDDP'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
 
     args = parser.parse_args()
 
@@ -1116,6 +1116,104 @@ if __name__ == '__main__':
             named_results[f'test_qpd/{k}'] = v
             if 'img' not in k:
                 print(f'test_qpd/{k}: {v}')
+
+        logger.write_dict(named_results)
+
+    if 'QPD-FStop-1_2-Test' in args.eval_datasets:
+        save_dir = os.path.join(conf.save_path, 'qpd-fstop-1_2-test')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
+        print(save_path)
+        result = validate_QPD(model, iters=conf.valid_iters, mixed_prec=use_mixed_precision, save_result=True if args.save_result else False, datatype = conf.datatype, image_set="test", path='datasets/QP-Data-FStop-1_2', save_path=save_path, batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1)
+
+        log_dir = os.path.join(save_dir, 'runs')
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
+
+        named_results = {}
+        for k, v in result.items():
+            named_results[f'test_qpd_fstop_1_2/{k}'] = v
+            if 'img' not in k:
+                print(f'test_qpd_fstop_1_2/{k}: {v}')
+
+        logger.write_dict(named_results)
+
+    if 'QPD-FStop-1_4-Test' in args.eval_datasets:
+        save_dir = os.path.join(conf.save_path, 'qpd-fstop-1_4-test')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
+        print(save_path)
+        result = validate_QPD(
+            model,
+            iters=conf.valid_iters,
+            mixed_prec=use_mixed_precision,
+            save_result=True if args.save_result else False,
+            datatype=conf.datatype,
+            image_set="test",
+            path='datasets/QP-Data-FStop-1_4',
+            save_path=save_path,
+            batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1
+        )
+
+        log_dir = os.path.join(save_dir, 'runs')
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
+
+        named_results = {}
+        for k, v in result.items():
+            named_results[f'test_qpd_fstop_1_4/{k}'] = v
+            if 'img' not in k:
+                print(f'test_qpd_fstop_1_4/{k}: {v}')
+
+        logger.write_dict(named_results)
+
+    if 'QPD-FStop-2_0-Test' in args.eval_datasets:
+        save_dir = os.path.join(conf.save_path, 'qpd-fstop-2_0-test')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
+        print(save_path)
+        result = validate_QPD(
+            model,
+            iters=conf.valid_iters,
+            mixed_prec=use_mixed_precision,
+            save_result=True if args.save_result else False,
+            datatype=conf.datatype,
+            image_set="test",
+            path='datasets/QP-Data-FStop-2_0',
+            save_path=save_path,
+            batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1
+        )
+
+        log_dir = os.path.join(save_dir, 'runs')
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
+
+        named_results = {}
+        for k, v in result.items():
+            named_results[f'test_qpd_fstop_2_0/{k}'] = v
+            if 'img' not in k:
+                print(f'test_qpd_fstop_2_0/{k}: {v}')
+
+        logger.write_dict(named_results)
+
+    if 'QPD-FStop-2_8-Test' in args.eval_datasets:
+        save_dir = os.path.join(conf.save_path, 'qpd-fstop-2_8-test')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
+        print(save_path)
+        result = validate_QPD(
+            model,
+            iters=conf.valid_iters,
+            mixed_prec=use_mixed_precision,
+            save_result=True if args.save_result else False,
+            datatype=conf.datatype,
+            image_set="test",
+            path='datasets/QP-Data-FStop-2_8',
+            save_path=save_path,
+            batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1
+        )
+
+        log_dir = os.path.join(save_dir, 'runs')
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
+
+        named_results = {}
+        for k, v in result.items():
+            named_results[f'test_qpd_fstop_2_8/{k}'] = v
+            if 'img' not in k:
+                print(f'test_qpd_fstop_2_8/{k}: {v}')
 
         logger.write_dict(named_results)
 

@@ -124,7 +124,12 @@
                 // "DP119",
                 // "DP5K-Valid", 
                 // "DP5K-Test",
-                "DP5K-Test-Lowres",
+                "QPD-FStop-1_2-Test",
+                "QPD-FStop-1_4-Test",
+                "QPD-FStop-2_0-Test",
+                "QPD-FStop-2_8-Test",
+                
+                // "DP5K-Test-Lowres",
                 "--save_result"
                 // "--debug_mode"
             ]
