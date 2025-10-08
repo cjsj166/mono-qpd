@@ -666,13 +666,36 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
         val_save_skip = 1
     else:
         val_save_skip = val_save_skip // batch_size
-
+    
+    # Based on adaptive binning results with 15 bins, good pixel distribution:
+    # Bin 1: [-1.500000, -1.125000] -> 2,718,528 pixels
+    # Bin 2: [-1.125000, -0.750000] -> 4,248,316 pixels
+    # Bin 3: [-0.750000, -0.562500] -> 3,632,914 pixels
+    # Bin 4: [-0.562500, -0.375000] -> 1,311,188 pixels
+    # Bin 5: [-0.375000, -0.281250] -> 3,882,535 pixels
+    # Bin 6: [-0.281250, -0.187500] -> 3,248,622 pixels
+    # Bin 7: [-0.187500, 0.005859] -> 28,604,280 pixels
+    # Bin 8: [0.005859, 0.251953] -> 10,328,679 pixels
+    # Bin 9: [0.251953, 0.333984] -> 19,316,021 pixels
+    # Bin 10: [0.333984, 0.486328] -> 9,131,722 pixels
+    # Bin 11: [0.486328, 0.597656] -> 19,152,237 pixels
+    # Bin 12: [0.597656, 0.750000] -> 4,065,737 pixels
+    # Bin 13: [0.750000, 0.843750] -> 2,759,007 pixels
+    # Bin 14: [0.843750, 0.937500] -> 3,889,977 pixels
+    # Bin 15: [0.937500, 1.125000] -> 202,116 pixels
+    
+    quantile_edges = np.array([-1.5, -1.125, -0.75, -0.5625, -0.375, -0.28125, -0.1875, 0.005859, 0.251953, 0.333984, 0.486328, 0.597656, 0.75, 0.84375, 0.9375, 1.125])
+    
+    # Set bin edges for the Eval object
+    eval_est.bin_edges = quantile_edges
+    print(f"Set {len(quantile_edges)-1} bin edges for binned EPE evaluation")
+    
     for i_batch, data_blob in enumerate(tqdm(val_loader)):
 
         if i_batch % val_save_skip != 0:
             continue
 
-        # if i_batch > 3:
+        # if i_batch > 100:
         #     break
 
         image_paths = data_blob['image_list']
@@ -706,6 +729,11 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
             est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr_i, disp_gt_i)
             est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr_i, disp_gt_i)
             si, alpha = eval_est.scale_invariant(flow_pr_i, disp_gt_i)
+            
+            # Calculate binned EPE using quantile bins
+            epe_per_bin, pixel_count_per_bin = eval_est.binned_epe(flow_pr_i, disp_gt_i, bins=quantile_edges)
+            eval_est.add_binned_epe(epe_per_bin, pixel_count_per_bin, bin_edges=quantile_edges)
+            
             est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
             
             pth_lists = image_paths[0][i].split('/')
@@ -784,6 +812,8 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
                 # result[f'img/{val_id}/src'] = np.array(img_src)
 
     eval_est.save_metrics()
+    eval_est.save_binned_epe()  # Save binned EPE results
+    eval_est.plot_binned_epe_histogram()  # Plot binned EPE histogram
     result = {**result, **eval_est.get_mean_metrics()}
 
     return result
