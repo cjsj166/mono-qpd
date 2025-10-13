@@ -7,6 +7,7 @@ import argparse
 import time
 import logging
 import numpy as np
+import glob
 import torch
 from tqdm import tqdm
 from mono_qpd.QPDNet.qpd_net import QPDNet, autocast
@@ -618,6 +619,202 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
     result = {**result, **eval_est.get_mean_metrics()}
     return result
 
+@torch.no_grad()
+def validate_QPD_FStops(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec=False, save_result=False, val_save_skip=1, image_set='test', path='datasets/qpd-test-fstops', save_path='result/train', batch_size=1, preprocess_params={'crop_h':672, 'crop_w':896, 'resize_h': 672, 'resize_w':896}):
+    """ Perform validation using multiple f-stop datasets """
+    model.eval()
+    
+    # Find all f-stop directories
+    fstop_dirs = glob.glob(os.path.join(path, 'qpd-test-fstop-*'))
+    if not fstop_dirs:
+        raise ValueError(f"No f-stop directories found in {path}")
+    
+    fstop_dirs.sort()  # Ensure consistent ordering
+    print(f"Found {len(fstop_dirs)} f-stop directories")
+    
+    # Dictionary to store results for each f-stop and overall average
+    all_results = {}
+    fstop_metrics = {}
+    
+    # Process each f-stop directory
+    for fstop_dir in tqdm(fstop_dirs, desc="Processing f-stops"):
+        # Extract f-stop value from directory name (e.g., qpd-test-fstop-0_1 -> 0_1)
+        fstop_value = os.path.basename(fstop_dir).replace('qpd-test-fstop-', '')
+        print(f"\nProcessing f-stop {fstop_value}: {fstop_dir}")
+        
+        # Create dataset for this f-stop
+        aug_params = {}
+        val_dataset = datasets.QPD(
+            datatype=datatype, 
+            gt_types=gt_types, 
+            aug_params=aug_params, 
+            image_set=image_set, 
+            preprocess_params=preprocess_params, 
+            root=fstop_dir
+        )
+        
+        val_loader = data.DataLoader(
+            val_dataset, 
+            batch_size=batch_size,
+            pin_memory=True, 
+            num_workers=int(os.environ.get('SLURM_CPUS_PER_TASK', 6))-2, 
+            drop_last=False
+        )
+        
+        # Create save directories for this f-stop
+        fstop_save_path = save_path
+        disp_dir = os.path.join(fstop_save_path, 'disp')
+        epe_dir = os.path.join(fstop_save_path, 'epe')
+        epe0_3_dir = os.path.join(fstop_save_path, 'epe0_3')
+        epe0_5_dir = os.path.join(fstop_save_path, 'epe0_5')
+        ai2_fit_dir = os.path.join(fstop_save_path, 'ai2_fit')
+        ai2_dir = os.path.join(fstop_save_path, 'ai2')
+        ai2_0_3_dir = os.path.join(fstop_save_path, 'ai2_0_3')
+        ai2_0_5_dir = os.path.join(fstop_save_path, 'ai2_0_5')
+        gt_dir = os.path.join(fstop_save_path, 'gt')
+        src_dir = os.path.join(fstop_save_path, 'src')
+        
+        # Create eval object for this f-stop
+        eval_est = Eval(
+            os.path.join(fstop_save_path, 'center'), 
+            enabled_metrics=['epe', 'rmse', 'ai1', 'ai2', 'si', 'epe_bad_0_005', 'epe_bad_0_01', 'epe_bad_0_05', 'epe_bad_0_1', 'epe_bad_0_5', 'epe_bad_1']
+        )
+        
+        if val_save_skip < batch_size:
+            val_save_skip = 1
+        else:
+            val_save_skip = val_save_skip // batch_size
+        
+        # Quantile edges for binned EPE evaluation
+        quantile_edges = np.array([-1.5, -1.125, -0.75, -0.5625, -0.375, -0.28125, -0.1875, 0.005859, 0.251953, 0.333984, 0.486328, 0.597656, 0.75, 0.84375, 0.9375, 1.125])
+        eval_est.bin_edges = quantile_edges
+        
+        # Process batches for this f-stop
+        for i_batch, data_blob in enumerate(val_loader):
+            if i_batch % val_save_skip != 0:
+                continue
+                
+            image_paths = data_blob['image_list']
+            center = data_blob['center'].cuda()
+            lrtb_list = data_blob['lrtb_list'].cuda()
+            disp_gt = data_blob['disp'].cuda()
+            valid_gt = data_blob['disp_valid'].cuda()
+
+            concat_lr = torch.cat([lrtb_list[:,0], lrtb_list[:,1]], dim=0).contiguous()
+            
+            with autocast(enabled=mixed_prec):
+                _, flow_pr = model(center, concat_lr, iters=iters, test_mode=True)
+
+            flow_pr = flow_pr.cpu().numpy()
+            disp_gt = disp_gt.cpu().numpy()
+            center = center.permute(0,2,3,1).cpu().numpy()
+            
+            disp_gt = disp_gt / 2
+
+            assert flow_pr.shape == disp_gt.shape, (flow_pr.shape, disp_gt.shape)
+
+            current_batch_size = flow_pr.shape[0]
+            for i in range(current_batch_size):
+                flow_pr_i = flow_pr[i]
+                disp_gt_i = disp_gt[i]
+                center_i = center[i]
+
+                # Calculate metrics
+                epe = eval_est.end_point_error(flow_pr_i, disp_gt_i)
+                rmse = eval_est.root_mean_squared_error(flow_pr_i, disp_gt_i)
+                bads = eval_est.epe_bad_pixel_metrics(flow_pr_i, disp_gt_i)
+                est_ai1, est_b1 = eval_est.affine_invariant_1(flow_pr_i, disp_gt_i)
+                est_ai2, est_b2 = eval_est.affine_invariant_2(flow_pr_i, disp_gt_i)
+                si, alpha = eval_est.scale_invariant(flow_pr_i, disp_gt_i)
+                
+                # Calculate binned EPE
+                epe_per_bin, pixel_count_per_bin = eval_est.binned_epe(flow_pr_i, disp_gt_i, bins=quantile_edges)
+                eval_est.add_binned_epe(epe_per_bin, pixel_count_per_bin, bin_edges=quantile_edges)
+                
+                est_ai2_fit = flow_pr_i * est_b2[0] + est_b2[1]
+                
+                # Get image path and create filename structure
+                pth_lists = image_paths[0][i].split('/')
+                pth = '/'.join(pth_lists[-2:])  # seq_340/image_name.png
+                
+                # Remove file extension to create directory structure
+                image_name_no_ext = os.path.splitext(pth_lists[-1])[0]
+                seq_dir = pth_lists[-2]  # seq_340
+                
+                # New path structure: seq_340/image_name/f_stop_X_X.png
+                new_pth = os.path.join(seq_dir, image_name_no_ext, f'f_stop_{fstop_value}.png')
+                
+                filename = os.path.join(save_path.replace('result/train/', ''), new_pth)
+                eval_est.add_filename(filename)
+
+                val_id = i_batch * batch_size + i
+
+                vrng = disp_gt_i.max() - disp_gt_i.min()
+                vmargin = 0.1
+                vmin, vmax = disp_gt_i.min() - vrng * vmargin, disp_gt_i.max() + vrng * vmargin
+                eval_est.add_colorrange(vmin, vmax)
+
+                if save_result:
+                    # Create directories for the new path structure
+                    for save_dir in [disp_dir, ai2_dir, ai2_fit_dir, epe_dir, epe0_3_dir, epe0_5_dir, ai2_0_3_dir, ai2_0_5_dir, gt_dir, src_dir]:
+                        full_path = os.path.join(save_dir, new_pth)
+                        os.makedirs(os.path.dirname(full_path), exist_ok=True)
+
+                    # Save images with new naming structure
+                    plt.imsave(os.path.join(disp_dir, new_pth), flow_pr_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+                    plt.imsave(os.path.join(ai2_fit_dir, new_pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+
+                    err_rat = 0.7
+                    vmin_err, vmax_err = 0, vrng * err_rat
+                    plt.imsave(os.path.join(epe_dir, new_pth), np.abs(flow_pr_i.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+                    plt.imsave(os.path.join(ai2_dir, new_pth), np.abs(est_ai2_fit.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err, vmax=vmax_err)
+
+                    err_rat_0_3 = 0.3
+                    vmin_err_0_3, vmax_err_0_3 = 0, vrng * err_rat_0_3
+                    plt.imsave(os.path.join(epe0_3_dir, new_pth), np.abs(flow_pr_i.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err_0_3, vmax=vmax_err_0_3)
+                    plt.imsave(os.path.join(ai2_0_3_dir, new_pth), np.abs(est_ai2_fit.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err_0_3, vmax=vmax_err_0_3)
+
+                    err_rat_0_5 = 0.5
+                    vmin_err_0_5, vmax_err_0_5 = 0, vrng * err_rat_0_5
+                    plt.imsave(os.path.join(epe0_5_dir, new_pth), np.abs(flow_pr_i.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err_0_5, vmax=vmax_err_0_5)
+                    plt.imsave(os.path.join(ai2_0_5_dir, new_pth), np.abs(est_ai2_fit.squeeze() - disp_gt_i.squeeze()), cmap='jet', vmin=vmin_err_0_5, vmax=vmax_err_0_5)
+
+                    plt.imsave(os.path.join(gt_dir, new_pth), disp_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
+                    plt.imsave(os.path.join(src_dir, new_pth), center_i.astype(np.uint8))
+
+        # Save metrics for this f-stop
+        eval_est.save_metrics()
+        eval_est.save_binned_epe()
+        eval_est.plot_binned_epe_histogram()
+        
+        # Get metrics for this f-stop
+        fstop_result = eval_est.get_mean_metrics()
+        fstop_metrics[fstop_value] = fstop_result
+        
+        # Add to results with f-stop prefix
+        for key, value in fstop_result.items():
+            all_results[f'f_stop_{fstop_value}/{key}'] = value
+        
+        print(f"F-stop {fstop_value} completed - EPE: {fstop_result.get('epe', 'N/A'):.4f}")
+
+    # Calculate average metrics across all f-stops
+    if fstop_metrics:
+        avg_metrics = {}
+        metric_keys = list(next(iter(fstop_metrics.values())).keys())
+        
+        for metric_key in metric_keys:
+            values = [metrics[metric_key] for metrics in fstop_metrics.values() if metric_key in metrics]
+            if values:
+                avg_metrics[metric_key] = sum(values) / len(values)
+        
+        # Add average metrics to results
+        for key, value in avg_metrics.items():
+            all_results[f'avg/{key}'] = value
+        
+        print(f"\nOverall average EPE: {avg_metrics.get('epe', 'N/A'):.4f}")
+        print(f"Processed {len(fstop_dirs)} f-stop datasets")
+
+    return all_results
 
 
 @torch.no_grad()
@@ -1073,7 +1270,7 @@ if __name__ == '__main__':
     parser.add_argument('--exp_name', default='Interp', help="name your experiment")
     parser.add_argument('--ckpt_epoch', type=str, default=0)
     parser.add_argument('--save_result', action='store_true', help="Save predicted results")
-    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-TransDisk-Test', 'QPD-FStop-1_2-Test', 'QPD-FStop-1_4-Test', 'QPD-FStop-2_0-Test', 'QPD-FStop-2_8-Test', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise', 'DP5K-Valid', 'DP5K-Test', 'DP5K-Test-Lowres', 'DP119', 'Make_QPD', 'Make_DDDP'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
+    parser.add_argument('--eval_datasets', choices=['QPD-Test', 'QPD-TransDisk-Test', 'QPD-FStop-1_2-Test', 'QPD-FStop-1_4-Test', 'QPD-FStop-2_0-Test', 'QPD-FStop-2_8-Test', 'QPD-FStops-All', 'QPD-Valid', 'DPD_Disp', 'Real_QPD', 'QPD-Test-noise', 'DP5K-Valid', 'DP5K-Test', 'DP5K-Test-Lowres', 'DP119', 'Make_QPD', 'Make_DDDP'], nargs='+', default=[], required=True, help="Additional dataset to evaluate")
 
     args = parser.parse_args()
 
@@ -1261,6 +1458,33 @@ if __name__ == '__main__':
             named_results[f'test_qpd_fstop_2_8/{k}'] = v
             if 'img' not in k:
                 print(f'test_qpd_fstop_2_8/{k}: {v}')
+
+        logger.write_dict(named_results)
+
+    if 'QPD-FStops-All' in args.eval_datasets:
+        save_dir = os.path.join(conf.save_path, 'qpd-fstops')
+        save_path = os.path.join(save_dir, f'{epoch:03d}_epoch')
+        print(save_path)
+        result = validate_QPD_FStops(
+            model,
+            iters=conf.valid_iters,
+            mixed_prec=use_mixed_precision,
+            save_result=True if args.save_result else False,
+            datatype=conf.datatype,
+            image_set="test",
+            path='datasets/qpd-test-fstops',
+            save_path=save_path,
+            batch_size=conf.qpd_test_bs if conf.qpd_test_bs else 1
+        )
+
+        log_dir = os.path.join(save_dir, 'runs')
+        logger = EvalLogger(log_dir=log_dir, epoch=epoch)
+
+        named_results = {}
+        for k, v in result.items():
+            named_results[f'test_qpd_seq_340/{k}'] = v
+            if 'img' not in k:
+                print(f'test_qpd_seq_340/{k}: {v}')
 
         logger.write_dict(named_results)
 
