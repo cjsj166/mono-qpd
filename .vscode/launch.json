@@ -127,7 +127,8 @@
                 // "QPD-FStop-1_4-Test",
                 // "QPD-FStop-2_0-Test",
                 // "QPD-FStop-2_8-Test",
-                "QPD-TransDisk-Test",
+                // "QPD-TransDisk-Test",
+                "QPD-FStops-All",
                 "--save_result"
                 // "--debug_mode"
             ]
