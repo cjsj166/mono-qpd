@@ -90,10 +90,10 @@ class Exp0825FMDP(BaseConfig):
     batch_size: int = 4
     image_size: Tuple[int, int] = (448, 448)
     lr: int = 0.0002
-    qpd_valid_bs: int = 4
-    qpd_test_bs: int = 4
-    real_qpd_bs: int = 4
-    dp_disp_bs: int = 2
+    qpd_valid_bs: int = 1#4
+    qpd_test_bs: int = 1#4
+    real_qpd_bs: int = 1#4
+    dp_disp_bs: int = 1#2
     val_save_skip: int = 1
 
     restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'

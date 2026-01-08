@@ -524,6 +524,10 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
             continue
         # if i_batch > 3:
         #     break
+        # if i_batch % 10 != 0:
+        #     continue
+        # if i_batch > 30:
+        #     break
 
         image_paths = data_blob['image_list']
         center = data_blob['center'].cuda()
@@ -557,7 +561,7 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
             depth_gt_i = depth_gt[i]
             depth_conf = depth_gt_i > 0
 
-            depth_gt_i /= 100.0 # convert to meters
+            depth_gt_i /= 1000.0 # convert to meters
             inv_depth_gt_i = np.zeros_like(depth_gt_i)
             inv_depth_gt_i[depth_conf] = 1 / depth_gt_i[depth_conf] # convert to 1/meters
 
@@ -583,6 +587,7 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
             
             err_margin = 0.3
             vmin_err, vmax_err = 0, vrng * err_margin
+            # print(vmax_err)
             eval_est.add_colorrange(vmin, vmax)
 
             if save_result:
@@ -592,12 +597,11 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
                 pth_lists = image_paths[0][i].split('/')[-3:]
                 pth = '/'.join(pth_lists)
                 
-
-
                 # Save in colormap
                 os.makedirs(os.path.join(ai2_fit_dir, os.path.dirname(pth)), exist_ok=True)
                 plt.imsave(os.path.join(ai2_fit_dir, pth), est_ai2_fit.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
 
+                # Calcualte |ai2_fit - gt| and save it in colormap
                 ai2_err = np.ones_like(inv_depth_gt_i) * -100
                 ai2_err[depth_conf] = np.abs(est_ai2_fit[depth_conf] - inv_depth_gt_i[depth_conf])
                 os.makedirs(os.path.join(ai2_dir, os.path.dirname(pth)), exist_ok=True)
@@ -605,6 +609,17 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
                 ai2_err_color = np.array(Image.open(os.path.join(ai2_dir, pth)))
                 ai2_err_color[~depth_conf.squeeze()] = [0, 0, 0, 255]
                 plt.imsave(os.path.join(ai2_dir, pth), ai2_err_color)
+
+                # |ai2_fit - gt| error distribution plot
+                plt.figure(figsize=(10, 6))
+                plt.hist(ai2_err[depth_conf].flatten(), bins=50, density=True, range=(0, 0.2), edgecolor='black', alpha=0.7)
+                plt.ylim(0, 90)
+                plt.xlabel('Absolute Error')
+                plt.ylabel('Percentage (%)')  # y축 레이블 변경
+                plt.title('Histogram of Absolute Error between ai2_fit and gt')
+                hist_path = os.path.join(ai2_dir, pth.replace('.png', '_hist.png'))
+                plt.savefig(hist_path)
+                plt.close()
 
                 os.makedirs(os.path.join(gt_dir, os.path.dirname(pth)), exist_ok=True)
                 plt.imsave(os.path.join(gt_dir, pth), inv_depth_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
@@ -673,6 +688,10 @@ def validate_QPD_FStops(model, datatype='dual', gt_types=['disp'], iters=32, mix
         ai2_0_5_dir = os.path.join(fstop_save_path, 'ai2_0_5')
         gt_dir = os.path.join(fstop_save_path, 'gt')
         src_dir = os.path.join(fstop_save_path, 'src')
+        
+        # Create all directories for this f-stop
+        for dir_path in [disp_dir, epe_dir, epe0_3_dir, epe0_5_dir, ai2_fit_dir, ai2_dir, ai2_0_3_dir, ai2_0_5_dir, gt_dir, src_dir]:
+            os.makedirs(dir_path, exist_ok=True)
         
         # Create eval object for this f-stop
         eval_est = Eval(
@@ -863,24 +882,7 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
         val_save_skip = 1
     else:
         val_save_skip = val_save_skip // batch_size
-    
-    # Based on adaptive binning results with 15 bins, good pixel distribution:
-    # Bin 1: [-1.500000, -1.125000] -> 2,718,528 pixels
-    # Bin 2: [-1.125000, -0.750000] -> 4,248,316 pixels
-    # Bin 3: [-0.750000, -0.562500] -> 3,632,914 pixels
-    # Bin 4: [-0.562500, -0.375000] -> 1,311,188 pixels
-    # Bin 5: [-0.375000, -0.281250] -> 3,882,535 pixels
-    # Bin 6: [-0.281250, -0.187500] -> 3,248,622 pixels
-    # Bin 7: [-0.187500, 0.005859] -> 28,604,280 pixels
-    # Bin 8: [0.005859, 0.251953] -> 10,328,679 pixels
-    # Bin 9: [0.251953, 0.333984] -> 19,316,021 pixels
-    # Bin 10: [0.333984, 0.486328] -> 9,131,722 pixels
-    # Bin 11: [0.486328, 0.597656] -> 19,152,237 pixels
-    # Bin 12: [0.597656, 0.750000] -> 4,065,737 pixels
-    # Bin 13: [0.750000, 0.843750] -> 2,759,007 pixels
-    # Bin 14: [0.843750, 0.937500] -> 3,889,977 pixels
-    # Bin 15: [0.937500, 1.125000] -> 202,116 pixels
-    
+        
     quantile_edges = np.array([-1.5, -1.125, -0.75, -0.5625, -0.375, -0.28125, -0.1875, 0.005859, 0.251953, 0.333984, 0.486328, 0.597656, 0.75, 0.84375, 0.9375, 1.125])
     
     # Set bin edges for the Eval object
@@ -911,8 +913,10 @@ def validate_QPD(model, datatype='dual', gt_types=['disp'], iters=32, mixed_prec
         center = center.permute(0,2,3,1).cpu().numpy()
         
         disp_gt = disp_gt / 2
-
+        # print(f"disp_gt min: {disp_gt.min()}, disp_gt max: {disp_gt.max()}") # , disp_gt mean: {disp_gt.mean()}
         assert flow_pr.shape == disp_gt.shape, (flow_pr.shape, disp_gt.shape)
+
+        # continue
 
         current_batch_size = flow_pr.shape[0]
         for i in range(current_batch_size):
