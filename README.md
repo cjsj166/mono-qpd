@@ -9,8 +9,12 @@ pip install gradio_imageslider gradio==4.29.0 matplotlib opencv-python opt-einsu
 ```
 
 ## Pretrained checkpoint path
-Place the pretrained checkpoint 265_epoch_199280_Mono-QPD.pth in
-`result/train/LocalExp0825FMDP/checkpoints/`
+Place the pretrained checkpoint and place as below.
+`result/train/LocalExp0825FMDP/checkpoints/265_epoch_199280_Mono-QPD.pth`
+
+Download and the pretrained depth anything v2 [here](https://github.com/DepthAnything/Depth-Anything-V2).
+Then place it as below.
+`mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth`
 
 ## Dataset path
 The dataset can be downloaded from [QP-data.zip](https://www.dropbox.com/scl/fi/0sijedbg2kdqetmw16s9t/QP-Data-Zhuofeng-Wu.zip?rlkey=m33xsb70b4ivk0riyvg4fgk2u&st=k2fn4zkq&dl=0)
