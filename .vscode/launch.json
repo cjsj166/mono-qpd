@@ -13,18 +13,36 @@
         },
 
         {
-            "name": "MonoQPD, dataclass train, qpd-train, LocalExp0916AdjustCLCRLRN24",
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0109NewSynthetic",
             "type": "debugpy",
             "request": "launch",
             "program": "train_mono_qpd.py",
             "console": "integratedTerminal",
             "args": [
                 "--exp_name",
-                "LocalExp0825FMDP",
-                // "--restore_ckpt",
-                // "result/train/exp1/checkpoints/0_epoch_1_Mono-QPD.pth"
+                "LocalExp0109NewSynthetic",
+                "--restore_ckpt",
+                "result/train/LocalExp0109NewSynthetic/checkpoints/latest.pth",
+                // "--debug_mode"
             ]
         },
+
+        {
+            "name": "Mono-QPD, dataclass eval, LocalExp0109NewSynthetic, latest",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalExp0109NewSynthetic",
+                "--ckpt_epoch", "latest", // result/train/LocalExp0916AdjustCLCRLRN24/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
+                "--eval_datasets", "DPD_Disp", "QPD-Valid",
+                "--save_result"
+                // "--debug_mode"
+            ]
+        },
+
 
         {
             "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0825FMDP",
