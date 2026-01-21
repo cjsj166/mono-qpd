@@ -239,16 +239,56 @@ class QPD(QuadDataset):
                 self.aif_list += [ aif ]
 
 
-        # for idx, (imgc, imgl, imgr, imgt, imgb, disp, aif) in enumerate(zip(imagec_list, imagel_list, imager_list, imaget_list, imageb_list, disp_list, aif_list)):
-        #     if datatype == 'dual':
-        #         self.image_list += [ [imgc, imgl, imgr] ]
-        #     elif datatype == 'quad':
-        #         self.image_list += [ [imgc, imgl, imgr, imgt, imgb] ]
-        #     if 'disp' in gt_types:
-        #         self.disparity_list += [ disp ]
-        #     if 'AiF' in gt_types:
-        #         self.aif_list += [ aif ]
-            
+class QPD_QPDv2(QuadDataset):
+
+    def __init__(self, datatype='dual', gt_types=['disp'], aug_params=None, qpd_root='', qpdv2_root='', image_set='train', preprocess_params=None):
+        super(QPD_QPDv2, self).__init__(aug_params=aug_params, datatype='dual', gt_types=gt_types, sparse=False, lrtb='', image_set = image_set, preprocess_params=preprocess_params)
+        assert os.path.exists(qpd_root) and os.path.exists(qpdv2_root)
+        
+        qpd_imagel_list = glob(os.path.join(qpd_root, image_set+'_l','source', 'seq_*/*.png'))
+        qpdv2_imagel_list = glob(os.path.join(qpdv2_root, image_set+'_l','source', 'seq_*/*.png'))
+        imagel_list = sorted(qpd_imagel_list + qpdv2_imagel_list)
+
+        qpd_imager_list = sorted(glob(os.path.join(qpd_root, image_set+'_r','source', 'seq_*/*.png')))
+        qpdv2_imager_list = sorted(glob(os.path.join(qpdv2_root, image_set+'_r','source', 'seq_*/*.png')))
+        imager_list = sorted(qpd_imager_list + qpdv2_imager_list)
+        
+        qpd_imaget_list = sorted(glob(os.path.join(qpd_root, image_set+'_t','source', 'seq_*/*.png')))
+        qpdv2_imaget_list = sorted(glob(os.path.join(qpdv2_root, image_set+'_t','source', 'seq_*/*.png')))
+        imaget_list = sorted(qpd_imaget_list + qpdv2_imaget_list)
+        
+        qpd_imageb_list = sorted(glob(os.path.join(qpd_root, image_set+'_b','source', 'seq_*/*.png')))
+        qpdv2_imageb_list = sorted(glob(os.path.join(qpdv2_root, image_set+'_b','source', 'seq_*/*.png')))
+        imageb_list = sorted(qpd_imageb_list + qpdv2_imageb_list)
+        
+        qpd_imagec_list = sorted(glob(os.path.join(qpd_root, image_set+'_c','source', 'seq_*/*.png')))
+        qpdv2_imagec_list = sorted(glob(os.path.join(qpdv2_root, image_set+'_c','source', 'seq_*/*.png')))
+        imagec_list = sorted(qpd_imagec_list + qpdv2_imagec_list)
+        
+        qpd_aif_list = sorted(glob(os.path.join(qpd_root, image_set+'_c','target', 'seq_*/*.png')))
+        qpdv2_aif_list = sorted(glob(os.path.join(qpdv2_root, image_set+'_c','target', 'seq_*/*.png')))
+        aif_list = sorted(qpd_aif_list + qpdv2_aif_list)
+        
+        qpd_disp_list = sorted(glob(os.path.join(qpd_root, image_set+'_c','target_disp', 'seq_*/*.npy')))
+        qpdv2_disp_list = sorted(glob(os.path.join(qpdv2_root, image_set+'_c','target_disp', 'seq_*/*.npy')))
+        disp_list = sorted(qpd_disp_list + qpdv2_disp_list)
+
+
+        if datatype == 'dual':
+            for idx, (imgc, imgl, imgr) in enumerate(zip(imagec_list, imagel_list, imager_list)):
+                self.image_list += [ [imgc, imgl, imgr] ]
+        elif datatype == 'quad':
+            for idx, (imgc, imgl, imgr, imgt, imgb) in enumerate(zip(imagec_list, imagel_list, imager_list, imaget_list, imageb_list)):
+                self.image_list += [ [imgc, imgl, imgr, imgt, imgb] ]
+
+        if 'disp' in gt_types:
+            for idx, disp in enumerate(disp_list):
+                self.disparity_list += [ disp ]
+        
+        if 'AiF' in gt_types:
+            for idx, aif in enumerate(aif_list):
+                self.aif_list += [ aif ]
+
 class DP5K(QuadDataset):
     def __init__(self, datatype='dual', gt_types=['disp'], aug_params=None, root='', image_set='train', preprocess_params=None):
         super(DP5K, self).__init__(aug_params=aug_params, datatype='dual', gt_types=gt_types, sparse=False, lrtb='', image_set = image_set, preprocess_params=preprocess_params)
@@ -357,7 +397,9 @@ def fetch_dataloader(args):
     train_dataset = None
     
     for dataset_name in args.train_datasets:
-        if dataset_name.startswith("QPD"):
+        if dataset_name == "QPD_QPDv2":
+            new_dataset = QPD_QPDv2(datatype=args.datatype, gt_types=args.qpd_gt_types, aug_params=aug_params, qpd_root="datasets/QP-Data", qpdv2_root="datasets/QP-Data-v2")
+        elif dataset_name == "QPD":
             new_dataset = QPD(datatype=args.datatype, gt_types=args.qpd_gt_types, aug_params=aug_params, root=args.datasets_path)
         train_dataset = new_dataset if train_dataset is None else train_dataset + new_dataset
 

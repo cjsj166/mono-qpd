@@ -14,6 +14,7 @@ def parse_args():
     p = argparse.ArgumentParser("TSUBAME single-job (train + watcher + restarter)")
     p.add_argument("--type", choices=["train", "eval"], required=True)
     p.add_argument("--eval_run_time", default="00:15:00", type=str)
+    p.add_argument("--train_run_time", default="", type=str)
     p.add_argument("--run_setting_name", required=True)
     p.add_argument("--after", type=int, default=0, help="N초 대기 후 제출")
     p.add_argument("--run_script", default="True", choices=["True", "False"])
@@ -24,11 +25,11 @@ def parse_args():
     return p.parse_args()
 
 
-def pick_header_env_for_train():
+def pick_header_env_for_train(run_time: str):
     h = FMDPTrain()
     return {
         "node_type": h.node_type,
-        "running_time": h.running_time,
+        "running_time": h.running_time if run_time == "" else run_time,
         "env_name": h.env_name,
         "cuda_version": h.cuda_version,
         "cudnn_version": h.cudnn_version,
@@ -169,7 +170,7 @@ cd {exec_path}
         return
 
     # ===== train 모드 =====
-    train_header = pick_header_env_for_train()
+    train_header = pick_header_env_for_train(args.train_run_time)
     train_jobname = f"{args.run_setting_name}_train_pack"
     base = f"pack_{args.run_setting_name}_{ts}"
     pack_script_path = scripts_dir / f"{base}.sh"

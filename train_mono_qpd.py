@@ -94,20 +94,37 @@ def sequence_loss(flow_preds, flow_gt, valid, si_loss_weight=0.0, loss_gamma=0.9
     return flow_loss, metrics
 
 
-def fetch_optimizer(args, model, last_epoch=-1):
+def fetch_optimizer(args, model, last_epoch=-1, lr_schedule='default'):
     """ Create the optimizer and learning rate scheduler """
     if last_epoch == -1:
         optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wdecay, eps=1e-8)
 
-        scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, args.num_steps+100,
-                pct_start=0.01, cycle_momentum=False, anneal_strategy='linear')
+        if lr_schedule == "default":
+            scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, args.num_steps+100,
+                    pct_start=0.01, cycle_momentum=False, anneal_strategy='linear')
+        elif lr_schedule == "only-warmup":
+            scheduler = optim.lr_scheduler.LinearLR(
+                optimizer, 
+                start_factor=0.04,  # base_lr = max_lr / 25
+                end_factor=1.0,
+                total_iters=int(2000) # 200_000 * 0.01
+            )
     else:
         max_lr = args.lr
         optimizer = optim.AdamW([{'params': model.parameters(), 'initial_lr': max_lr, 'max_lr': args.lr, 
                                   'min_lr': 1e-8}], lr=args.lr, weight_decay=args.wdecay, eps=1e-8)
 
-        scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, total_steps = args.num_steps+100,
-                pct_start=0.01, cycle_momentum=False, anneal_strategy='linear', last_epoch=last_epoch)
+        if lr_schedule == "default":        
+            scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, total_steps = args.num_steps+100,
+                    pct_start=0.01, cycle_momentum=False, anneal_strategy='linear', last_epoch=last_epoch)
+        elif lr_schedule == "only-warmup":
+            scheduler = optim.lr_scheduler.LinearLR(
+                optimizer,
+                start_factor=0.04,
+                end_factor=1.0,
+                total_iters=int(2000),
+                last_epoch=last_epoch if last_epoch < int(2000) else int(2000) - 1
+            )
 
     return optimizer, scheduler
 
@@ -157,7 +174,7 @@ def train(args):
 
     train_loader = datasets.fetch_dataloader(args)
     total_steps = 0
-    optimizer, scheduler = fetch_optimizer(args, model, -1)
+    optimizer, scheduler = fetch_optimizer(args, model, -1, args.lr_schedule)
     model.da_v2.load_state_dict(torch.load(args.restore_ckpt_da_v2))
     # if args.restore_ckpt_mono_qpd is not None:
     #     # assert os.path.exists(args.restore_ckpt_mono_qpd)
@@ -222,8 +239,8 @@ def train(args):
     while should_keep_training:
         for i_batch, data_blob in enumerate(tqdm(train_loader)):
             # if args.debug_mode:
-            # if i_batch > 3:
-            #     break
+            #     if i_batch > 3:
+            #         break
 
             optimizer.zero_grad()
 

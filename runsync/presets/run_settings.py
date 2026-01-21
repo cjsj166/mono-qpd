@@ -3,11 +3,11 @@ from pathlib import Path
 from dataclasses import asdict
 from typing import Tuple
 
-@dataclass
-class BaseConfig:
-    arg1: str = "arg1"
-    arg2: str = "arg2"
-    arg3: str = "arg3"
+# @dataclass
+# class BaseConfig:
+#     arg1: str = "arg1"
+#     arg2: str = "arg2"
+#     arg3: str = "arg3"
 
 @dataclass
 class BaseConfig:
@@ -24,6 +24,7 @@ class BaseConfig:
     train_datasets: Tuple[str] = ('QPD',)
     datasets_path: str = 'datasets/QP-Data'
     lr: float = 0.0002
+    lr_schedule: str = "default"
     num_steps: int = 600000
     stop_step: int = None
     input_image_num: int = 2
@@ -82,6 +83,123 @@ class BaseConfig:
         save_path = Path('result/train') / self.__class__.__name__
 
         self.save_path = str(save_path)
+
+@dataclass
+class Exp0121OnlyWarmupQPDv2(BaseConfig):
+    num_steps: int = 200_000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    lr_schedule: str = "only-warmup"
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 2
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+    datasets_path: str = 'datasets/QP-Data-v2'
+
+@dataclass
+class LocalExp0121OnlyWarmupQPDv2(BaseConfig):
+    num_steps: int = 200_000 # 200_000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    lr_schedule: str = "only-warmup"
+    qpd_valid_bs: int = 1
+    qpd_test_bs: int = 1
+    real_qpd_bs: int = 1
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+    debug_mode: bool = True
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+    datasets_path: str = 'datasets/QP-Data-v2'
+
+
+@dataclass
+class Exp0121MixedDataset(BaseConfig):
+    num_steps: int = 400_000 # As dataset is twice of original, so increase steps for more epochs
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 2
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    train_datasets: Tuple[str] = ('QPD_QPDv2',)
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+    datasets_path: str = 'datasets/QP-Data-v2'
+
+@dataclass
+class LocalExp0121MixedDatasets(BaseConfig):
+    num_steps: int = 400_000 # 200_000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0002
+    qpd_valid_bs: int = 1
+    qpd_test_bs: int = 1
+    real_qpd_bs: int = 1
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+    debug_mode: bool = True
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    train_datasets: Tuple[str] = ('QPD_QPDv2',)
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+    datasets_path: str = 'datasets/QP-Data-v2'
+
+@dataclass
+class Exp0121LongLongQPDv2(BaseConfig):
+    num_steps: int = 800_000
+    batch_size: int = 4
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0001
+    qpd_valid_bs: int = 4
+    qpd_test_bs: int = 4
+    real_qpd_bs: int = 4
+    dp_disp_bs: int = 2
+    val_save_skip: int = 1
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+    datasets_path: str = 'datasets/QP-Data-v2'
+
+@dataclass
+class LocalExp0121LongLongQPDv2(BaseConfig):
+    num_steps: int = 800_000 # 200_000
+    batch_size: int = 1
+    image_size: Tuple[int, int] = (448, 448)
+    lr: int = 0.0001
+    qpd_valid_bs: int = 1
+    qpd_test_bs: int = 1
+    real_qpd_bs: int = 1
+    dp_disp_bs: int = 1
+    val_save_skip: int = 1
+    debug_mode: bool = True
+
+    restore_ckpt_da_v2: str = 'mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'
+    feature_converter: str = 'interp'
+    val_datasets: Tuple[str] = ('DPD-Disp',)
+
+    datasets_path: str = 'datasets/QP-Data-v2'
+
 
 @dataclass
 class Exp0114LongLargeLRQPDv2(BaseConfig):
