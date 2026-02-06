@@ -542,11 +542,6 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
 
         # Crop invalid regions
         h, w = flow_pr.shape[-2:]
-        # flow_pr = flow_pr[..., 32:h-32, 32:w-32]
-        # depth_gt = depth_gt[..., 32:h-32, 32:w-32]
-        # center = center[..., 32:h-32, 32:w-32]
-
-        # flow_pr = torch.zeros_like(flow_gt)
 
         # Align dimensions and file format
         flow_pr = flow_pr.cpu().numpy()
@@ -609,17 +604,6 @@ def validate_DP5K(model, datatype='dual', gt_types=['disp'], iters=32, mixed_pre
                 ai2_err_color = np.array(Image.open(os.path.join(ai2_dir, pth)))
                 ai2_err_color[~depth_conf.squeeze()] = [0, 0, 0, 255]
                 plt.imsave(os.path.join(ai2_dir, pth), ai2_err_color)
-
-                # |ai2_fit - gt| error distribution plot
-                plt.figure(figsize=(10, 6))
-                plt.hist(ai2_err[depth_conf].flatten(), bins=50, density=True, range=(0, 0.2), edgecolor='black', alpha=0.7)
-                plt.ylim(0, 90)
-                plt.xlabel('Absolute Error')
-                plt.ylabel('Percentage (%)')  # y축 레이블 변경
-                plt.title('Histogram of Absolute Error between ai2_fit and gt')
-                hist_path = os.path.join(ai2_dir, pth.replace('.png', '_hist.png'))
-                plt.savefig(hist_path)
-                plt.close()
 
                 os.makedirs(os.path.join(gt_dir, os.path.dirname(pth)), exist_ok=True)
                 plt.imsave(os.path.join(gt_dir, pth), inv_depth_gt_i.squeeze(), cmap='jet', vmin=vmin, vmax=vmax)
