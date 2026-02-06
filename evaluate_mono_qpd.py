@@ -30,6 +30,7 @@ from copy import deepcopy
 from metrics.eval import Eval
 from collections import OrderedDict
 from torch.utils.tensorboard import SummaryWriter
+import wandb
 
 from exp_args_settings.utils import get_ckpts_in_dir
 
@@ -53,6 +54,7 @@ class EvalLogger:
         if self.writer is None:
             self.writer = SummaryWriter(log_dir=os.path.join('result/runs'))
 
+        wandb_dict = {}
         for key, value in results.items():
             if isinstance(value, torch.Tensor):
                 if value.dim() == 4:
@@ -64,6 +66,11 @@ class EvalLogger:
                 self.writer.add_image(key, value, global_step=self.epoch)
             else:
                 self.writer.add_scalar(key, value, global_step=self.epoch)
+                wandb_dict[key] = value
+        
+        # 스칼라 메트릭만 wandb에 로깅
+        if wandb_dict:
+            wandb.log(wandb_dict, step=self.epoch)
 
     def close(self):
         if self.writer:
@@ -1316,6 +1323,12 @@ if __name__ == '__main__':
 
     print(f"The model has {format(count_parameters(model)/1e6, '.2f')}M learnable parameters.")
     use_mixed_precision = conf.corr_implementation.endswith("_cuda")
+
+    wandb.init(
+        project="FMDP",  # 프로젝트명 (없으면 자동 생성)
+        group=args.exp_name,
+        name=f"validation_{time.strftime('%Y%m%d_%H%M%S')}"
+    )
 
     if 'QPD-Test' in args.eval_datasets:
         save_dir = os.path.join(conf.save_path, 'qpd-test')

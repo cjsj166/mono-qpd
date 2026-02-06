@@ -3,6 +3,7 @@ import logging
 import torch
 import numpy
 from torch.utils.tensorboard import SummaryWriter
+import wandb
 
 
 class Logger:
@@ -29,6 +30,8 @@ class Logger:
 
         for k in self.running_loss:
             self.writer.add_scalar(k, self.running_loss[k]/Logger.SUM_FREQ, self.total_steps)
+            # wandb에도 동일하게 로깅
+            wandb.log({k: self.running_loss[k]/Logger.SUM_FREQ}, step=self.total_steps)
             self.running_loss[k] = 0.0
 
     def push(self, metrics):
@@ -48,18 +51,27 @@ class Logger:
         if self.writer is None:
             self.writer = SummaryWriter(log_dir=os.path.join('result/runs'))
 
+        wandb_dict = {}
         for key in results:
             
             if isinstance(results[key], torch.Tensor):
                 if results[key].dim() == 4:
                     results[key] = results[key][0]
                 self.writer.add_image(key, results[key], self.total_steps)
+                # 이미지는 wandb에 따로 처리 (선택적)
+                # wandb.log({key: wandb.Image(results[key])}, step=self.total_steps)
             elif isinstance(results[key], numpy.ndarray):
                 if results[key].ndim == 4:
                     results[key] = results[key][0]
                 self.writer.add_image(key, results[key], self.total_steps)
+                # 이미지는 wandb에 따로 처리 (선택적)
             else:
                 self.writer.add_scalar(key, results[key], self.total_steps)
+                wandb_dict[key] = results[key]
+        
+        # 스칼라 메트릭만 wandb에 로깅
+        if wandb_dict:
+            wandb.log(wandb_dict, step=self.total_steps)
 
     def close(self):
         self.writer.close()

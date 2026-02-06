@@ -24,6 +24,9 @@ from logger import Logger
 
 from runsync.presets import get_run_setting
 
+import time
+import wandb
+
 
 try:
     from torch.cuda.amp import GradScaler
@@ -219,6 +222,11 @@ def train(args):
         #     f.write(f'{key}: {value}\n')
 
     logger = Logger(model, scheduler, total_steps, log_dir=log_dir)
+    wandb.init(
+        project="FMDP",
+        group=type(args).__name__,  # 같은 dataclass끼리 자동 그룹화
+        name=f"train_{time.strftime('%Y%m%d_%H%M%S')}"
+    )
 
     model.train()
     # model.module.freeze_bn() # We keep BatchNorm frozen
@@ -290,6 +298,23 @@ def train(args):
                                     
             logger.writer.add_scalar("live_loss", loss.item(), global_batch_num)
             logger.writer.add_scalar(f'learning_rate', optimizer.param_groups[0]['lr'], global_batch_num)
+            
+            # GPU 메모리 사용량 계산
+            if torch.cuda.is_available():
+                gpu_mem_used = torch.cuda.memory_allocated() / 1e9  # GB
+                gpu_mem_reserved = torch.cuda.memory_reserved() / 1e9  # GB
+            else:
+                gpu_mem_used = 0
+                gpu_mem_reserved = 0
+            
+            # wandb 로깅
+            wandb.log({
+                "live_loss": loss.item(),
+                "learning_rate": optimizer.param_groups[0]['lr'],
+                "gpu_memory_used_gb": gpu_mem_used,
+                "gpu_memory_reserved_gb": gpu_mem_reserved,
+            }, step=global_batch_num)
+            
             global_batch_num += 1
 
             scaler.scale(loss).backward()
