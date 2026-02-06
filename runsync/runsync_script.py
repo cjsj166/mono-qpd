@@ -7,7 +7,7 @@ from pathlib import Path
 from datetime import datetime
 from time import sleep
 from presets import get_run_setting
-from presets.header_env_settings import DP5KValid, FMDPTrain, FMDPValid
+from presets.header_env_settings import DP5KValid, FMDPTrain, FMDPLargerBatchTrain
 
 
 def parse_args():
@@ -18,6 +18,7 @@ def parse_args():
     p.add_argument("--run_setting_name", required=True)
     p.add_argument("--after", type=int, default=0, help="N초 대기 후 제출")
     p.add_argument("--run_script", default="True", choices=["True", "False"])
+    p.add_argument("--train_header_env_setting_name", type=str, default="FMDPTrain")
     # eval 모드 전용
     p.add_argument("--ckpt_epoch", default="latest")
     p.add_argument("--eval_datasets", nargs="+", default=["DPD_Disp", "QPD-Valid"])
@@ -25,8 +26,15 @@ def parse_args():
     return p.parse_args()
 
 
-def pick_header_env_for_train(run_time: str):
-    h = FMDPTrain()
+def pick_header_env_for_train(run_time: str, train_header_env_setting_name: str):
+
+    if train_header_env_setting_name == "FMDPTrain":
+        h = FMDPTrain()
+    elif train_header_env_setting_name == "FMDPLargerBatchTrain":
+        h = FMDPLargerBatchTrain()
+    else:
+        raise ValueError(f"Unsupported train_header_env_setting_name: {train_header_env_setting_name}")
+
     return {
         "node_type": h.node_type,
         "running_time": h.running_time if run_time == "" else run_time,
