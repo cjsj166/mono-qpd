@@ -222,7 +222,6 @@ class QPD(QuadDataset):
         disp_list = sorted(glob(os.path.join(root, image_set+'_c','target_disp', 'seq_*/*.npy')))
 
 
-
         if datatype == 'dual':
             for idx, (imgc, imgl, imgr) in enumerate(zip(imagec_list, imagel_list, imager_list)):
                 self.image_list += [ [imgc, imgl, imgr] ]
@@ -238,6 +237,30 @@ class QPD(QuadDataset):
             for idx, aif in enumerate(aif_list):
                 self.aif_list += [ aif ]
 
+
+class QPD_AiF(QuadDataset):
+    def __init__(self, datatype='dual', gt_types=['disp'], aug_params=None, root='', image_set='train', preprocess_params=None):
+        super(QPD_AiF, self).__init__(aug_params=aug_params, datatype='dual', gt_types=gt_types, sparse=False, lrtb='', image_set = image_set, preprocess_params=preprocess_params)
+        assert os.path.exists(root)
+        
+        imagel_list = sorted(glob(os.path.join(root, image_set+'_l','source', 'seq_*/*.png')))
+        imager_list = sorted(glob(os.path.join(root, image_set+'_r','source', 'seq_*/*.png')))
+        imaget_list = sorted(glob(os.path.join(root, image_set+'_t','source', 'seq_*/*.png')))
+        imageb_list = sorted(glob(os.path.join(root, image_set+'_b','source', 'seq_*/*.png')))
+        imagec_list = sorted(glob(os.path.join(root, image_set+'_c','target', 'seq_*/*.png'))) # center image is replaced by all-in-foucs image
+        disp_list = sorted(glob(os.path.join(root, image_set+'_c','target_disp', 'seq_*/*.npy')))
+
+        if datatype == 'dual':
+            for idx, (imgc, imgl, imgr) in enumerate(zip(imagec_list, imagel_list, imager_list)):
+                self.image_list += [ [imgc, imgl, imgr] ]
+        elif datatype == 'quad':
+            for idx, (imgc, imgl, imgr, imgt, imgb) in enumerate(zip(imagec_list, imagel_list, imager_list, imaget_list, imageb_list)):
+                self.image_list += [ [imgc, imgl, imgr, imgt, imgb] ]
+
+        if 'disp' in gt_types:
+            for idx, disp in enumerate(disp_list):
+                self.disparity_list += [ disp ]
+        
 
 class QPD_QPDv2(QuadDataset):
 
@@ -399,6 +422,8 @@ def fetch_dataloader(args):
     for dataset_name in args.train_datasets:
         if dataset_name == "QPD_QPDv2":
             new_dataset = QPD_QPDv2(datatype=args.datatype, gt_types=args.qpd_gt_types, aug_params=aug_params, qpd_root="datasets/QP-Data", qpdv2_root="datasets/QP-Data-v2")
+        elif dataset_name == "QPD_AiF":
+            new_dataset = QPD_AiF(datatype=args.datatype, gt_types=args.qpd_gt_types, aug_params=aug_params, root=args.datasets_path)
         elif dataset_name == "QPD":
             new_dataset = QPD(datatype=args.datatype, gt_types=args.qpd_gt_types, aug_params=aug_params, root=args.datasets_path)
         train_dataset = new_dataset if train_dataset is None else train_dataset + new_dataset
