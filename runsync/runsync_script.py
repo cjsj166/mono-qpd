@@ -7,14 +7,14 @@ from pathlib import Path
 from datetime import datetime
 from time import sleep
 from presets import get_run_setting
-from presets.header_env_settings import DP5KValid, FMDPTrain, FMDPLargerBatchTrain
+from presets.header_env_settings import DP5KValid, FMDPTrain, FMDPValid, FMDPLargerBatchTrain
 
 
 def parse_args():
     p = argparse.ArgumentParser("TSUBAME single-job (train + watcher + restarter)")
     p.add_argument("--type", choices=["train", "eval"], required=True)
     p.add_argument("--eval_run_time", default="00:15:00", type=str)
-    p.add_argument("--train_run_time", default="", type=str)
+    p.add_argument("--train_run_time", default="24:00:00", type=str)
     p.add_argument("--run_setting_name", required=True)
     p.add_argument("--after", type=int, default=0, help="N초 대기 후 제출")
     p.add_argument("--run_script", default="True", choices=["True", "False"])
@@ -178,7 +178,7 @@ cd {exec_path}
         return
 
     # ===== train 모드 =====
-    train_header = pick_header_env_for_train(args.train_run_time)
+    train_header = pick_header_env_for_train(args.train_run_time, args.train_header_env_setting_name)
     train_jobname = f"{args.run_setting_name}_train_pack"
     base = f"pack_{args.run_setting_name}_{ts}"
     pack_script_path = scripts_dir / f"{base}.sh"
