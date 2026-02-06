@@ -175,7 +175,8 @@ def train(args):
     train_loader = datasets.fetch_dataloader(args)
     total_steps = 0
     optimizer, scheduler = fetch_optimizer(args, model, -1, args.lr_schedule)
-    model.da_v2.load_state_dict(torch.load(args.restore_ckpt_da_v2))
+    if args.include_da_v2:
+        model.da_v2.load_state_dict(torch.load(args.restore_ckpt_da_v2))
     # if args.restore_ckpt_mono_qpd is not None:
     #     # assert os.path.exists(args.restore_ckpt_mono_qpd)
     if args.restore_ckpt_mono_qpd is not None and os.path.exists(args.restore_ckpt_mono_qpd):
@@ -200,14 +201,14 @@ def train(args):
         model = nn.DataParallel(model)
         model.cuda()
 
-
-    if args.freeze_da_v2:
-        for param in model.module.da_v2.parameters():
-            param.requires_grad = False
-    
-    if args.dec_update:
-        for param in model.module.da_v2.depth_head.parameters():
-            param.requires_grad = True
+    if args.include_da_v2:
+        if args.freeze_da_v2:
+            for param in model.module.da_v2.parameters():
+                param.requires_grad = False
+        
+        if args.dec_update:
+            for param in model.module.da_v2.depth_head.parameters():
+                param.requires_grad = True
 
     # Save the arguments
     with open(os.path.join(save_dir, 'args.txt'), 'w') as f:

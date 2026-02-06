@@ -49,7 +49,10 @@ class MonoQPD(nn.Module):
             self.feature_converter = DecConverter()
             self.da_v2_output_condition = 'dec_features'
 
-        self.da_v2 = DepthAnythingV2(args.encoder, output_condition=self.da_v2_output_condition)
+        if args.include_da_v2:
+            self.da_v2 = DepthAnythingV2(args.encoder, output_condition=self.da_v2_output_condition)
+        else:
+            self.da_v2 = None
 
         self.qpdnet = QPDNet(args)
     def resize_to_14_multiples(self, image):
@@ -75,18 +78,19 @@ class MonoQPD(nn.Module):
 
         image1_normalized = self.normalize_image(image1)
         # enc_features, depth = self.da_v2(image1_normalized) # Original
-        if self.da_v2_output_condition == 'enc_features':
-            ret_features = self.da_v2(image1_normalized)
-            ret_features = ret_features[1:]
-            
-        elif self.da_v2_output_condition == 'dec_features':
-            ret_features = self.da_v2(image1_normalized)
-            ret_features = ret_features[1:]
+
+        ret_features = None
+        if self.da_v2: # args.include_da_v2 == True
+            if self.da_v2_output_condition == 'enc_features':
+                ret_features = self.da_v2(image1_normalized)
+                ret_features = ret_features[1:]
+                
+            elif self.da_v2_output_condition == 'dec_features':
+                ret_features = self.da_v2(image1_normalized)
+                ret_features = ret_features[1:]
         
-        ret_features = self.feature_converter(ret_features)
-        # for f in ret_features:
-        #     print(f.shape)
-        ret_features = ret_features[::-1] # Reverse the order of the features
+            ret_features = self.feature_converter(ret_features)
+            ret_features = ret_features[::-1] # Reverse the order of the features
 
         if test_mode:
             original_disp, upsampled = self.qpdnet(ret_features, image1, image2, iters=iters, test_mode=test_mode, flow_init=None)

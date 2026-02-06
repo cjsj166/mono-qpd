@@ -54,6 +54,7 @@ class TrainConfig:
     dp_disp_gt_types: Tuple[str] = ('inv_depth',)
 
     # Depth Anything V2
+    include_da_v2: bool = True
     encoder: str = 'vitl'
     img_size: int = 518
     epochs: int = 40
