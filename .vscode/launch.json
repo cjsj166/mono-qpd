@@ -13,6 +13,164 @@
         },
 
         {
+            "name": "runsync_script, train, LocalExp0206QPDNet",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "runsync/runsync_script.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--type",
+                "train",
+                "--run_setting_name",
+                "LocalExp0206QPDNet",
+                "--run_script",
+                "True"
+            ]
+        },
+
+        // LocalExp0206QPDNet
+        {
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0206QPDNet",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+            "--exp_name",
+            "LocalExp0206QPDNet",
+            "--restore_ckpt",
+            "result/train/LocalExp0206QPDNet/checkpoints/latest.pth"
+            ]
+        },
+
+        {
+            "name": "Mono-QPD, dataclass eval, LocalExp0206QPDNet, latest, DPD_Disp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalExp0206QPDNet",
+                "--ckpt_epoch", "latest",
+                "--eval_datasets", "DPD_Disp",
+                "--save_result"
+            ]
+        },
+
+        {
+            "name": "Mono-QPD, dataclass eval, Exp0206QPDNet, latest, DPD_Disp",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "Exp0206QPDNet",
+                "--ckpt_epoch", "latest",
+                "--eval_datasets", "DPD_Disp",
+                "--save_result"
+            ]
+        },
+
+        // LocalExp0206ReplaceCenterAiF
+        {
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0206ReplaceCenterAiF",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+            "--exp_name",
+            "LocalExp0206ReplaceCenterAiF",
+            "--restore_ckpt",
+            "result/train/LocalExp0206ReplaceCenterAiF/checkpoints/latest.pth"
+            ]
+        },
+
+
+        // LocalExp0126MixedDatasetNoFFA
+        {
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0126MixedDatasetNoFFA",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalExp0126MixedDatasetNoFFA",
+                "--restore_ckpt",
+                "result/train/LocalExp0126MixedDatasetNoFFA/checkpoints/latest.pth",
+                // "--debug_mode"
+            ]
+        },
+
+
+        // LocalExp0121OnlyWarmupQPDv2
+        {
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0121OnlyWarmupQPDv2",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalExp0121OnlyWarmupQPDv2",
+                "--restore_ckpt",
+                "result/train/LocalExp0121OnlyWarmupQPDv2/checkpoints/latest.pth",
+                // "--debug_mode"
+            ]
+        },
+
+
+        {
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0121MixedDatasets",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalExp0121MixedDatasets",
+                "--restore_ckpt",
+                "result/train/LocalExp0121MixedDatasets/checkpoints/latest.pth",
+                // "--debug_mode"
+            ]
+        },
+
+        {
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0114LongQPDv2",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalExp0114LongQPDv2",
+                "--restore_ckpt",
+                "result/train/LocalExp0114LongQPDv2/checkpoints/latest.pth",
+                // "--debug_mode"
+            ]
+        },
+
+
+        {
+            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0114LongLargeLRQPDv2",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "train_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalExp0114LongLargeLRQPDv2",
+                "--restore_ckpt",
+                "result/train/LocalExp0114LongLargeLRQPDv2/checkpoints/latest.pth",
+                // "--debug_mode"
+            ]
+        },
+
+
+        {
             "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0109NewSynthetic",
             "type": "debugpy",
             "request": "launch",
@@ -37,15 +195,29 @@
                 "--exp_name",
                 "LocalExp0109NewSynthetic",
                 "--ckpt_epoch", "latest", // result/train/LocalExp0916AdjustCLCRLRN24/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
-                "--eval_datasets", "DPD_Disp", "QPD-Valid",
+                "--eval_datasets", "DP5K-Test", // "DPD_Disp", "QPD-Valid",
                 "--save_result"
                 // "--debug_mode"
             ]
         },
 
+        {
+            "name": "Mono-QPD, dataclass eval, LocalExp0109NewSynthetic, QPDv2-Test",
+            "type": "debugpy",
+            "request": "launch",
+            "program": "evaluate_mono_qpd.py",
+            "console": "integratedTerminal",
+            "args": [
+                "--exp_name",
+                "LocalExp0109NewSynthetic",
+                "--ckpt_epoch", "latest",
+                "--eval_datasets", "QPDv2-Test",
+                "--save_result"
+            ]
+        },
 
         {
-            "name": "MonoQPD, dataclass resume train, qpd-train, LocalExp0825FMDP",
+            "name": "MonoQPD, dataclass train, LocalExp0825FMDP",
             "type": "debugpy",
             "request": "launch",
             "program": "train_mono_qpd.py",
@@ -70,7 +242,7 @@
                 "--exp_name",
                 "LocalExp0825FMDP",
                 "--ckpt_epoch", "latest", // result/train/LocalExp0916AdjustCLCRLRN24/20250825_130149/checkpoints/000_epoch_1_Mono-QPD.pth
-                "--eval_datasets", "DPD_Disp", "QPD-Valid",
+                "--eval_datasets", "DP5K-Test", // "DPD_Disp", "QPD-Valid",
                 "--save_result"
                 // "--debug_mode"
             ]

@@ -8,3 +8,4 @@ datasets/
 wu_metrics
 tsubame_result
 scripts/
+wandb/
