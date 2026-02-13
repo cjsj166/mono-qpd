@@ -169,6 +169,10 @@ python runsync/runsync_script.py \
 - `exp*/*`: Experiment branches for specific features
 - Current active branch: `exp0109/new-synthetic`
 
+## Experiment Results
+
+See [EXPERIMENTS.md](./EXPERIMENTS.md) for benchmark results and comparisons.
+
 ## Contact & Resources
 
 - TSUBAME Documentation: [TSUBAME Portal]
