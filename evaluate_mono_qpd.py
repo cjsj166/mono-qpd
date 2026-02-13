@@ -1293,7 +1293,8 @@ if __name__ == '__main__':
         assert str(restore_ckpt).endswith(".pth")
         logging.info("Loading checkpoint...")
         checkpoint = torch.load(restore_ckpt)
-        model.da_v2.load_state_dict(torch.load('mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'))
+        if model.da_v2 is not None:
+            model.da_v2.load_state_dict(torch.load('mono_qpd/Depth_Anything_V2/checkpoints/depth_anything_v2_vitl.pth'))
         if 'qpdnet_state_dict' in checkpoint and 'optimizer_state_dict' in checkpoint and 'scheduler_state_dict' in checkpoint:
             c={}
             c['qpdnet_state_dict'] = fix_key(checkpoint['qpdnet_state_dict'])
