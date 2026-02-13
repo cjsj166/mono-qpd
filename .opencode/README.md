@@ -80,12 +80,21 @@ class Exp0206QPDNet(BaseConfig):
 
 ## Common Issues and Solutions
 
-### 1. AttributeError: 'NoneType' object has no attribute 'load_state_dict'
+### 1. Conda Environment Setup
+- **Issue**: `CondaError: Run 'conda init' before 'conda activate'` and `libmambapy.QueryFormat` errors
+- **Solution**: These are conda/libmamba initialization warnings. **IGNORE THEM.** They don't affect code execution.
+- **Workaround**: When using conda in bash, always use:
+  ```bash
+  eval "$(conda shell.bash hook)" && conda activate mono-qpd
+  ```
+- **Note**: The mono-qpd environment is already configured with all required packages
+
+### 2. AttributeError: 'NoneType' object has no attribute 'load_state_dict'
 - **Cause**: `model.da_v2` is `None` when `include_da_v2: bool = False`
 - **Solution**: Always check `if model.da_v2 is not None:` before calling `model.da_v2.load_state_dict()`
 - **Fixed in**: `evaluate_mono_qpd.py:1296` (2026-02-13)
 
-### 2. Auto-formatting Changes
+### 3. Auto-formatting Changes
 - **Issue**: Black/Ruff formatter applies unwanted changes
 - **Solution**: Disabled in `.opencode/oh-my-opencode.json`
   ```json
@@ -127,6 +136,16 @@ python runsync/runsync_script.py \
   --eval_datasets QPD-Test QPDv2-Test DP5K-Test DPD_Disp
 ```
 
+**For ReplaceAiF models** (uses QPD_AiF dataset):
+```bash
+python runsync/runsync_script.py \
+  --type eval \
+  --run_setting_name Exp0206ReplaceCenterAiF \
+  --run_script True \
+  --eval_run_time 00:30:00 \
+  --eval_datasets QPD_AiF
+```
+
 **Parameters:**
 - `--type eval`: Evaluation mode (not training)
 - `--run_setting_name`: Experiment name (must have trained checkpoint)
@@ -138,12 +157,14 @@ python runsync/runsync_script.py \
 - `QPD-Test`: QPD test set (~5 min on TSUBAME)
 - `QPDv2-Test`: QPD version 2 test set
 - `DP5K-Test`: DP5K test set
+- `QPD_AiF`: ReplaceAiF synthetic dataset (~5 min on TSUBAME)
 - `DPD_Disp`: DPD disparity dataset (~3 min on TSUBAME)
 - `DP119`: DP119 dataset
 - `Real-QPD`: Real QPD data
 - `QPD-FStop-*`: Various f-stop configurations
 
 **Evaluation Time Reference (TSUBAME):**
+- `QPD_AiF`: ~5 minutes (recommend 10 min with margin)
 - `QPD-Test + DPD_Disp`: ~8 minutes (recommend 15 min with margin)
 - Single large dataset: 15-30 minutes depending on size
 - Multiple datasets: Add times + 5-10 min margin
