@@ -11,10 +11,12 @@ from torch.utils.tensorboard import SummaryWriter
 import torch
 import torch.nn as nn
 import torch.optim as optim
+
 # from QPDNet.qpd_net import QPDNet
 from mono_qpd.mono_qpd import MonoQPD
 import os
 from mono_qpd.loss import ScaleInvariantLoss, LeastSquareScaleInvariantLoss
+
 # from evaluate_mono_qpd import *
 import mono_qpd.QPDNet.Quad_datasets as datasets
 from argparse import Namespace
@@ -35,20 +37,26 @@ except:
     class GradScaler:
         def __init__(self):
             pass
+
         def scale(self, loss):
             return loss
+
         def unscale_(self, optimizer):
             pass
+
         def step(self, optimizer):
             optimizer.step()
+
         def update(self):
             pass
 
 
-def sequence_loss(flow_preds, flow_gt, valid, si_loss_weight=0.0, loss_gamma=0.9, max_flow=700):
-    """ Loss function defined over sequence of flow predictions """
+def sequence_loss(
+    flow_preds, flow_gt, valid, si_loss_weight=0.0, loss_gamma=0.9, max_flow=700
+):
+    """Loss function defined over sequence of flow predictions"""
 
-    b,c,h,w = flow_gt.shape
+    b, c, h, w = flow_gt.shape
     n_predictions = len(flow_preds)
     assert n_predictions >= 1
     flow_loss = 0.0
@@ -62,74 +70,109 @@ def sequence_loss(flow_preds, flow_gt, valid, si_loss_weight=0.0, loss_gamma=0.9
     assert not torch.isinf(flow_gt[valid.bool()]).any()
 
     for i in range(n_predictions):
-        assert not torch.isnan(flow_preds[i]).any() and not torch.isinf(flow_preds[i]).any(), "Invalid values in flow predictions"
+        assert (
+            not torch.isnan(flow_preds[i]).any()
+            and not torch.isinf(flow_preds[i]).any()
+        ), "Invalid values in flow predictions"
         # We adjust the loss_gamma so it is consistent for any number of RAFT-Stereo iterations
-        adjusted_loss_gamma = loss_gamma**(15/(n_predictions - 1))
-        i_weight = adjusted_loss_gamma**(n_predictions - i - 1)
+        adjusted_loss_gamma = loss_gamma ** (15 / (n_predictions - 1))
+        i_weight = adjusted_loss_gamma ** (n_predictions - i - 1)
 
         fp = flow_preds[i]
 
         si_loss = 0
         if si_loss_weight != 0:
             criterion = LeastSquareScaleInvariantLoss()
-            si_loss = criterion(fp, (flow_gt/2), valid) * si_loss_weight
+            si_loss = criterion(fp, (flow_gt / 2), valid) * si_loss_weight
 
         l1_loss = 0
-        if si_loss_weight != 1:    
-            l1_loss = (fp-(flow_gt/2)).abs()
-            assert l1_loss.shape == valid.shape, [l1_loss.shape, valid.shape, flow_gt.shape, flow_preds[i].shape]
+        if si_loss_weight != 1:
+            l1_loss = (fp - (flow_gt / 2)).abs()
+            assert l1_loss.shape == valid.shape, [
+                l1_loss.shape,
+                valid.shape,
+                flow_gt.shape,
+                flow_preds[i].shape,
+            ]
             l1_loss = l1_loss[valid.bool()].mean()
 
         i_loss = si_loss * si_loss_weight + l1_loss * (1 - si_loss_weight)
         flow_loss += i_weight * i_loss
-    
+
     fp = flow_preds[-1]
-    epe = torch.sum((fp - (flow_gt)/2)**2, dim=1).sqrt()
+    epe = torch.sum((fp - (flow_gt) / 2) ** 2, dim=1).sqrt()
     epe = epe.view(-1)[valid.view(-1)]
 
     metrics = {
-        'epe': epe.mean().item(),
-        '0.005px': (epe < 0.005).float().mean().item(),
-        '0.01px': (epe < 0.01).float().mean().item(),
-        '0.05px': (epe < 0.05).float().mean().item(),
+        "epe": epe.mean().item(),
+        "0.005px": (epe < 0.005).float().mean().item(),
+        "0.01px": (epe < 0.01).float().mean().item(),
+        "0.05px": (epe < 0.05).float().mean().item(),
     }
 
     return flow_loss, metrics
 
 
-def fetch_optimizer(args, model, last_epoch=-1, lr_schedule='default'):
-    """ Create the optimizer and learning rate scheduler """
+def fetch_optimizer(args, model, last_epoch=-1, lr_schedule="default"):
+    """Create the optimizer and learning rate scheduler"""
     if last_epoch == -1:
-        optimizer = optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wdecay, eps=1e-8)
+        optimizer = optim.AdamW(
+            model.parameters(), lr=args.lr, weight_decay=args.wdecay, eps=1e-8
+        )
 
         if lr_schedule == "default":
-            scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, args.num_steps+100,
-                    pct_start=0.01, cycle_momentum=False, anneal_strategy='linear')
+            scheduler = optim.lr_scheduler.OneCycleLR(
+                optimizer,
+                args.lr,
+                args.num_steps + 100,
+                pct_start=0.01,
+                cycle_momentum=False,
+                anneal_strategy="linear",
+            )
         elif lr_schedule == "only-warmup":
             scheduler = optim.lr_scheduler.LinearLR(
-                optimizer, 
+                optimizer,
                 start_factor=0.04,  # base_lr = max_lr / 25
                 end_factor=1.0,
-                total_iters=int(2000) # 200_000 * 0.01
+                total_iters=int(2000),  # 200_000 * 0.01
             )
     else:
         max_lr = args.lr
-        optimizer = optim.AdamW([{'params': model.parameters(), 'initial_lr': max_lr, 'max_lr': args.lr, 
-                                  'min_lr': 1e-8}], lr=args.lr, weight_decay=args.wdecay, eps=1e-8)
+        optimizer = optim.AdamW(
+            [
+                {
+                    "params": model.parameters(),
+                    "initial_lr": max_lr,
+                    "max_lr": args.lr,
+                    "min_lr": 1e-8,
+                }
+            ],
+            lr=args.lr,
+            weight_decay=args.wdecay,
+            eps=1e-8,
+        )
 
-        if lr_schedule == "default":        
-            scheduler = optim.lr_scheduler.OneCycleLR(optimizer, args.lr, total_steps = args.num_steps+100,
-                    pct_start=0.01, cycle_momentum=False, anneal_strategy='linear', last_epoch=last_epoch)
+        if lr_schedule == "default":
+            scheduler = optim.lr_scheduler.OneCycleLR(
+                optimizer,
+                args.lr,
+                total_steps=args.num_steps + 100,
+                pct_start=0.01,
+                cycle_momentum=False,
+                anneal_strategy="linear",
+                last_epoch=last_epoch,
+            )
         elif lr_schedule == "only-warmup":
             scheduler = optim.lr_scheduler.LinearLR(
                 optimizer,
                 start_factor=0.04,
                 end_factor=1.0,
                 total_iters=int(2000),
-                last_epoch=last_epoch if last_epoch < int(2000) else int(2000) - 1
+                last_epoch=last_epoch if last_epoch < int(2000) else int(2000) - 1,
             )
 
     return optimizer, scheduler
+
 
 # Functions for NaN debugging
 def check_nan(module, name, output):
@@ -141,21 +184,25 @@ def check_nan(module, name, output):
             print(f"⚠ NaN detected in {name}")
             print(f"⚠ NaN detected in {module.__class__.__name__}")
 
+
 def check_nan_hook(name):
     def check_nan_hook(module, input, output):
-        check_nan(module, name, output)        
+        check_nan(module, name, output)
+
     return check_nan_hook
+
 
 def count_parameters(model):
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
-def train(args):
 
+def train(args):
     torch.manual_seed(1234)
     np.random.seed(1234)
-    logging.basicConfig(level=logging.INFO,
-                        format='%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s')
-
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s %(levelname)-8s [%(filename)s:%(lineno)d] %(message)s",
+    )
 
     model = MonoQPD(args)
     print("Parameter Count: %d" % count_parameters(model))
@@ -169,8 +216,8 @@ def train(args):
 
     # Prepare the save directory
     save_dir = os.path.join(args.save_path)
-    model_save_dir = os.path.join(save_dir, 'checkpoints')
-    log_dir = os.path.join(save_dir, 'runs')
+    model_save_dir = os.path.join(save_dir, "checkpoints")
+    log_dir = os.path.join(save_dir, "runs")
 
     os.makedirs(model_save_dir, exist_ok=True)
     os.makedirs(log_dir, exist_ok=True)
@@ -182,22 +229,23 @@ def train(args):
         model.da_v2.load_state_dict(torch.load(args.restore_ckpt_da_v2))
     # if args.restore_ckpt_mono_qpd is not None:
     #     # assert os.path.exists(args.restore_ckpt_mono_qpd)
-    if args.restore_ckpt_mono_qpd is not None and os.path.exists(args.restore_ckpt_mono_qpd):
-
+    if args.restore_ckpt_mono_qpd is not None and os.path.exists(
+        args.restore_ckpt_mono_qpd
+    ):
         ckpt = torch.load(args.restore_ckpt_mono_qpd)
-        total_steps = ckpt['total_steps']
-        model.qpdnet.load_state_dict(ckpt['qpdnet_state_dict'])
-        model.feature_converter.load_state_dict(ckpt['fcvt_state_dict'])
+        total_steps = ckpt["total_steps"]
+        model.qpdnet.load_state_dict(ckpt["qpdnet_state_dict"])
+        model.feature_converter.load_state_dict(ckpt["fcvt_state_dict"])
 
         model = nn.DataParallel(model)
         model.cuda()
-    
-        optimizer.load_state_dict(ckpt['optimizer_state_dict'])
-        scheduler.load_state_dict(ckpt['scheduler_state_dict'])
+
+        optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+        scheduler.load_state_dict(ckpt["scheduler_state_dict"])
 
         if not args.initialize_scheduler:
-            optimizer.load_state_dict(ckpt['optimizer_state_dict'])
-            scheduler.load_state_dict(ckpt['scheduler_state_dict'])
+            optimizer.load_state_dict(ckpt["optimizer_state_dict"])
+            scheduler.load_state_dict(ckpt["scheduler_state_dict"])
 
     else:
         print(f"Checkpoint not found. Training from scratch.")
@@ -208,16 +256,16 @@ def train(args):
         if args.freeze_da_v2:
             for param in model.module.da_v2.parameters():
                 param.requires_grad = False
-        
+
         if args.dec_update:
             for param in model.module.da_v2.depth_head.parameters():
                 param.requires_grad = True
 
     # Save the arguments
-    with open(os.path.join(save_dir, 'args.txt'), 'w') as f:
+    with open(os.path.join(save_dir, "args.txt"), "w") as f:
         for key, value in vars(args).items():
-            f.write(f'{key}: {value}\n')
-        f.write('\n')
+            f.write(f"{key}: {value}\n")
+        f.write("\n")
         # for key, value in vars(da_v2_args).items():
         #     f.write(f'{key}: {value}\n')
 
@@ -225,7 +273,7 @@ def train(args):
     wandb.init(
         project="FMDP",
         group=type(args).__name__,  # 같은 dataclass끼리 자동 그룹화
-        name=f"train_{time.strftime('%Y%m%d_%H%M%S')}"
+        name=f"{time.strftime('%m%d%H%M%S')}_{type(args).__name__}",
     )
 
     model.train()
@@ -238,12 +286,12 @@ def train(args):
     should_keep_training = True
     global_batch_num = total_steps
     batch_len = len(train_loader)
-    epoch = int(total_steps/batch_len)
+    epoch = int(total_steps / batch_len)
 
-    qpd_epebest,qpd_rmsebest,qpd_ai2best = 1000,1000,1000
-    qpd_epeepoch,qpd_rmseepoch,qpd_ai2epoch = 0,0,0
-    dpdisp_epebest,dpdisp_rmsebest,dpdisp_ai2best = 1000,1000,1000
-    dpdisp_epeepoch,dpdisp_rmseepoch,dpdisp_ai2epoch = 0,0,0
+    qpd_epebest, qpd_rmsebest, qpd_ai2best = 1000, 1000, 1000
+    qpd_epeepoch, qpd_rmseepoch, qpd_ai2epoch = 0, 0, 0
+    dpdisp_epebest, dpdisp_rmsebest, dpdisp_ai2best = 1000, 1000, 1000
+    dpdisp_epeepoch, dpdisp_rmseepoch, dpdisp_ai2epoch = 0, 0, 0
 
     while should_keep_training:
         for i_batch, data_blob in enumerate(tqdm(train_loader)):
@@ -253,22 +301,25 @@ def train(args):
 
             optimizer.zero_grad()
 
-            center_img = data_blob['center'].cuda()
-            lrtblist = data_blob['lrtb_list'].cuda()
-            flow = data_blob['disp'].cuda()
-            valid = data_blob['disp_valid'].cuda()
+            center_img = data_blob["center"].cuda()
+            lrtblist = data_blob["lrtb_list"].cuda()
+            flow = data_blob["disp"].cuda()
+            valid = data_blob["disp_valid"].cuda()
             # center_img, lrtblist, flow, valid = [x.cuda() for x in data_blob]
 
             assert not torch.isnan(center_img).any(), "Invalid values in input images"
             assert not torch.isnan(lrtblist).any(), "Invalid values in input images"
 
-            b,s,c,h,w = lrtblist.shape
+            b, s, c, h, w = lrtblist.shape
 
-            image1 = center_img.contiguous().view(b,c,h,w)
-            if args.datatype == 'quad':
-                image2 = torch.cat([lrtblist[:,0],lrtblist[:,1],lrtblist[:,2],lrtblist[:,3]], dim=0).contiguous()
-            elif args.datatype == 'dual':
-                image2 = torch.cat([lrtblist[:,0],lrtblist[:,1]], dim=0).contiguous()
+            image1 = center_img.contiguous().view(b, c, h, w)
+            if args.datatype == "quad":
+                image2 = torch.cat(
+                    [lrtblist[:, 0], lrtblist[:, 1], lrtblist[:, 2], lrtblist[:, 3]],
+                    dim=0,
+                ).contiguous()
+            elif args.datatype == "dual":
+                image2 = torch.cat([lrtblist[:, 0], lrtblist[:, 1]], dim=0).contiguous()
             else:
                 raise NotImplementedError
 
@@ -276,29 +327,43 @@ def train(args):
             flow_predictions = model(image1, image2, iters=args.train_iters)
             assert model.training
             if args.input_image_num == 42:
-                rot_flow_predictions=[]
+                rot_flow_predictions = []
                 for i in range(len(flow_predictions)):
-                    rot_flow_predictions.append(torch.rot90(flow_predictions[i], k=-1, dims=[2,3]))   
-                loss, metrics = sequence_loss(rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss)
+                    rot_flow_predictions.append(
+                        torch.rot90(flow_predictions[i], k=-1, dims=[2, 3])
+                    )
+                loss, metrics = sequence_loss(
+                    rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss
+                )
             elif args.input_image_num == 24:
-                rot_flow_predictions=[]
+                rot_flow_predictions = []
                 for i in range(len(flow_predictions)):
-                    rot_flow_predictions.append(torch.rot90(flow_predictions[i], k=1, dims=[2,3]))   
-                loss, metrics = sequence_loss(rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss)
+                    rot_flow_predictions.append(
+                        torch.rot90(flow_predictions[i], k=1, dims=[2, 3])
+                    )
+                loss, metrics = sequence_loss(
+                    rot_flow_predictions, flow, valid, si_loss_weight=args.si_loss
+                )
             else:
                 try:
-                    loss, metrics = sequence_loss(flow_predictions, flow, valid, si_loss_weight=args.si_loss)
-                    
+                    loss, metrics = sequence_loss(
+                        flow_predictions, flow, valid, si_loss_weight=args.si_loss
+                    )
+
                 except AssertionError as e:
                     if "Invalid values in flow predictions" in str(e):
-                        print(f"Invalid values in flow predictions, epoch: {epoch}, batch: {i_batch}")
+                        print(
+                            f"Invalid values in flow predictions, epoch: {epoch}, batch: {i_batch}"
+                        )
                         continue
                     else:
                         raise e
-                                    
+
             logger.writer.add_scalar("live_loss", loss.item(), global_batch_num)
-            logger.writer.add_scalar(f'learning_rate', optimizer.param_groups[0]['lr'], global_batch_num)
-            
+            logger.writer.add_scalar(
+                f"learning_rate", optimizer.param_groups[0]["lr"], global_batch_num
+            )
+
             # GPU 메모리 사용량 계산
             if torch.cuda.is_available():
                 gpu_mem_used = torch.cuda.memory_allocated() / 1e9  # GB
@@ -306,22 +371,25 @@ def train(args):
             else:
                 gpu_mem_used = 0
                 gpu_mem_reserved = 0
-            
+
             # wandb 로깅
-            wandb.log({
-                "live_loss": loss.item(),
-                "learning_rate": optimizer.param_groups[0]['lr'],
-                "gpu_memory_used_gb": gpu_mem_used,
-                "gpu_memory_reserved_gb": gpu_mem_reserved,
-            }, step=global_batch_num)
-            
+            wandb.log(
+                {
+                    "live_loss": loss.item(),
+                    "learning_rate": optimizer.param_groups[0]["lr"],
+                    "gpu_memory_used_gb": gpu_mem_used,
+                    "gpu_memory_reserved_gb": gpu_mem_reserved,
+                },
+                step=global_batch_num,
+            )
+
             global_batch_num += 1
 
             scaler.scale(loss).backward()
             scaler.unscale_(optimizer)
             # torch.nn.utils.clip_grad_norm_(model.parameters(), 1.0)
 
-            scaler.step(optimizer)                        
+            scaler.step(optimizer)
             scheduler.step()
             scaler.update()
 
@@ -329,29 +397,41 @@ def train(args):
 
             total_steps += 1
 
-            if total_steps % (batch_len) == 0 or total_steps==1 or (args.stop_step is not None and total_steps >= args.stop_step):# and total_steps != 0:    
-                epoch = int(total_steps/batch_len)
-                
-                model_save_path = os.path.join(args.save_path, 'checkpoints', f'{epoch:03d}_epoch_{total_steps}_{args.name}.pth')
+            if (
+                total_steps % (batch_len) == 0
+                or total_steps == 1
+                or (args.stop_step is not None and total_steps >= args.stop_step)
+            ):  # and total_steps != 0:
+                epoch = int(total_steps / batch_len)
+
+                model_save_path = os.path.join(
+                    args.save_path,
+                    "checkpoints",
+                    f"{epoch:03d}_epoch_{total_steps}_{args.name}.pth",
+                )
                 model_save_path = Path(model_save_path).absolute()
 
                 print(os.path.basename(model_save_path))
                 logging.info(f"Saving file {model_save_path}")
-                torch.save({
-                            'qpdnet_state_dict': model.module.qpdnet.state_dict(),
-                            'fcvt_state_dict': model.module.feature_converter.state_dict(),
-                            'optimizer_state_dict': optimizer.state_dict(),
-                            'scheduler_state_dict': scheduler.state_dict(),
-                            'total_steps': total_steps,
-                            'epoch': epoch,
-                            # ... any other states you need
-                            }, model_save_path)
+                torch.save(
+                    {
+                        "qpdnet_state_dict": model.module.qpdnet.state_dict(),
+                        "fcvt_state_dict": model.module.feature_converter.state_dict(),
+                        "optimizer_state_dict": optimizer.state_dict(),
+                        "scheduler_state_dict": scheduler.state_dict(),
+                        "total_steps": total_steps,
+                        "epoch": epoch,
+                        # ... any other states you need
+                    },
+                    model_save_path,
+                )
 
                 # Update the latest symlink
                 tmp = os.path.join(model_save_dir, "latest.pth.tmp")
                 latest = os.path.join(model_save_dir, "latest.pth")
 
-                if os.path.islink(tmp) or os.path.exists(tmp): os.unlink(tmp)
+                if os.path.islink(tmp) or os.path.exists(tmp):
+                    os.unlink(tmp)
                 os.symlink(model_save_path, tmp)
                 os.replace(tmp, latest)
 
@@ -359,7 +439,7 @@ def train(args):
             # if total_steps % (batch_len*5) == 0 or total_steps==1:
             #     if total_steps == 1:
             #         val_save_skip = 50
-                
+
             #     save_dir = os.path.join(args.save_path, 'qpd-valid', f'{epoch:03d}_epoch')
 
             #     # FIXME: This is a temporary fix for the bug in the validation code
@@ -371,7 +451,7 @@ def train(args):
             #         # val_save_skip = 380 // 10
 
             #     results = validate_QPD(model.module, iters=args.valid_iters, save_result=True, val_save_skip=val_save_skip, datatype=args.datatype, image_set='validation', path='datasets/QP-Data', save_path=save_dir, batch_size=args.qpd_valid_bs)
-                    
+
             #     if qpd_epebest>=results['epe']:
             #         qpd_epebest = results['epe']
             #         qpd_epeepoch = epoch
@@ -381,8 +461,7 @@ def train(args):
             #     if qpd_ai2best>=results['ai2']:
             #         qpd_ai2best = results['ai2']
             #         qpd_ai2epoch = epoch
-                
-                
+
             #     named_results = {}
             #     for k, v in results.items():
             #         named_results[f'val_qpd/{k}'] = v
@@ -407,46 +486,55 @@ def train(args):
             #     if dpdisp_ai2best>=results['ai2']:
             #         dpdisp_ai2best = results['ai2']
             #         dpdisp_ai2epoch = epoch
-                
+
             #     logging.info(f"Current Best Result dpdisp ai2 epoch {dpdisp_ai2epoch}, result: {dpdisp_ai2best}")
-                
+
             #     named_results = {}
             #     for k, v in results.items():
             #         named_results[f'val_dpdisp/{k}'] = v
             #         if 'img' not in k:
             #             print(f'val_dpdisp/{k}: {v}')
-                
+
             #     logger.write_dict(named_results)
 
-                # model.train()
-                # model.module.freeze_bn()
+            # model.train()
+            # model.module.freeze_bn()
 
-            if total_steps > args.num_steps or (args.stop_step is not None and total_steps > args.stop_step):
+            if total_steps > args.num_steps or (
+                args.stop_step is not None and total_steps > args.stop_step
+            ):
                 should_keep_training = False
                 break
 
         if len(train_loader) >= 10000:
-            model_save_path = os.path.join(args.save_path, 'checkpoints', f'{epoch}_epoch_{total_steps + 1}_{args.name}.pth.gz')
+            model_save_path = os.path.join(
+                args.save_path,
+                "checkpoints",
+                f"{epoch}_epoch_{total_steps + 1}_{args.name}.pth.gz",
+            )
             print()
             logging.info(f"Saving file {model_save_path}")
             torch.save(model.module.state_dict(), model_save_path)
-        
+
     print("FINISHED TRAINING")
     logger.close()
-    model_save_path = os.path.join(args.save_path, 'checkpoints', f'final.pth')
+    model_save_path = os.path.join(args.save_path, "checkpoints", f"final.pth")
     torch.save(model.module.state_dict(), model_save_path)
 
     return model_save_path
 
-if __name__ == '__main__':
+
+if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument('--exp_name', default='Interp', help="name your experiment")
-    parser.add_argument('--restore_ckpt', type=str, default=None, help="restore checkpoint")
+    parser.add_argument("--exp_name", default="Interp", help="name your experiment")
+    parser.add_argument(
+        "--restore_ckpt", type=str, default=None, help="restore checkpoint"
+    )
     args = parser.parse_args()
 
     # conf = get_train_config(args.exp_name)
     conf = get_run_setting(args.exp_name)
-    
+
     if args.restore_ckpt:
         conf.restore_ckpt_mono_qpd = args.restore_ckpt
     print(conf)
