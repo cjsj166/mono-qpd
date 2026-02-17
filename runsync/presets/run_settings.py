@@ -123,6 +123,9 @@ class LocalExp0206QPDNet(BaseConfig):
     dp_disp_bs: int = 1
     val_save_skip: int = 1
 
+    spatial_scale: Tuple[float] = (-0.2, 0.4)
+    saturation_range: Tuple[float] = (0, 1.4)
+
     include_da_v2: bool = False
     debug_mode: bool = True
 
